@@ -9,6 +9,7 @@ require 'odba/marshal'
 require 'odba/cache_entry'
 require 'odba/odba_error'
 require 'odba/index'
+require 'thread'
 
 module ODBA
 	def cache_server
