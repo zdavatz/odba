@@ -15,7 +15,7 @@ module ODBA
 					sleep(self::class::CLEANING_INTERVAL)
 					begin
 						puts "cleaning up DB"
-						clean
+						#clean
 						#clean_object_connections
 					rescue StandardError => e
 						puts e
