@@ -80,3 +80,51 @@ module ODBA
 =end
 	end
 end
+class Array
+	alias :odba_amp :&
+	def &(stub)
+		self.odba_amp(stub.odba_instance)
+	end
+	alias :odba_plus :+
+	def +(stub)
+		self.odba_plus(stub.odba_instance)
+	end
+	alias :odba_minus :-
+	def -(stub)
+		self.odba_minus(stub.odba_instance)
+	end
+	alias :odba_weight :<=>
+	def <=>(stub)
+		self.odba_weight(stub.odba_instance)
+	end
+	alias :odba_equal? :==
+	def ==(stub)
+		self.odba_equal?(stub.odba_instance)
+	end
+	alias :odba_union :|
+	def |(stub)
+		self.odba_union(stub.odba_instance)
+	end
+	['concat', 'replace'].each { |method|
+		eval <<-EOS
+			alias :odba_#{method} :#{method}
+			def #{method}(stub)
+				self.odba_#{method}(stub.odba_instance)
+			end
+		EOS
+	}
+end
+class Hash
+	alias :odba_equal? :==
+	def ==(stub)
+		self.odba_equal?(stub.odba_instance)
+	end
+	['merge', 'merge!', 'replace'].each { |method|
+		eval <<-EOS
+			alias :odba_#{method} :#{method}
+			def #{method}(stub)
+				self.odba_#{method}(stub.odba_instance)
+			end
+		EOS
+	}
+end

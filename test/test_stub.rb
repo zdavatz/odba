@@ -105,5 +105,40 @@ module ODBA
 			receiver.__verify
 			assert_equal(false, @stub.respond_to?(:odba_replace))
 		end
+		def test_array_methods
+			stub = Stub.new(9, [], [])
+			ODBA.cache_server.__next(:fetch) { |odba_id, container| [] }
+			assert_equal([], stub)
+			stub = Stub.new(9, [], [])
+			ODBA.cache_server.__next(:fetch) { |odba_id, container| [] }
+			assert([] == stub)
+			[
+				"&", "+", "-", "<=>", "==", 
+				"concat", "equal?", "replace", "|"
+			].each { |method|
+				ODBA.cache_server.__next(:fetch) { |odba_id, container| [] }
+				stub = Stub.new(9, [], [])
+				assert_nothing_raised("failed method: #{method}") {
+					[].send(method, stub)
+				}
+			}
+		end
+		def test_hash_methods
+			stub = Stub.new(9, [], {})
+			ODBA.cache_server.__next(:fetch) { |odba_id, container| {} }
+			assert_equal({}, stub)
+			stub = Stub.new(9, [], {})
+			ODBA.cache_server.__next(:fetch) { |odba_id, container| {} }
+			assert({} == stub)
+			[
+				"merge", "merge!", "replace",
+			].each { |method|
+				ODBA.cache_server.__next(:fetch) { |odba_id, container| {} }
+				stub = Stub.new(9, [], {})
+				assert_nothing_raised("failed method: #{method}") {
+					{}.send(method, stub)
+				}
+			}
+		end
 	end
 end
