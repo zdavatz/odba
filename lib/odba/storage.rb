@@ -49,16 +49,47 @@ module ODBA
 			}
 		end
 		def create_index(table_name)
-			sql = "create table #{table_name} (origin_id integer, search_term text, target_id integer)" 
+			sql = <<-SQL
+				CREATE TABLE #{table_name} (
+					origin_id integer, 
+					search_term text, 
+					target_id integer
+				)
+			SQL
+			@dbi.prepare(sql).execute
+			#index origin_id
+			sql = <<-SQL
+				CREATE INDEX origin_id_#{table_name} 
+				ON #{table_name}(origin_id)
+			SQL
 			@dbi.prepare(sql).execute
 			#index search_term
-			sql = "create index search_term_#{table_name} on #{table_name}(search_term)"
+			sql = <<-SQL
+				CREATE INDEX search_term_#{table_name} 
+				ON #{table_name}(search_term)
+			SQL
 			@dbi.prepare(sql).execute
 		end
 		def create_fulltext_index(table_name)
-			sql = "create table #{table_name} (origin_id integer, search_term tsvector, target_id integer)" 
+			sql = <<-SQL
+				CREATE TABLE #{table_name} (
+					origin_id integer, 
+					search_term tsvector, 
+					target_id integer
+				)
+			SQL
 			@dbi.prepare(sql).execute
-			sql = "CREATE INDEX search_term_#{table_name} ON #{table_name} USING gist(search_term)"
+			#index origin_id
+			sql = <<-SQL
+				CREATE INDEX origin_id_#{table_name} 
+				ON #{table_name}(origin_id)
+			SQL
+			@dbi.prepare(sql).execute
+			#index search_term
+			sql = <<-SQL
+				CREATE INDEX search_term_#{table_name} 
+				ON #{table_name} USING gist(search_term)
+			SQL
 			@dbi.prepare(sql).execute
 		end
 		def drop_index(index_name)
