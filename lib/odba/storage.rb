@@ -27,7 +27,10 @@ module ODBA
 				}
 				rows
 			else
-				sql = "select odba_id, content from object where odba_id in (#{bulk_fetch_ids.join(',')})"
+				sql = <<-SQL
+					SELECT odba_id, content FROM object 
+					WHERE odba_id IN (#{bulk_fetch_ids.join(',')})"
+				SQL
 				@dbi.select_all(sql)
 			end
 		end
@@ -113,6 +116,29 @@ module ODBA
 			SQL
 			sth = @dbi.prepare(sql)
 			sth.execute(odba_id)
+		end
+		def ensure_object_connections(origin_id, target_ids)
+			sth = @dbi.prepare <<-SQL
+				SELECT target_id FROM object_connection 
+				WHERE origin_id = ?
+			SQL
+			update_ids = target_ids
+			if(rows = sth.execute(origin_id))
+				old_ids = rows.collect { |row| row[0].to_i }
+				delete_ids = old_ids - target_ids
+				update_ids = target_ids - old_ids
+				@dbi.execute <<-SQL
+					DELETE FROM object_connection 
+					WHERE target_id IN (#{delete_ids.join(',')})
+				SQL
+			end
+			sth = @dbi.prepare <<-SQL
+				INSERT INTO object_connection (origin_id, target_id)
+				VALUES (?, ?)
+			SQL
+			update_ids.each { |id|
+				sth.execute(origin_id, id)
+			}
 		end
 		def generate_dictionary(language, locale, dict_dir)
 			@dbi.execute <<-SQL

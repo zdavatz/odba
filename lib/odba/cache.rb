@@ -250,6 +250,7 @@ module ODBA
 			bulk_restore(rows)
 		end
 		def retrieve_from_index(index_name, search_term, meta=nil)
+			#puts "retrieve_from_index(#{index_name}, #{search_term}, #{meta})"
 			rows = self.indices.fetch(index_name).retrieve_data(search_term, meta)
 			bulk_restore(rows)
 		end
@@ -328,12 +329,15 @@ module ODBA
 			name = object.odba_name
 			target_ids = object.odba_target_ids
 			origin_id = object.odba_id
+			unless(name.nil?)
+				target_ids.push(origin_id)
+			end
+			ODBA.storage.ensure_object_connections(origin_id, target_ids)
+=begin
 			target_ids.each { |target_id|
 				ODBA.storage.add_object_connection(origin_id, target_id)
 			}
-			unless(name.nil?)
-				ODBA.storage.add_object_connection(origin_id, origin_id)
-			end
+=end
 		end
 		def update_indices(odba_object)
 			klass = odba_object.class

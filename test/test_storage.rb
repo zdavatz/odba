@@ -21,7 +21,7 @@ module ODBA
 			array = [1, 23, 4]
 			@storage.dbi = dbi
 			dbi.__next(:select_all) { |query|
-				assert_not_nil(query.index('in (1,23,4)'))
+				assert_not_nil(query.index('IN (1,23,4)'))
 			}
 			@storage.bulk_restore(array)
 			dbi.__verify

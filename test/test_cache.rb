@@ -315,6 +315,7 @@ module ODBA
 			save.__next(:odba_name){ nil}
 			save.__next(:odba_target_ids){ [1,2]}
 			save.__next(:odba_id){ 4}
+=begin
 			ODBA.storage.__next(:add_object_connection){|id,target_id|
 				assert_equal(4, id)
 				assert_equal(1, target_id)
@@ -322,6 +323,11 @@ module ODBA
 			ODBA.storage.__next(:add_object_connection){|id,target_id|
 				assert_equal(4, id)
 				assert_equal(2, target_id)
+			}
+=end
+			ODBA.storage.__next(:ensure_object_connections) { |id,target_ids|
+				assert_equal(4, id)
+				assert_equal([1,2], target_ids)
 			}
 			@cache.store_object_connections(save)
 			save.__verify
@@ -331,9 +337,9 @@ module ODBA
 			save.__next(:odba_name){ "foo" }
 			save.__next(:odba_target_ids){ []}
 			save.__next(:odba_id){ 4}
-			ODBA.storage.__next(:add_object_connection){|id,target_id|
+			ODBA.storage.__next(:ensure_object_connections) { |id,target_ids|
 				assert_equal(4, id)
-				assert_equal(4, target_id)
+				assert_equal([4], target_ids)
 			}
 			@cache.store_object_connections(save)
 			save.__verify
@@ -413,8 +419,9 @@ module ODBA
 			ODBA.marshaller.__next(:dump) {}
 			ODBA.storage.__next(:store) {}
 			ODBA.marshaller.__next(:dump) {}
-			ODBA.storage.__next(:add_object_connection) {}
+			ODBA.storage.__next(:ensure_object_connections) {}
 			ODBA.storage.__next(:store) {}
+			ODBA.storage.__next(:ensure_object_connections) {}
 			@cache.create_index(index_def_mock, ODBA)
 			assert_instance_of(FulltextIndex, @cache.indices['foo'])
 			index_def_mock.__verify
@@ -437,6 +444,9 @@ module ODBA
 						assert(true)
 					}
 				end
+				ODBA.storage.__next(:ensure_object_connections) {
+					assert(true)
+				}
 			}
 		end
 		def test_delete
@@ -451,6 +461,7 @@ module ODBA
 			}
 			prepare_fetch(2, origin_obj)
 			ODBA.storage.__next(:store) { |id, dump, name, prefetch| }
+			ODBA.storage.__next(:ensure_object_connections) { } 
 			ODBA.storage.__next(:delete_persistable) { |id| } 
 			ODBA.marshaller.__next(:dump) { |ob| "foo"}
 			@cache.delete(delete_item)
