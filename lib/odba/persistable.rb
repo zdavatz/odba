@@ -42,9 +42,9 @@ module ODBA
 			}
 		end
 		def odba_delete
-			ODBA.transaction {
+			#ODBA.transaction {
 				ODBA.cache_server.delete(self)
-			}
+			#}
 		end
 		def odba_id
 			@odba_id ||= ODBA.storage.next_id
@@ -140,7 +140,7 @@ module ODBA
 			end
 		end
 		def odba_store(name = nil)
-			ODBA.transaction {
+			#ODBA.transaction {
 				begin
 					unless (name.nil?)
 						old_name = @odba_name
@@ -151,7 +151,7 @@ module ODBA
 					@odba_name = old_name
 					raise
 				end
-			}
+				#}
 		end
 		def odba_take_snapshot
 			@odba_snapshot_level ||= 0
@@ -180,7 +180,6 @@ module ODBA
 					#odba_extend_enumerable(item)
 					if(item.is_a?(ODBA::Persistable) \
 						&& item.odba_unsaved?(snapshot_level))
-						#	puts "item #{item.odba_id} is unsaved"
 						unsaved.push(item)
 					end
 				end
@@ -271,7 +270,6 @@ class Array
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |val|
-			#puts "checking array elements"
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved?
 		} )
 	end

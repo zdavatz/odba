@@ -14,14 +14,16 @@ require 'thread'
 
 module ODBA
 	def batch(&block)
+		result = nil
 		transaction {
 			begin
 				@batch_mode = true
-				cache_server.batch(&block)
+				result = cache_server.batch(&block)
 			ensure
 				@batch_mode = false
 			end
 		}
+		result
 	end
 	def cache_server
 		@cache_server ||= ODBA::Cache.instance
@@ -50,19 +52,18 @@ module ODBA
 		@storage = storage
 	end
 	def transaction(&block)
-		if(@batch_mode)
-			block.call
-		else
+		#if(@batch_mode)
+		#	block.call
+		#else
+			result = nil
 			@odba_mutex ||= Mutex.new
 			@odba_mutex.synchronize {
 				ODBA.storage.transaction {
-					#res = 
-					block.call
-					#scalar_cache.odba_isolated_store
-					#res
+					result = block.call
 				}
 			}
-		end
+			result
+		#end
 	end
 	def index_factory(index_definition, origin_module)	
 		if(index_definition.fulltext)

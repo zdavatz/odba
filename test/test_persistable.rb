@@ -70,7 +70,7 @@ module ODBA
 		def test_odba_delete
 			odba_container = ODBAContainer.new
 			odba_container.odba_id = 2
-			ODBA.storage.__next(:transaction) { |block| block.call}
+			#ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:delete) { |object|
 				assert_equal(odba_container, object)
 			}
@@ -322,7 +322,7 @@ module ODBA
 		end
 		def test_odba_dump_has_id
 			@odba.odba_id = nil
-			ODBA.storage.__next(:transaction) { |block| block.call}
+			#ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.storage.__next(:next_id) { 1 }
 			ODBA.cache_server.__next(:store) { |obj|
 				assert_equal(1, obj.odba_id)
@@ -331,7 +331,7 @@ module ODBA
 		end
 		def test_odba_store_error_raised
 			@odba.odba_name = "foo"
-			ODBA.storage.__next(:transaction) { |block| block.call}
+			#ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:store) { |dump|
 				raise DBI::ProgrammingError
 			}
@@ -342,7 +342,7 @@ module ODBA
 		end
 		def test_odba_store_no_error_raised
 			@odba.odba_name = "foo"
-			ODBA.storage.__next(:transaction) { |block| block.call}
+			#ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:store) { |obj| 
 				assert_equal(@odba, obj)
 			}

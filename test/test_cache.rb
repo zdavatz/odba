@@ -552,11 +552,13 @@ module ODBA
 			@cache.batch { 
 				assert_equal(true, @cache.batch_mode)
 				object.__next(:odba_id) { 12 }
+				object.__next(:odba_indexable?) { false }
 				object.__next(:odba_name) { }
 				@cache.store(object)
 				assert_equal({12 => object}, @cache.batch_objects)
 				object.__verify
 				object.__next(:odba_id) { 12 }
+				object.__next(:odba_indexable?) { false }
 				object.__next(:odba_name) { }
 				@cache.store(object)
 				assert_equal({12 => object}, @cache.batch_objects)
@@ -577,6 +579,7 @@ module ODBA
 					assert_equal(1, target)
 				}
 			}
+			sleep(1) # wait for cache to store asynchronously
 			object.__verify
 			assert_equal(false, @cache.batch_mode)
 		end
@@ -585,6 +588,7 @@ module ODBA
 			@cache.batch { 
 				assert_equal(true, @cache.batch_mode)
 				object.__next(:odba_id) { 12 }
+				object.__next(:odba_indexable?) { false }
 				object.__next(:odba_name) { }
 				@cache.store(object)
 				assert_equal({12 => object}, @cache.batch_objects)
@@ -604,6 +608,7 @@ module ODBA
 					assert_equal(12, odba_id)	
 				}
 			}
+			sleep(1) # wait for cache to store asynchronously
 			object.__verify
 			assert_equal(false, @cache.batch_mode)
 		end

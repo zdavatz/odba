@@ -30,8 +30,21 @@ module ODBA
 			dbi = Mock.new("dbi")
 			sth = Mock.new
 			@storage.dbi = dbi
+			expected1 = <<-SQL
+				DELETE FROM object WHERE odba_id = ?
+			SQL
 			dbi.__next(:prepare) { |sql|
-				assert_equal(sql, "delete from object where odba_id = ?")
+				assert_equal(expected1, sql)
+				sth
+			}
+			sth.__next(:execute) { |id|
+				assert_equal(2, id)
+			}
+			expected2 = <<-SQL
+				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
+			SQL
+			dbi.__next(:prepare) { |sql|
+				assert_equal(expected2, sql)
 				sth
 			}
 			sth.__next(:execute) { |id|
@@ -186,8 +199,11 @@ module ODBA
 			dbi = Mock.new("dbi")
 			sth = Mock.new
 			@storage.dbi = dbi
+			expected = <<-SQL
+				DELETE FROM foo WHERE origin_id = ?
+			SQL
 			dbi.__next(:prepare) { |sql|
-				assert_equal(sql, "delete from foo where origin_id = ?")
+				assert_equal(expected, sql)
 				sth
 			}
 			sth.__next(:execute) { |id|
@@ -234,7 +250,7 @@ module ODBA
 			dbi = Mock.new("dbi")
 			@storage.dbi = dbi
 			dbi.__next(:select_all){|sql, target_id| 
-				assert_not_nil(sql.index('select origin_id from object_connection'))
+				assert_not_nil(sql.index('SELECT origin_id FROM object_connection'))
 				assert_equal(target_id, 1)
 			}	
 			@storage.retrieve_connected_objects(1)

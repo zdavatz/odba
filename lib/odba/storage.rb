@@ -75,11 +75,21 @@ module ODBA
 			sth.execute
 		end
 		def delete_index_element(index_name, odba_id)
-		sth = @dbi.prepare("delete from #{index_name} where origin_id = ?")
+			sth = @dbi.prepare <<-SQL
+				DELETE FROM #{index_name} WHERE origin_id = ?
+			SQL
 			sth.execute(odba_id)
 		end
 		def delete_persistable(odba_id)
-			sth = @dbi.prepare("delete from object where odba_id = ?")
+			sql = <<-SQL
+				DELETE FROM object WHERE odba_id = ?
+			SQL
+			sth = @dbi.prepare(sql)
+			sth.execute(odba_id)
+			sql = <<-SQL
+				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
+			SQL
+			sth = @dbi.prepare(sql)
 			sth.execute(odba_id)
 		end
 		def generate_dictionary(language, locale, dict_dir)
@@ -113,11 +123,15 @@ module ODBA
 			SQL
 		end
 		def index_delete_origin(index_name, origin_id)
-			sth = @dbi.prepare("delete from #{index_name}  where origin_id = ?")
+			sth = @dbi.prepare <<-SQL
+				DELETE FROM #{index_name} WHERE origin_id = ?
+			SQL
 			sth.execute(origin_id)
 		end
 		def index_delete_target(index_name, target_id)
-			sth = @dbi.prepare("delete from #{index_name}  where target_id = ?")
+			sth = @dbi.prepare <<-SQL
+				DELETE FROM #{index_name} WHERE target_id = ?
+			SQL
 			sth.execute(target_id)
 		end
 		def max_id
@@ -231,7 +245,11 @@ module ODBA
 			row.first unless row.nil?
 		end	
 		def retrieve_connected_objects(target_id)
-			@dbi.select_all("select origin_id from object_connection where target_id = ?", target_id)
+			sql = <<-SQL 
+				SELECT origin_id FROM object_connection 
+				WHERE target_id = ?
+			SQL
+			@dbi.select_all(sql, target_id)
 		end
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
 			search_term.gsub!(/\s+/,"&")
