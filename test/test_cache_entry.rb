@@ -7,7 +7,11 @@ $: << File.expand_path("../lib", File.dirname(__FILE__))
 require 'test/unit'
 require 'mock'
 require 'odba'
-
+class Mock
+	def odba_id
+		100
+	end
+end
 module ODBA
 	class CacheEntry
 		attr_accessor :accessed_by

@@ -79,20 +79,28 @@ module ODBA
 			dbi = Mock.new
 			sth = Mock.new
 			sth2 = Mock.new
+			sth3 = Mock.new
 			@storage.dbi = dbi
 			dbi.__next(:prepare){ |query| 
-				assert_not_nil(query.index('table sequences'))
+				assert_not_nil(query.index('TABLE sequences'))
 				sth
 			}
 			sth.__next(:execute){  }
 			dbi.__next(:prepare){ |query| 
-				assert_not_nil(query.index('index search_term_sequences on'))
+				assert_not_nil(query.index('origin_id_sequences'))
 				sth2
 			}
 			sth2.__next(:execute){  }
+			dbi.__next(:prepare){ |query|
+				assert_not_nil(query.index('CREATE INDEX search_term'))
+				sth3
+			}
+			sth3.__next(:execute){}
 			@storage.create_index("sequences")
 			dbi.__verify
 			sth.__verify
+			sth2.__verify
+			sth3.__verify
 		end
 		def test_next_id
 			@storage.next_id = 1

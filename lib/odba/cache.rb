@@ -215,7 +215,6 @@ module ODBA
 			obj = nil
 			if(cache_entry = @hash[odba_id])
 				cache_entry.odba_add_reference(odba_caller)
-				cache_entry.odba_object
 				obj = cache_entry.odba_object
 			else
 				obj = load_object(odba_id)
@@ -258,8 +257,6 @@ module ODBA
 					obj.odba_name = name
 					obj.odba_store(name)
 				else
-					puts "restoring"
-					puts name
 					obj = restore_object(dump, caller)
 				end	
 				#cache_entry = CacheEntry.new(obj)
@@ -377,8 +374,6 @@ module ODBA
 			end
 			(collection - old_collection).each { |key, value|
 					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
-					#odba_isolated_stub for index classes????!?!?
-					#may not return stub?!
 					value_dump = ODBA.marshaller.dump(value.odba_isolated_stub)
 					ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
 			}
@@ -446,14 +441,31 @@ EOM
 			obj.odba_restore(collection)
 			cache_entry = CacheEntry.new(obj)
 			cache_entry.odba_add_reference(odba_caller)
-			@hash.store(obj.odba_id, cache_entry)
-			unless(obj.odba_name.nil?)
+			#only add collection elements that exist in the collection
+			#table
+			cache_entry.collection = collection
+			obj = cache_entry.odba_object
+ ## Thread-Critical ##
+ ## if(@hash.include?(obj.odba_id))
+ ##		@hash[obj.odba_id].odba_object
+ ## else
+ 			@hash.store(obj.odba_id, cache_entry)
+ 			unless(obj.odba_name.nil?)
 				@hash.store(obj.odba_name, cache_entry)
 			end
+ ## bis da. ##
+			obj
+=begin
+			obj = ODBA.marshaller.load(dump)
+			collection = fetch_collection(obj)
+			obj.odba_restore(collection)
+			cache_entry = CacheEntry.new(obj)
+			cache_entry.odba_add_reference(odba_caller)
 			#only add collection elements that exist in the collection
 			#table
 			cache_entry.collection = collection
 			cache_entry.odba_object
+=end
 		end
 	end
 end

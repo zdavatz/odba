@@ -8,6 +8,11 @@ require 'test/unit'
 require 'odba'
 require 'mock'
 
+class Mock
+	def odba_id
+		1
+	end
+end
 module ODBA
 	class TestIndex < Test::Unit::TestCase
 		def setup

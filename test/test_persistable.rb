@@ -5,7 +5,11 @@ $: << File.expand_path('../lib/', File.dirname(__FILE__))
 require 'odba'
 require 'test/unit'
 require 'mock'
-
+class Mock
+	def odba_id
+		1
+	end
+end
 module ODBA
 	module Persistable
 		attr_accessor :odba_references
@@ -445,13 +449,13 @@ module ODBA
 			replaceable2 = StubMock.new("replaceable2")
 			@array.push(replaceable)
 			@array.push(replaceable2)
-			replaceable.__next(:is_a?) { |arg| true}
-			replaceable.__next(:odba_id) { 1 }
-			replaceable.__next(:odba_id) { 1 }
+			#replaceable.__next(:is_a?) { |arg| true}
+			#replaceable.__next(:odba_id) { 1 }
+			#replaceable.__next(:odba_id) { 1 }
 			
-			replaceable2.__next(:is_a?) { |arg| true}
-			replaceable2.__next(:odba_id) { 2 }
-			replaceable2.__next(:odba_id) { 2 }
+			#replaceable2.__next(:is_a?) { |arg| true}
+			#replaceable2.__next(:odba_id) { 2 }
+			#replaceable2.__next(:odba_id) { 2 }
 
 			ODBA.storage.__next(:next_id) { 1 }
 
@@ -459,10 +463,13 @@ module ODBA
 			replaceable.__verify
 			replaceable2.__verify
 			ODBA.cache_server.__verify
-			assert_equal(true, @array[0].is_a?(Stub))
-			assert_equal(true, @array[1].is_a?(Stub))
-			assert_equal(1, @array[0].odba_id)
-			assert_equal(2, @array[1].odba_id)
+			#size is 0 because we store empty array in the db
+			# content of the array is in the collection table
+			assert_equal(0, @array.size)
+			#assert_equal(true, @array[0].is_a?(Stub))
+			#assert_equal(true, @array[1].is_a?(Stub))
+			#assert_equal(1, @array[0].odba_id)
+			#assert_equal(2, @array[1].odba_id)
 		end
 		def test_odba_unsaved_array_true
 			val = StubMock.new("val")
