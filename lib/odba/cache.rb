@@ -23,7 +23,7 @@ module ODBA
 		def initialize
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
-				start_reaper
+				#	start_reaper
 			end
 			@hash = Hash.new
 			@reaper_min_id = 0
@@ -371,7 +371,10 @@ module ODBA
 				text = TMail::Mail.new
 				recipients = self::class::MAIL_RECIPIENTS
 				text.set_content_type('text', 'plain', 'charset'=>'ISO-8859-1')
-				text.body = "Error loading object unknown odba_id #{odba_id}"
+				text.body = <<-EOM
+Error loading object unknown odba_id #{odba_id}"
+#{caller.join("\n")}
+EOM
 				text.from = self::class::MAIL_FROM
 				text.to = recipients
 				text.subject = "ODBA ID ERROR"
