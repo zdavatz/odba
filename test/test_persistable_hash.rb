@@ -158,17 +158,19 @@ module ODBA
 			assert_equal(repvalue2, @hash[repkey2])
 		end
 		def test_odba_replace_persistables_hash
-			key1 = StubMock.new
-			value1 = StubMock.new
+			key1 = StubMock.new("key")
+			value1 = StubMock.new("value")
 			@hash.store(key1, value1)
 			
 			key1.__next(:is_a?) { |arg| true }
 			key1.__next(:odba_id) { || 1}
 			key1.__next(:odba_id) { || 1}
+			key1.__next(:odba_carry_methods) { [] }
 			
 			value1.__next(:is_a?) { |arg| true }
 			value1.__next(:odba_id) { || 2}
 			value1.__next(:odba_id) { || 2}
+			value1.__next(:odba_carry_methods) { [] }
 
 			@hash.odba_replace_persistables
 			@hash.each { |key, value|

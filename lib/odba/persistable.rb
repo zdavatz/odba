@@ -3,16 +3,17 @@
 module ODBA
 	class Stub; end
 	module Persistable
-		attr_accessor :odba_name
+		attr_accessor :odba_name, :odba_prefetch
 		attr_reader :odba_target_ids
 		ODBA_PREFETCH = false
 		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids']
+		ODBA_CARRY_METHODS = []
 		def dup
 			twin = super
 			twin.instance_variables.each { |name|
 				var = twin.instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
-					stub = ODBA::Stub.new(var.odba_id, twin)
+					stub = ODBA::Stub.new(var.odba_id, twin, var)
 					twin.instance_variable_set(name, stub)
 				end
 			}
@@ -29,6 +30,9 @@ module ODBA
 =end
 		def odba_id
 			@odba_id ||= ODBA.storage.next_id
+		end
+		def odba_carry_methods
+			self::class::ODBA_CARRY_METHODS
 		end
 		def odba_delete
 			ODBA.cache_server.delete(self)
@@ -50,21 +54,24 @@ module ODBA
 			dump
 		end
 		def odba_prefetch?
-			self::class::ODBA_PREFETCH
+			@odba_prefetch || self::class::ODBA_PREFETCH
 		end
 		def odba_replace_persistable(obj)
 			instance_variables.each { |name|
 				var = instance_variable_get(name)
 				if(var.is_a?(Persistable) \
 					&& var.odba_id == obj.odba_id)
-					stub = ODBA::Stub.new(obj.odba_id, self)
+					stub = ODBA::Stub.new(obj.odba_id, self, obj)
 					instance_variable_set(name, stub)
 				end
 			}
 		end
 		def odba_replaceable?(var, name)
-			(var.is_a?(ODBA::Persistable) \
-				&& !ODBA_PREDEFINE_SERIALIZABLE.include?(name))
+			var.is_a?(ODBA::Persistable) \
+				&& (!ODBA_PREDEFINE_SERIALIZABLE.include?(name) #\
+				#&& (!defined?(self::class::ODBA_SERIALIZABLE) \
+				#|| !self::class::ODBA_SERIALIZABLE.include?(name))
+			)
 		end
 		def odba_replace_persistables
 			@odba_target_ids = []
@@ -75,7 +82,7 @@ module ODBA
 				#odba_extend_enumerable(var)
 				if(odba_replaceable?(var, name))
 					@odba_target_ids.push(var.odba_id)
-					stub = ODBA::Stub.new(var.odba_id, self)
+					stub = ODBA::Stub.new(var.odba_id, self, var)
 					instance_variable_set(name, stub)
 				end
 			}
@@ -178,6 +185,9 @@ module ODBA
 			if(defined?(self::class::ODBA_EXCLUDE_VARS))
 				exclude += self::class::ODBA_EXCLUDE_VARS
 			end
+			if(defined?(self::class::ODBA_SERIALIZABLE))
+				exclude += self::class::ODBA_SERIALIZABLE
+			end
 			instance_variables.each { |name|
 				unless(exclude.include?(name))
 					item = instance_variable_get(name)
@@ -261,13 +271,16 @@ class Array
 		super(remove_object)
 		delete_if{|val| val == remove_object}
 	end
+	def odba_replaceable?(var, name)
+		!empty? && super(var, name)
+	end
 	def odba_replace_persistables
 		super
 		each_with_index { |item, idx|
 			#odba_extend_enumerable(item)
 			if(item.is_a?(ODBA::Persistable))
 				@odba_target_ids.push(item.odba_id)
-				stub = ODBA::Stub.new(item.odba_id, self)
+				stub = ODBA::Stub.new(item.odba_id, self, item)
 				self[idx] = stub
 			end
 		}
@@ -299,30 +312,37 @@ class Array
 end
 class Hash
 	include ODBA::Persistable
-	def odba_prefetch?
-		any? { |item|
-			item.respond_to?(:odba_prefetch?) \
-				&& item.odba_prefetch?
-		}
-	end
 	def odba_cut_connection(remove_object)
 		super(remove_object)
 		delete_if{|key, val|
 			key == remove_object || val == remove_object
 		}
 	end
-	def odba_unsaved_neighbors(snapshot_level = nil)
-		unsaved = super
-		each { |pair|
-			pair.each { |item|
-				#odba_extend_enumerable(item)
-				if(item.is_a?(ODBA::Persistable)\
-					&& item.odba_unsaved?(snapshot_level))
-					unsaved.push(item)
-				end
-			}
+	def odba_prefetch?
+		any? { |item|
+			item.respond_to?(:odba_prefetch?) \
+				&& item.odba_prefetch?
 		}
-		unsaved
+	end
+	def odba_replaceable?(var, name)
+		!empty? && super(var, name)
+	end
+	def odba_replace_persistables
+		super
+		self.each {|key, value|
+			if(value.is_a?(ODBA::Persistable))
+				@odba_target_ids.push(value.odba_id)
+				stub = ODBA::Stub.new(value.odba_id, self, value)
+				value = stub
+				self[key] = stub
+			end
+			if(key.is_a?(ODBA::Persistable))
+				@odba_target_ids.push(key.odba_id)
+				stub = ODBA::Stub.new(key.odba_id, self, key)
+				delete(key)
+				store(stub, value)
+			end
+		}
 	end
 	def odba_restore
 		bulk_fetch_ids = []
@@ -348,28 +368,24 @@ class Hash
 			end
 		}
 	end
-	def odba_replace_persistables
-		super
-		self.each {|key, value|
-			if(value.is_a?(ODBA::Persistable))
-				@odba_target_ids.push(value.odba_id)
-				stub = ODBA::Stub.new(value.odba_id, self)
-				value = stub
-				self[key] = stub
-			end
-			if(key.is_a?(ODBA::Persistable))
-				@odba_target_ids.push(key.odba_id)
-				stub = ODBA::Stub.new(key.odba_id, self)
-				delete(key)
-				store(stub, value)
-			end
-		}
-	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
 			puts "checking hash elements"
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved? \
 				|| key.is_a?(ODBA::Persistable) && key.odba_unsaved?
 		})
+	end
+	def odba_unsaved_neighbors(snapshot_level = nil)
+		unsaved = super
+		each { |pair|
+			pair.each { |item|
+				#odba_extend_enumerable(item)
+				if(item.is_a?(ODBA::Persistable)\
+					&& item.odba_unsaved?(snapshot_level))
+					unsaved.push(item)
+				end
+			}
+		}
+		unsaved
 	end
 end

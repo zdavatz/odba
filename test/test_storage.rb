@@ -205,7 +205,7 @@ module ODBA
 
 			#insert query
 			dbi.__next(:prepare){ |sql| 
-				assert_not_nil(sql.index("insert into foo"))	
+				assert_not_nil(sql.index("INSERT INTO"))	
 				sth_insert
 			}
 			sth_insert.__next(:execute) { |id, term, target_id| }
@@ -292,7 +292,7 @@ module ODBA
 			sth1 = Mock.new("sth1")
 			@storage.dbi = dbi
 			dbi.__next(:prepare) { |sql|
-				assert_not_nil(sql.index('DELETE FROM object WHERE'))
+				assert_not_nil(sql.index('DELETE FROM'))
 				sth1
 			}
 			sth1.__next(:execute) {}

@@ -6,9 +6,18 @@ module ODBA
 	class Stub
 		attr_accessor :odba_id, :odba_container
 		attr_reader :receiver
-		def initialize(odba_id, odba_container)
+		def initialize(odba_id, odba_container, receiver=nil)
 			@odba_id = odba_id
 			@odba_container = odba_container
+			@carry_bag = {}
+			if(receiver)
+				receiver.odba_carry_methods.each { |symbol|
+					begin
+						@carry_bag.store(symbol, receiver.send(symbol))
+					rescue
+					end
+				}
+			end
 			#			delegate_object_methods
 		end
 		def eql?(other)
@@ -26,8 +35,10 @@ module ODBA
 			end
 		end
 		def method_missing(meth_symbol, *args, &block)
-			odba_replace
-			@receiver.send(meth_symbol, *args, &block)
+			@carry_bag[meth_symbol] or begin
+				odba_replace
+				@receiver.send(meth_symbol, *args, &block)
+			end
 		end
 		def odba_replace(name=nil)
 			if(@receiver.nil?)

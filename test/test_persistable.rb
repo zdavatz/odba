@@ -216,6 +216,10 @@ module ODBA
 			level1.odba_store_unsaved
 			assert_equal(nil, ODBA.cache_server.__verify)
 		end
+		def prepare_carry_bag(receiver)
+			receiver.__next(:odba_carry_methods) { [:foo] }
+			receiver.__next(:foo) { "foo" }
+		end
 		def test_dup
 			stub = StubMock.new
 			stub2 = StubMock.new
@@ -224,8 +228,10 @@ module ODBA
 			@odba.non_replaceable = 4
 			stub.__next(:is_a?) { |arg| true}
 			stub.__next(:odba_id) {|| 2}
+			prepare_carry_bag(stub)
 			stub2.__next(:is_a?) { |arg| true}
 			stub2.__next(:odba_id) { || 3}
+			prepare_carry_bag(stub2)
 			odba_twin = @odba.dup
 			stub.__verify
 			stub2.__verify
@@ -260,11 +266,19 @@ module ODBA
 			# the calls will be made on ODBA::Stub objects
 			replaceable.__next(:is_a?) { |arg| true}
 			replaceable.__next(:odba_id) { 12 }
+			prepare_carry_bag(replaceable)
 			replaceable2.__next(:is_a?) { |arg| true}
 			replaceable2.__next(:odba_id) { 13 }
+			prepare_carry_bag(replaceable2)
 			ODBA.storage.__next(:next_id){|| 2}
-			ODBA.cache_server.__next(:add_object_connection){|id,id2|}
-			ODBA.cache_server.__next(:add_object_connection){|id,id2|}
+			f_obj1 = Mock.new("fobj1")
+			f_obj1.__next(:odba_carry_methods){[]}
+			f_obj2 = Mock.new("fobj2")
+			f_obj2.__next(:odba_carry_methods){[]}
+			ODBA.cache_server.__next(:fetch) { |id,container| f_obj1}
+			ODBA.cache_server.__next(:fetch) { |id,container| f_obj2}
+			#ODBA.cache_server.__next(:add_object_connection){|id,id2|}
+			#			ODBA.cache_server.__next(:add_object_connection){|id,id2|}
 			
 			ODBA.marshaller.__next(:dump) { |twin|
 				assert_equal(true, twin.replaceable.is_a?(Stub))
@@ -279,6 +293,7 @@ module ODBA
 			#expected = [12, 13]
 			#assert_equal(expected, @odba.odba_target_ids)
 			replaceable.__verify
+			ODBA.cache_server.__verify
 		end
 		def test_odba_isolated_dump_2
 			ODBA.marshaller = ODBA::Marshal
@@ -331,7 +346,7 @@ module ODBA
 			assert_equal("bar", @odba.odba_name)
 			cache_server.__verify
 		end
-	end
+	end	
 	class TestArrayReplaceStubs < Test::Unit::TestCase
 		class StubMock < Mock
 			def is_a?(arg)
@@ -412,6 +427,10 @@ module ODBA
 			ODBA.storage.__verify
 		end
 =end
+def prepare_carry_bag(receiver)
+			receiver.__next(:odba_carry_methods) { [:foo] }
+			receiver.__next(:foo) { "foo" }
+end
 		def test_odba_replace_persistables_array
 			replaceable = StubMock.new("replaceable")
 			replaceable2 = StubMock.new("replaceable2")
@@ -420,10 +439,12 @@ module ODBA
 			replaceable.__next(:is_a?) { |arg| true}
 			replaceable.__next(:odba_id) { || 1}
 			replaceable.__next(:odba_id) { || 1}
+			prepare_carry_bag(replaceable)
 			
 			replaceable2.__next(:is_a?) { |arg| true}
 			replaceable2.__next(:odba_id) { || 2}
 			replaceable2.__next(:odba_id) { || 2}
+			prepare_carry_bag(replaceable2)
 
 			ODBA.storage.__next(:next_id) { 2 }
 

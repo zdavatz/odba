@@ -67,24 +67,18 @@ module ODBA
 			sth.execute(target_id)
 		end
 		def remove_dead_connections(min_id, max_id)
-			
 			sth = @dbi.prepare <<-EOQ
-			DELETE FROM object 
-			WHERE odba_id IN ( 
-				SELECT object.odba_id FROM object_connection 
-				RIGHT JOIN object ON 
-					(object.odba_id BETWEEN #{min_id} AND #{max_id})
-				AND ((object_connection.origin_id 
-					BETWEEN #{min_id} AND #{max_id}) 
-				OR (object_connection.target_id 
-					BETWEEN #{min_id} AND #{max_id})) 
-				AND ((object_connection.origin_id = object.odba_id) 
-				OR (object_connection.target_id = object.odba_id)) 
-				WHERE target_id IS null
-			)
-			AND odba_id BETWEEN #{min_id} AND #{max_id}
+				DELETE FROM object_connection
+				WHERE origin_id BETWEEN ? AND ?
+				AND (origin_id NOT IN 
+				(
+					SELECT odba_id 
+					FROM object 
+					WHERE odba_id BETWEEN ? AND ?
+				) 
+				OR target_id NOT IN (SELECT odba_id FROM object))
 			EOQ
-			sth.execute
+			sth.execute(min_id, max_id, min_id, max_id)
 =begin
 				DELETE FROM object_connection 
 				WHERE target_id NOT IN 
@@ -106,18 +100,21 @@ module ODBA
 		end
 		def remove_dead_objects(min_id, max_id)
 			sth = @dbi.prepare <<-EOQ
-				DELETE FROM object WHERE odba_id IN
-				(
-					SELECT object.odba_id
-					FROM object_connection 
-					RIGHT JOIN object 
-					ON (object_connection.target_id = object.odba_id 
-						OR object_connection.origin_id = object.odba_id) 
-					WHERE	target_id IS NULL
-					AND object.odba_id BETWEEN ? AND ?
-				)
+			DELETE FROM object
+			WHERE odba_id IN ( 
+				SELECT object.odba_id FROM object_connection 
+				RIGHT JOIN object ON 
+					(object.odba_id BETWEEN ? AND ?)
+				AND ((object_connection.origin_id BETWEEN ? AND ?) 
+				OR (object_connection.target_id BETWEEN ? AND ?)) 
+				AND ((object_connection.origin_id = object.odba_id) 
+				OR (object_connection.target_id = object.odba_id)) 
+				WHERE target_id IS null
+			)
+			AND odba_id BETWEEN ? AND ?
 			EOQ
-			sth.execute(min_id, max_id)
+			sth.execute(min_id, max_id, min_id, max_id,
+				min_id, max_id, min_id, max_id)
 =begin
 			unless(rows.first.nil?)
 				sth = @dbi.prepare("delete from object where odba_id in (#{rows.join(',')})");
@@ -126,7 +123,7 @@ module ODBA
 =end
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
-			sth_insert = @dbi.prepare("insert into #{index_name} (origin_id, search_term, target_id) values (?, ?, ?)")
+			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, ?, ?)")
 			sth_insert.execute(origin_id, search_term, target_id)
 		end
 		def update(odba_id, dump, name, prefetchable)
@@ -136,7 +133,7 @@ module ODBA
 		end
 		def restore(odba_id)
 			#	puts "storage loading #{odba_id}"
-			row = @dbi.select_one("select content from object where odba_id = ?", odba_id)
+			row = @dbi.select_one("SELECT content FROM object WHERE odba_id = ?", odba_id)
 			row.first unless row.nil?
 		end	
 		def retrieve_from_index(index_name, search_term)

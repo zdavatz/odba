@@ -8,7 +8,7 @@ module ODBA
 	class Cache < SimpleDelegator
 		attr_reader :indices
 		include Singleton
-		CLEANING_INTERVAL = 40
+		CLEANING_INTERVAL = 900
 		CLEANER_ID_STEP = 100
 		def initialize
 			#=begin
@@ -18,7 +18,7 @@ module ODBA
 					begin
 						puts "cleaning up DB"
 						clean
-						#clean_object_connections
+						clean_object_connections
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
@@ -73,6 +73,8 @@ module ODBA
 						@hash.store(obj.odba_name, cache_entry)
 					end
 				end
+				puts "bulk_restore"
+				puts obj.class
 				retrieved_objects.push(obj)
 			}
 			#puts "found:"
@@ -174,6 +176,9 @@ module ODBA
 		def fetch(odba_id, odba_caller)
 			cache_entry = @hash.fetch(odba_id) {
 				obj = load_object(odba_id)
+				puts "fetch"
+				puts obj.class
+				#puts obj.to_s
 				cache_entry = CacheEntry.new(obj)
 				if(name = obj.odba_name)
 					@hash.store(name, cache_entry)
