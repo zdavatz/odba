@@ -41,6 +41,11 @@ module ODBA
 			odba_replace
 			@receiver
 		end
+		def odba_isolated_stub
+			stub = dup
+			stub.odba_container = nil
+			stub
+		end
 		def odba_replace(name=nil)
 			if(@receiver.nil?)
 				begin
@@ -56,8 +61,9 @@ module ODBA
 		def odba_unsaved?(snapshot_level=nil)
 			false
 		end
+		#added odba_id because it is now definded in object
 		no_override = [
-			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", "nil?",
+			"odba_id", "is_a?", "__id__", "__send__", "inspect", "hash", "eql?", "nil?",
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
