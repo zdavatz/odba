@@ -25,6 +25,9 @@ module ODBA
 	def marshaller=(marshaller)
 		@marshaller = marshaller
 	end
+	def scalar_cache=(scalar_cache)
+		@scalar_cache = scalar_cache
+	end
 	def scalar_cache
 		@scalar_cache ||= cache_server.fetch_named('__scalar_cache__', self){
 			ScalarCache.new
@@ -58,9 +61,9 @@ module ODBA
 	module_function :marshaller
 	module_function :marshaller=
 	module_function :scalar_cache
+	module_function :scalar_cache=
 	module_function :storage
 	module_function :storage=
 	module_function :transaction
-	
 end
 

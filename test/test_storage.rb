@@ -46,7 +46,7 @@ module ODBA
 			rows = Mock.new("row")
 			@storage.dbi = dbi
 			dbi.__next(:select_all){ |sql|
-				assert_equal("select odba_id, content from object where prefetchable = 1", sql)
+				assert_equal("select odba_id, content from object where prefetchable = true", sql)
 				rows
 			}
 			@storage.restore_prefetchable
@@ -91,10 +91,11 @@ module ODBA
 			sth = Mock.new("sth")
 			row = Mock.new("row")
 			@storage.dbi = dbi
-			dbi.__next(:select_one) { |arg, id| sth} 
 			dbi.__next(:prepare) { |arg| sth} 
 			sth.__next(:execute){ |id, dump, name, prefetch| row }
 			sth.__next(:rows){ || 0}
+			dbi.__next(:prepare) { |arg| sth} 
+			sth.__next(:execute){ |id, dump, name, prefetch| row }
 			@storage.store(1,"foodump", "foo", true)
 			dbi.__verify
 			sth.__verify
@@ -104,7 +105,6 @@ module ODBA
 			sth = Mock.new
 			row = Mock.new
 			@storage.dbi = dbi
-			dbi.__next(:select_one) { |arg, id| sth} 
 			dbi.__next(:prepare) { |arg| sth} 
 			sth.__next(:execute){ |id, dump, name, prefetch| row }
 			sth.__next(:rows){ || 1}

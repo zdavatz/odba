@@ -217,22 +217,16 @@ module ODBA
 			level1.odba_store_unsaved
 			assert_equal(nil, ODBA.cache_server.__verify)
 		end
-		def prepare_carry_bag(receiver)
-			receiver.__next(:odba_carry_methods) { [:foo] }
-			receiver.__next(:foo) { "foo" }
-		end
 		def test_dup
-			stub = StubMock.new
-			stub2 = StubMock.new
+			stub = StubMock.new("stub")
+			stub2 = StubMock.new("stub2")
 			@odba.replaceable = stub
 			@odba.replaceable2 = stub2
 			@odba.non_replaceable = 4
 			stub.__next(:is_a?) { |arg| true}
 			stub.__next(:odba_id) {|| 2}
-			prepare_carry_bag(stub)
 			stub2.__next(:is_a?) { |arg| true}
 			stub2.__next(:odba_id) { || 3}
-			prepare_carry_bag(stub2)
 			odba_twin = @odba.dup
 			stub.__verify
 			stub2.__verify
@@ -258,8 +252,8 @@ module ODBA
 			assert_equal(true, @odba.odba_unsaved?)
 		end
 		def test_odba_isolated_dump
-			replaceable = StubMock.new
-			replaceable2 = StubMock.new
+			replaceable = StubMock.new("rep")
+			replaceable2 = StubMock.new("rep2")
 			@odba.replaceable2 = replaceable2
 			@odba.replaceable = replaceable
 			
@@ -267,10 +261,8 @@ module ODBA
 			# the calls will be made on ODBA::Stub objects
 			replaceable.__next(:is_a?) { |arg| true}
 			replaceable.__next(:odba_id) { 12 }
-			prepare_carry_bag(replaceable)
 			replaceable2.__next(:is_a?) { |arg| true}
 			replaceable2.__next(:odba_id) { 13 }
-			prepare_carry_bag(replaceable2)
 			ODBA.storage.__next(:next_id){|| 2}
 			f_obj1 = Mock.new("fobj1")
 			f_obj1.__next(:odba_carry_methods){[]}
@@ -431,26 +423,20 @@ module ODBA
 			ODBA.storage.__verify
 		end
 =end
-def prepare_carry_bag(receiver)
-			receiver.__next(:odba_carry_methods) { [:foo] }
-			receiver.__next(:foo) { "foo" }
-end
 		def test_odba_replace_persistables_array
 			replaceable = StubMock.new("replaceable")
 			replaceable2 = StubMock.new("replaceable2")
 			@array.push(replaceable)
 			@array.push(replaceable2)
 			replaceable.__next(:is_a?) { |arg| true}
-			replaceable.__next(:odba_id) { || 1}
-			replaceable.__next(:odba_id) { || 1}
-			prepare_carry_bag(replaceable)
+			replaceable.__next(:odba_id) { 1 }
+			replaceable.__next(:odba_id) { 1 }
 			
 			replaceable2.__next(:is_a?) { |arg| true}
-			replaceable2.__next(:odba_id) { || 2}
-			replaceable2.__next(:odba_id) { || 2}
-			prepare_carry_bag(replaceable2)
+			replaceable2.__next(:odba_id) { 2 }
+			replaceable2.__next(:odba_id) { 2 }
 
-			ODBA.storage.__next(:next_id) { 2 }
+			ODBA.storage.__next(:next_id) { 1 }
 
 			@array.odba_replace_persistables
 			replaceable.__verify

@@ -27,22 +27,6 @@ module ODBA
 				puts "calllign origin"
 				origins = proc_instance_origin.call(target)
 				origins.each { |origin|
-=begin
-					#puts "********ITEM****"
-					puts origin.class
-					#	puts "**************"
-					#		origin = origin.odba_container
-					#	origin = origin.first
-					value = if(@resolve_search_term && origin.respond_to?(@search_term_mthd))
-					#puts "sending #{origin}.#{@mthd}"
-						origin.send(@resolve_search_term)
-					else
-						#	puts "sending #{origin}.to_s"
-						origin.to_s
-					end
-					#	puts "origin #{origin}"
-					rows << [origin.odba_id, value, target_id]
-=end
 					do_update_index( origin.odba_id, 
 						self.search_term(origin), target_id)
 					puts "origin is a"

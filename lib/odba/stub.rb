@@ -44,9 +44,6 @@ module ODBA
 				res
 			else
 				odba_replace
-				puts "i am replacing a:"
-				puts @receiver.class
-				puts meth_symbol
 				@receiver.send(meth_symbol, *args, &block)
 			end
 		end

@@ -12,16 +12,17 @@ module ODBA
 		attr_accessor :receiver, :carry_bag
 	end
 	class MockReceiver < Mock
+		ODBA_CACHE_METHODS = []
 		def taint
 			super
 		end
 	end
 	class TestStub < Test::Unit::TestCase
 		def setup
-			#Stub.delegate_object_methods
 			@odba_container = Mock.new("odba_container")
 			ODBA.cache_server = Mock.new("cache")
-			@stub = Stub.new(9, @odba_container)
+			@receiver = MockReceiver.new("receiver")
+			@stub = Stub.new(9, @odba_container, @receiver)
 		end
 		def test_method_missing
 			receiver = Mock.new
@@ -64,7 +65,7 @@ module ODBA
 				receiver
 			}
 			receiver.__next(:taint) {}
-			@stub = Stub.new(1, @odba_container)
+			@stub = Stub.new(1, @odba_container, @receiver)
 			@stub.taint
 			@odba_container.__verify
 			ODBA.cache_server.__verify
@@ -81,18 +82,6 @@ module ODBA
 				receiver
 			}
 			assert_equal(Mock, @stub.class)
-		end
-		def test_carry_bag
-			receiver = Mock.new("receiver")
-			receiver.__next(:odba_carry_methods) { [:foo] }
-			receiver.__next(:foo) { "foo" }
-			result = {
-				:foo => "foo"
-			}
-			@stub2 = Stub.new(9, @odba_container, receiver)
-			assert_equal(result, @stub2.carry_bag)
-			receiver.__verify
-			@odba_container.__verify
 		end
 		def test_respond_to
 			receiver = Mock.new

@@ -165,12 +165,10 @@ module ODBA
 			key1.__next(:is_a?) { |arg| true }
 			key1.__next(:odba_id) { || 1}
 			key1.__next(:odba_id) { || 1}
-			key1.__next(:odba_carry_methods) { [] }
 			
 			value1.__next(:is_a?) { |arg| true }
 			value1.__next(:odba_id) { || 2}
 			value1.__next(:odba_id) { || 2}
-			value1.__next(:odba_carry_methods) { [] }
 
 			@hash.odba_replace_persistables
 			@hash.each { |key, value|
