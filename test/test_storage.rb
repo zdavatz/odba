@@ -1,0 +1,297 @@
+#!/usr/bin/env ruby
+# TestStorage -- 10.05.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
+
+$: << File.expand_path('../lib/', File.dirname(__FILE__))
+
+require 'odba'
+require 'test/unit'
+require 'mock'
+
+module ODBA
+	class Storage
+		public :restore_max_id
+		attr_writer :next_id
+	end
+	class TestStorage < Test::Unit::TestCase
+		def setup
+			@storage = ODBA::Storage.instance
+		end
+		def test_bulk_restore
+			dbi = Mock.new("dbi")
+			array = [1, 23, 4]
+			@storage.dbi = dbi
+			dbi.__next(:select_all) { |query|
+				assert_not_nil(query.index('in (1,23,4)'))
+			}
+			@storage.bulk_restore(array)
+			dbi.__verify
+		end
+		def test_delete_persistable
+			dbi = Mock.new("dbi")
+			sth = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:prepare) { |sql|
+				assert_equal(sql, "delete from object where odba_id = ?")
+				sth
+			}
+			sth.__next(:execute) { |id|
+				assert_equal(2, id)
+			}
+			@storage.delete_persistable(2)
+			dbi.__verify
+			sth.__verify
+		end
+		def test_fill_index
+			dbi = Mock.new("dbi")
+			sth = Mock.new
+			@storage.dbi = dbi
+			rows = [[1, "baz", 3], [2, "bar", 5]]
+			dbi.__next(:prepare) { |query|
+				assert_not_nil(query.index('into foo'))
+				sth
+			}
+			dbi.__next(:prepare) { |query|
+				assert_not_nil(query.index('into foo'))
+				sth
+			}
+			sth.__next(:execute){  }
+			sth.__next(:execute){  }
+			@storage.fill_index("foo" , rows)
+			dbi.__verify
+			sth.__verify
+		end
+		def test_drop_index_table
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			@storage.dbi = dbi
+			dbi.__next(:prepare) { |sql|
+				assert_not_nil(sql.index('drop table'))
+				sth
+			}
+			sth.__next(:execute) {  }
+			@storage.drop_index_table("foo")
+			dbi.__verify
+			sth.__verify
+		end
+		def test_restore_prefetchable
+			dbi = Mock.new("dbi")
+			rows = Mock.new("row")
+			@storage.dbi = dbi
+			dbi.__next(:select_all){ |sql|
+				assert_equal("select content from object where prefetchable = true", sql)
+				rows
+			}
+			@storage.restore_prefetchable
+			dbi.__verify
+			rows.__verify
+		end
+		def test_bulk_restore_empty
+			dbi = Mock.new("dbi")
+			array = []
+			@storage.dbi = dbi
+			assert_nothing_raised {
+				@storage.bulk_restore(array)
+			}
+			dbi.__verify
+		end
+		def test_create_index
+			dbi = Mock.new
+			sth = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:prepare){ |query| 
+				assert_not_nil(query.index('table sequences'))
+				sth
+			}
+			sth.__next(:execute){  }
+			@storage.create_index("sequences")
+			dbi.__verify
+			sth.__verify
+		end
+		def test_update
+			dbi = Mock.new
+			sth = Mock.new
+			row = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:prepare){ |arg| sth}
+			sth.__next(:execute){ |id,dump,name, prefetch| row}
+			sth.__next(:rows){ || 0}
+			@storage.update(2,"34353", "foo", true)
+			dbi.__verify
+			sth.__verify
+		end
+		def test_next_id
+			@storage.next_id = 1
+			assert_equal(2, @storage.next_id)
+			assert_equal(3, @storage.next_id)
+		end
+		def test_store_insert
+			dbi = Mock.new
+			sth = Mock.new
+			row = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:prepare) { |arg| sth} 
+			sth.__next(:execute){ |id, dump, name, prefetch| row }
+			sth.__next(:rows){ || 0}
+			dbi.__next(:prepare) { |arg| sth} 
+			sth.__next(:execute){ |id, dump, name, prefetch| row }
+			@storage.store(1,"foodump", "foo", true)
+			dbi.__verify
+			sth.__verify
+		end
+		def test_store_update
+			dbi = Mock.new
+			sth = Mock.new
+			row = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:prepare) { |arg| sth} 
+			sth.__next(:execute){ |id, dump, name, prefetch| row }
+			sth.__next(:rows){ || 1}
+			@storage.store(1,"foodump", "foo", true)
+			dbi.__verify
+			sth.__verify
+		end
+		def test_restore
+			dbi = Mock.new
+			row = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:select_one){ |arg, name| row}
+			row.__next(:first){ || }
+			@storage.restore(1)
+			dbi.__verify
+		end
+		def test_restore_named
+			dbi = Mock.new
+			row = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:select_one){ |arg, name| row}
+			row.__next(:first){ || }
+			@storage.restore_named("foo")
+			dbi.__verify
+		end
+		def test_restore_max_id
+			dbi = Mock.new
+			row = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:select_one){|var|
+				row
+			}
+			row.__next(:first) { 23 }
+			row.__next(:first) { 23 }
+			assert_equal(23, @storage.restore_max_id)
+			row.__verify
+			dbi.__verify
+		end
+		def test_restore_max_id__nil
+			dbi = Mock.new
+			row = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:select_one){|var|
+				row
+			}
+			row.__next(:first){ || }
+			id = nil
+			assert_nothing_raised {
+				id = @storage.restore_max_id
+			}
+			assert_equal(0, id)
+			dbi.__verify
+			row.__verify
+		end
+		def test_retrieve_named
+			dbi = Mock.new("dbi")
+			sth = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:select_all) { |sql, search|
+				assert_not_nil(sql.index("inner join bar"))
+				sth	
+			}
+			@storage.retrieve_from_index("bar","foo")
+			dbi.__verify
+			sth.__verify
+		end
+		def test_update_index
+			dbi = Mock.new("dbi")
+			rows = [3]
+			sth_delete = Mock.new("sth_delete")
+			sth_insert = Mock.new("sth_insert")
+			@storage.dbi = dbi
+			#select query
+			dbi.__next(:select_all){ |sql, id| 
+				assert_not_nil(sql.index("from foo where origin_id ="))	
+				rows
+			}
+
+			#delete query
+			dbi.__next(:prepare){ |sql| 
+				assert_not_nil(sql.index("delete from foo"))	
+				sth_delete
+			}
+			sth_delete.__next(:execute) { |id| }
+
+			#insert query
+			dbi.__next(:prepare){ |sql| 
+				assert_not_nil(sql.index("insert into foo"))	
+				sth_insert
+			}
+			sth_insert.__next(:execute) { |id, term, target_id| }
+
+			@storage.update_index("foo", 2, "foobar")
+			dbi.__verify
+			sth_insert.__verify
+			sth_delete.__verify
+		end
+		def test_delete_index_element
+			dbi = Mock.new("dbi")
+			sth = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:prepare) { |sql|
+				assert_equal(sql, "delete from foo where origin_id = ?")
+				sth
+			}
+			sth.__next(:execute) { |id|
+				assert_equal(2, id)
+			}
+			@storage.delete_index_element("foo", 2)
+			dbi.__verify
+			sth.__verify
+		end
+=begin
+		def test_update_index
+			dbi = Mock.new("dbi")
+			sth = Mock.new
+			@storage.dbi = dbi
+			dbi.__next(:prepare){|sql|
+				assert_not_nil(sql.index(""))
+				sth
+			}
+			sth.__next(:execute){|search_term, origin_id|
+				assert_equal(search_term, "foobar")
+				assert_equal(origin_id, 1)
+			}
+			@storage.update_index("foo", 1, "foobar")
+		end
+=end
+	def test_add_object_connection
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			@storage.dbi = dbi
+			dbi.__next(:prepare){ |query| 
+				assert_not_nil(query.index('insert into object_connection'))
+				sth
+			}
+			sth.__next(:execute){  }
+			@storage.add_object_connection(1, 3)
+			dbi.__verify
+			sth.__verify
+	end
+	def test_retrieve_connected_objects
+		dbi = Mock.new("dbi")
+		@storage.dbi = dbi
+		dbi.__next(:select_all){|sql, target_id| 
+		 	assert_not_nil(sql.index('select origin_id from object_connection'))
+			assert_equal(target_id, 1)
+		}
+		@storage.retrieve_connected_objects(1)
+	end
+end
+end
