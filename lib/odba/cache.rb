@@ -2,47 +2,50 @@
 # Cache -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'singleton'
-require 'delegate'
 require 'tmail'
 require 'net/smtp'
 require 'date'
 
 module ODBA
-	class Cache < SimpleDelegator
+	class Cache
 		include Singleton
-		CLEANER_PRIORITY = -1
+		CLEANER_PRIORITY = 0
 		CLEANING_INTERVAL = 900
 		REAPER_ID_STEP = 1000
-		REAPER_INTERVAL = 60
+		REAPER_INTERVAL = 900
 		def initialize
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
-				#	start_reaper
+				#start_reaper
 			end
-			@hash = Hash.new
+			@fetched = Hash.new
+			@prefetched = Hash.new
 			@reaper_min_id = 0
 			@reaper_max_id = 0
-			super(@hash)
 		end
 		def bulk_fetch(bulk_fetch_ids, odba_caller)
-			dumps = []
+			instances = []
+			loaded_ids = []
 			bulk_fetch_ids.each { |id|
-				if(entry = @hash[id])
+				if(entry = fetch_cache_entry(id))
 					entry.odba_add_reference(odba_caller)
-					bulk_fetch_ids.delete(id)
+					instances.push(entry.odba_object)
+					loaded_ids.push(id)
 				end
 			}
+			bulk_fetch_ids -= loaded_ids
 			unless(bulk_fetch_ids.empty?)
 				rows = ODBA.storage.bulk_restore(bulk_fetch_ids)
-				bulk_restore(rows, odba_caller)
+				instances += bulk_restore(rows, odba_caller)
 			end
+			instances
 		end
 		def bulk_restore(rows, odba_caller = nil)
 			retrieved_objects= []
 			rows.each { |row|
 				obj_id = row.at(0)
 				dump = row.at(1)
-				if(cache_entry = @hash.fetch(obj_id.to_i, nil))
+				if(cache_entry = fetch_cache_entry(obj_id.to_i))
 					obj = cache_entry.odba_object
 					cache_entry.odba_add_reference(odba_caller)
 				else
@@ -55,27 +58,19 @@ module ODBA
 		def clean
 			delete_old
 			#cleaned = 0
-			@hash.each { |key, value|
+			#start = Time.now
+			@fetched.each { |key, value|
 				if(value.odba_old?)
 					#cleaned += 1
 					value.odba_retire
 				end
 			}
-			#puts "cleaned: #{cleaned} objects"
-			#puts "total loaded: #{@hash.size} objects"
-			count = ObjectSpace.each_object { |obj|  }
-			#puts "ObjectSpace: #{count} objects"
-			#puts "uncached objects: #{count - @hash.size}"
+			#puts "cleaned: #{cleaned} objects in #{Time.now - start} seconds"
+			#$stdout.flush
 		end
-		def reap_object_connections
-			@reaper_min_id += REAPER_ID_STEP
-			@reaper_max_id = @reaper_min_id + REAPER_ID_STEP
-			if(@reaper_min_id > ODBA.storage.max_id)
-				@reaper_min_id = 0
-				@reaper_max_id = REAPER_ID_STEP
-			end
-			ODBA.storage.remove_dead_objects(@reaper_min_id, @reaper_max_id)
-			ODBA.storage.remove_dead_connections(@reaper_min_id, @reaper_max_id)
+		def clear
+			@fetched.clear
+			@prefetched.clear
 		end
 		def create_index(index_definition, origin_module)
 			ODBA.transaction {
@@ -102,8 +97,10 @@ module ODBA
 					puts "          ### while looking for connected object #{id}"
 				end
 			}
-			@hash.delete(odba_id)
-			@hash.delete(object.odba_name)
+			@fetched.delete(odba_id)
+			@fetched.delete(object.odba_name)
+			@prefetched.delete(odba_id)
+			@prefetched.delete(object.odba_name)
 			ODBA.storage.delete_persistable(odba_id)
 			delete_index_element(object)
 			object
@@ -119,18 +116,20 @@ module ODBA
 			}
 		end
 		def delete_old
-			deleted = 0
-			@hash.each { |key, value|
+			#deleted = 0
+			#start = Time.now
+			@fetched.each { |key, value|
 				if(value.ready_to_destroy?)
-					deleted += 1
-					# the following is possible because we have already decided to
-					# delete this cache_entry
-					obj = value.odba_object
-					update_scalar_cache(obj.odba_id, obj.odba_cache_values)
-					@hash.delete(key)
+					#deleted += 1
+					## the following is possible because we have already decided 
+					## to delete this cache_entry
+					#obj = value.odba_object
+					#update_scalar_cache(obj.odba_id, obj.odba_cache_values)
+					@fetched.delete(key)
 				end
 			}
-			#puts "deleted: #{deleted} objects"
+			#puts "deleted: #{deleted} objects in #{Time.now - start} seconds"
+			#$stdout.flush
 		end
 		def drop_index(index_name)
 			ODBA.transaction {
@@ -144,15 +143,18 @@ module ODBA
 					drop_index(key)
 				}
 		end
-		def fetch(odba_id, odba_caller)
+		def fetch(odba_id, odba_caller=nil)
 			obj = nil
-			if(cache_entry = @hash[odba_id])
+			if(cache_entry = fetch_cache_entry(odba_id))
 				cache_entry.odba_add_reference(odba_caller)
 				obj = cache_entry.odba_object
 			else
 				obj = load_object(odba_id, odba_caller)
 			end
 			obj
+		end
+		def fetch_cache_entry(odba_id)
+			@prefetched[odba_id] || @fetched[odba_id]
 		end
 		def fetch_collection(obj)
 			collection = []
@@ -189,7 +191,7 @@ module ODBA
 			end
 		end
 		def fetch_named(name, caller, &block)
-			cache_entry = @hash[name]
+			cache_entry = fetch_cache_entry(name)
 			obj = nil
 			if(cache_entry.nil?)
 				dump = ODBA.storage.restore_named(name)
@@ -200,12 +202,8 @@ module ODBA
 				else
 					obj = restore_object(dump, caller)
 				end	
-				#cache_entry = CacheEntry.new(obj)
-				#update_scalar_cache(obj.odba_id, obj.odba_cache_values)
-				#@hash.store(obj.odba_id, cache_entry)
-				#@hash.store(name, cache_entry)
 			else
-				#add to reference only in this case  
+				#add reference only in this case  
 				cache_entry.odba_add_reference(caller)
 				obj = cache_entry.odba_object
 			end
@@ -213,6 +211,9 @@ module ODBA
 		end
 		def fill_index(index_name, targets)
 			self.indices[index_name].fill(targets)
+		end
+		def include?(key)
+			@fetched.include?(key) || @prefetched.include?(key)
 		end
 		def indices
 			@indices ||= fetch_named('__cache_server_indices__', self) {
@@ -223,10 +224,20 @@ module ODBA
 			rows = ODBA.storage.restore_prefetchable
 			bulk_restore(rows)
 		end
+		def reap_object_connections
+			@reaper_min_id += REAPER_ID_STEP
+			@reaper_max_id = @reaper_min_id + REAPER_ID_STEP
+			if(@reaper_min_id > ODBA.storage.max_id)
+				@reaper_min_id = 0
+				@reaper_max_id = REAPER_ID_STEP
+			end
+			ODBA.storage.remove_dead_objects(@reaper_min_id, @reaper_max_id)
+			ODBA.storage.remove_dead_connections(@reaper_min_id, @reaper_max_id)
+		end
 		def retrieve_from_index(index_name, search_term, meta=nil)
-			#puts "retrieve_from_index(#{index_name}, #{search_term}, #{meta})"
-			rows = self.indices.fetch(index_name).retrieve_data(search_term, meta)
-			bulk_restore(rows)
+			index = indices.fetch(index_name)
+			ids = index.fetch_ids(search_term, meta)
+			bulk_fetch(ids, nil)
 		end
 		def start_cleaner
 			@cleaner = Thread.new {
@@ -258,38 +269,34 @@ module ODBA
 		end
 		def store(object)
 			odba_id = object.odba_id
-			update_scalar_cache(odba_id, object.odba_cache_values)
+			#update_scalar_cache(odba_id, object.odba_cache_values)
 			dump = object.odba_isolated_dump
-			#puts "starting to store collection elements"
-			store_collection_elements(object)
-			#puts "collection elements stored"
+			store_collection_elements(odba_id, object.odba_collection)
 			name = object.odba_name
 			prefetchable = object.odba_prefetch?
 			ODBA.storage.store(odba_id, dump, name, prefetchable)
-			#puts "object stored"
+			store_object_connections(odba_id, object.odba_target_ids)
 			update_indices(object)
-			#puts "indices updated"
-			store_object_connections(object)
-			#puts "connections stored" 
 			store_cache_entry(odba_id, object, name)
 		end
 		def store_cache_entry(odba_id, object, name=nil)
-			cache_entry = @hash[odba_id]
+			cache_entry = fetch_cache_entry(odba_id)
 			if(cache_entry.nil?)
+				hash = object.odba_prefetch? ? @prefetched : @fetched
 				cache_entry = CacheEntry.new(object)
-				@hash.store(odba_id, cache_entry)
+				hash.store(odba_id, cache_entry)
 				unless(name.nil?)
-					@hash.store(name, cache_entry)
+					hash.store(name, cache_entry)
 				end
 			end
 			cache_entry.collection = object.odba_collection
 			cache_entry.odba_object
 		end
-		def store_collection_elements(object)
-			odba_id = object.odba_id
-			collection = object.odba_collection
+		def store_collection_elements(odba_id, collection)
+			#odba_id = object.odba_id
+			#collection = object.odba_collection
 			old_collection = []
-			if(cache_entry = @hash.fetch(odba_id, nil))
+			if(cache_entry = fetch_cache_entry(odba_id))
 				old_collection = cache_entry.collection
 				(old_collection - collection).each { |key, value|
 					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
@@ -297,25 +304,13 @@ module ODBA
 				}
 			end
 			(collection - old_collection).each { |key, value|
-					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
-					value_dump = ODBA.marshaller.dump(value.odba_isolated_stub)
-					ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
+				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
+				value_dump = ODBA.marshaller.dump(value.odba_isolated_stub)
+				ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
 			}
 		end
-		def store_object_connections(object)
-			name = object.odba_name
-			target_ids = object.odba_target_ids
-			#puts "#{target_ids.size} target_ids"
-			origin_id = object.odba_id
-			unless(name.nil?)
-				target_ids.push(origin_id)
-			end
-			ODBA.storage.ensure_object_connections(origin_id, target_ids)
-=begin
-			target_ids.each { |target_id|
-				ODBA.storage.add_object_connection(origin_id, target_id)
-			}
-=end
+		def store_object_connections(odba_id, target_ids)
+			ODBA.storage.ensure_object_connections(odba_id, target_ids)
 		end
 		def update_indices(odba_object)
 			klass = odba_object.class
@@ -380,9 +375,11 @@ Error loading object unknown odba_id #{odba_id}"
  ## if(@hash.include?(obj.odba_id))
  ##		@hash[obj.odba_id].odba_object
  ## else
- 			@hash.store(obj.odba_id, cache_entry)
- 			unless(obj.odba_name.nil?)
-				@hash.store(obj.odba_name, cache_entry)
+			hash = obj.odba_prefetch? ? @prefetched : @fetched
+ 			hash.store(obj.odba_id, cache_entry)
+			name = obj.odba_name
+ 			unless(name.nil?)
+				hash.store(name, cache_entry)
 			end
  ## bis da. ##
 			obj

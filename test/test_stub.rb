@@ -94,7 +94,7 @@ module ODBA
 			ODBA.cache_server.__next(:fetch) { |id,container|
 				receiver
 			}
-			assert_equal(Mock, @stub.class)
+			assert_equal(MockReceiver, @stub.class)
 		end
 		def test_respond_to
 			receiver = Mock.new

@@ -129,9 +129,11 @@ module ODBA
 			super(index_definition, origin_module)
 			ODBA.storage.create_index(index_definition.index_name)
 		end
-		def retrieve_data(search_term, meta=nil)
+		def fetch_ids(search_term, meta=nil)
 			exact = meta.respond_to?(:exact) && meta.exact
-			ODBA.storage.retrieve_from_index(@index_name, search_term, exact)
+			rows = ODBA.storage.retrieve_from_index(@index_name, 
+				search_term, exact)
+			rows.collect { |row| row.at(0) }
 		end
 	end
 	class FulltextIndex < IndexCommon
@@ -139,14 +141,15 @@ module ODBA
 			super(index_definition, origin_module)
 			ODBA.storage.create_fulltext_index(index_definition.index_name)
 		end
-		def retrieve_data(search_term, meta=nil)
-			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, search_term, @dictionary)
+		def fetch_ids(search_term, meta=nil)
+			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, 
+				search_term, @dictionary)
 			if(meta.respond_to?(:set_relevance))
 				rows.each { |row|
-					meta.set_relevance(row.at(0), row.at(2))
+					meta.set_relevance(row.at(0), row.at(1))
 				}
 			end
-			rows
+			rows.collect { |row| row.at(0) }
 		end
 		def do_update_index(origin_id, search_term, target_id)
 				ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id, @dictionary) 

@@ -16,7 +16,6 @@ module ODBA
 	class Stub; end
 	module Persistable
 		attr_accessor :odba_name, :odba_prefetch
-		attr_reader :odba_target_ids
 		ODBA_CACHE_METHODS = []
 		ODBA_EXCLUDE_VARS = []
 		ODBA_INDEXABLE = true
@@ -28,7 +27,8 @@ module ODBA
 			odba_potentials.each { |name|
 				var = twin.instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
-					stub = ODBA::Stub.new(var.odba_id, twin, var)
+					stub = var.dup
+					stub.odba_container = twin
 					twin.instance_variable_set(name, stub)
 				end
 			}
@@ -64,12 +64,7 @@ module ODBA
 			@odba_id ||= ODBA.storage.next_id
 		end
 		def odba_isolated_dump
-			# ensure a valid odba_id
-			self.odba_id
-			twin = self.dup
-			twin.odba_replace_persistables
-			twin.odba_replace_excluded!
-			ODBA.marshaller.dump(twin)
+			ODBA.marshaller.dump(odba_isolated_twin)
 		end
 		def odba_isolated_store
 			@odba_persistent = true
@@ -77,6 +72,14 @@ module ODBA
 		end		
 		def odba_isolated_stub
 			Stub.new(self.odba_id, nil, self)
+		end
+		def odba_isolated_twin
+			# ensure a valid odba_id
+			self.odba_id
+			twin = self.dup
+			twin.odba_replace_persistables
+			twin.odba_replace_excluded!
+			twin
 		end
 		def odba_prefetch?
 			@odba_prefetch || self::class::ODBA_PREFETCH
@@ -102,8 +105,8 @@ module ODBA
 			}
 		end
 		def odba_replaceable?(var, name)
-			var.is_a?(ODBA::Persistable) && (!var.is_a?(ODBA::Stub)) \
-				&& (!odba_serializables.include?(name))
+			var.is_a?(ODBA::Persistable) && (!var.is_a?(ODBA::Stub)) #\
+			#&& (!odba_serializables.include?(name))
 		end
 		def odba_replace_persistables
 			odba_potentials.each { |name|
@@ -187,7 +190,7 @@ module ODBA
 		def odba_target_ids
 			odba_potentials.collect { |name|
 				var = instance_variable_get(name)
-				if(odba_replaceable?(var, name))
+				if(var.is_a?(ODBA::Persistable))
 					var.odba_id
 				end
 			}.compact.uniq
@@ -232,7 +235,7 @@ class Array
 	include ODBA::Persistable
 	ODBA_CACHE_METHODS = [:length, :size, :empty?]
 =begin
-#TODO: I can't really believe this does anything good.. what's this for?
+# FIXME: I can't really believe this does anything good.. what's this for?
 	def <=>(obj)
 		super || (obj.is_a?(ODBA::Stub) && super(obj.receiver))
 	end
@@ -252,36 +255,35 @@ class Array
 		delete_if { |val| val.eql?(remove_object) }
 	end
 	def odba_prefetch?
-		any? { |item| 
+		super || any? { |item| 
 			item.respond_to?(:odba_prefetch?) \
 				&& item.odba_prefetch? 
 		}
 	end
-def odba_replace_persistables
-	clear
-	super
-end
+	def odba_replace_persistables
+		clear
+		super
+	end
 	def odba_restore(collection=[])
-		bulk_fetch_ids = []
-		each { |item|
-			if(item.is_a?(ODBA::Stub))
-				#ODBA.chache_server.bulk_fetch_add(item)
-				bulk_fetch_ids.push(item.odba_id)
-				#item.odba_replace
-				#self[idx] = item.receiver
-			end
-		}
-		ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
-		#ODBA.chache_server.bulk_fetch_execute
-		each_with_index { |item, idx|
-			if(item.is_a? ODBA::Stub)
-				item.odba_replace
-				self[idx] = item.receiver
-			end
-		}
 		collection.each { |key, val| 
 			self[key] = val
 		}
+		## can be phased out...
+		bulk_fetch_ids = []
+		each { |item|
+			if(item.is_a?(ODBA::Stub))
+				bulk_fetch_ids.push(item.odba_id)
+			end
+		}
+		unless(bulk_fetch_ids.empty?)
+			ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
+			each_with_index { |item, idx|
+				if(item.is_a? ODBA::Stub)
+					self[idx] = item.odba_instance
+				end
+			}
+		end
+		##
 	end
 	def odba_unsaved_neighbors(snapshot_level = nil)
 		unsaved = super
@@ -299,16 +301,16 @@ end
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved?
 		} )
 	end
-	unless(instance_methods.include?('old_flatten!'))
-		alias :old_flatten! :flatten!
+	unless(instance_methods.include?('odba_flatten!'))
+		alias :odba_flatten! :flatten!
 		def flatten!
 			odba_restore
-			old_flatten!
+			odba_flatten!
 		end
 	end
 	def odba_target_ids
 		ids = super
-		self.each {|value|
+		self.each { |value|
 			if(value.is_a?(ODBA::Persistable))
 				ids.push(value.odba_id)
 			end
@@ -329,7 +331,7 @@ class Hash
 		self.to_a
 	end
 	def odba_prefetch?
-		any? { |item|
+		super || any? { |item|
 			item.respond_to?(:odba_prefetch?) \
 				&& item.odba_prefetch?
 		}
@@ -338,32 +340,32 @@ class Hash
 		clear
 		super
 	end
-def odba_restore(collection=[])
-	bulk_fetch_ids = []
-	self.each { |key, value|
-		if(value.is_a?(ODBA::Stub))
-			bulk_fetch_ids.push(value.odba_id)
-		end
-		if(key.is_a?(ODBA::Stub))
-			bulk_fetch_ids.push(key.odba_id)
-		end
-	}
-	ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
-	self.each { |key, value|
-		if(value.is_a?(ODBA::Stub))
-			value.odba_replace
-			value = value.receiver
-			self[key] = value
-		end
-		if(key.is_a?(ODBA::Stub))
-			delete(key)
-			key.odba_replace
-			store(key.receiver, value)
-		end
-	}
-	collection.each { |key, val| 
-		self[key] = val
-	}
+	def odba_restore(collection=[])
+		bulk_fetch_ids = []
+		self.each { |key, value|
+			if(value.is_a?(ODBA::Stub))
+				bulk_fetch_ids.push(value.odba_id)
+			end
+			if(key.is_a?(ODBA::Stub))
+				bulk_fetch_ids.push(key.odba_id)
+			end
+		}
+		ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
+		self.each { |key, value|
+			if(value.is_a?(ODBA::Stub))
+				value.odba_replace
+				value = value.receiver
+				self[key] = value
+			end
+			if(key.is_a?(ODBA::Stub))
+				delete(key)
+				key.odba_replace
+				store(key.receiver, value)
+			end
+		}
+		collection.each { |key, val| 
+			self[key] = val
+		}
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
@@ -386,7 +388,7 @@ def odba_restore(collection=[])
 	end
 	def odba_target_ids
 		ids = super
-		self.each {|key, value|
+		self.each { |key, value|
 			if(value.is_a?(ODBA::Persistable))
 				ids.push(value.odba_id)
 			end

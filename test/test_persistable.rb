@@ -238,30 +238,22 @@ module ODBA
 			@odba.replaceable = stub
 			@odba.replaceable2 = stub2
 			@odba.non_replaceable = 4
-			stub.__next(:is_a?) { |arg| true}
-			stub.__next(:odba_id) {|| 2}
-			stub2.__next(:is_a?) { |arg| true}
-			stub2.__next(:odba_id) { || 3}
-			odba_twin = @odba.dup
-			stub.__verify
-			stub2.__verify
-			assert_equal(2, odba_twin.replaceable.odba_id)
-			assert_equal(3, odba_twin.replaceable2.odba_id)
-			assert_equal(true, odba_twin.replaceable.is_a?(Stub))
-			assert_equal(true, odba_twin.replaceable2.is_a?(Stub))
-			assert_equal(stub, @odba.replaceable)
-			assert_equal(stub2, @odba.replaceable2)
-		end
-=begin
-		def test_odba_restore_persistables
-			odba = ODBAContainer.new
-			backup = {
-				"@replaceable"	=>	@replaceable,
+			stub.__next(:is_a?) { |arg| true }
+			stub_container = nil
+			stub.__next(:odba_container=) { |obj| 
+				stub_container = obj
 			}
-			odba.odba_restore_persistables(backup)
-			assert_equal(@replaceable, odba.replaceable)
+			stub2.__next(:is_a?) { |arg| true }
+			stub_container2 = nil
+			stub2.__next(:odba_container=) { |obj|
+				stub_container2 = obj
+			}
+			odba_twin = @odba.dup
+			odba_twin.replaceable.__verify
+			odba_twin.replaceable2.__verify
+			assert_equal(odba_twin, stub_container)	
+			assert_equal(odba_twin, stub_container2)	
 		end
-=end
 		def test_odba_unsaved_true
 			@odba.instance_variable_set("@odba_persistent", false)
 			assert_equal(true, @odba.odba_unsaved?)
@@ -272,16 +264,11 @@ module ODBA
 			@odba.replaceable = replaceable
 			@odba.replaceable2 = replaceable2
 			replaceable.__next(:is_a?) { |arg| 
-				true # is_a?(Stub) from Persistable::dup
-			}
-			replaceable.__next(:is_a?) { |arg| 
-				false # is_a?(Persistable) from Persistable::odba_replaceable?
+				true # is_a?(Persistable) 
 			}
 			replaceable.__next(:odba_id) { 12 }
-			replaceable2.__next(:is_a?) { |arg| true}
 			replaceable2.__next(:is_a?) { |arg| false }
-			replaceable2.__next(:odba_id) { 13 }
-			expected = [12, 13]
+			expected = [12]
 			assert_equal(expected, @odba.odba_target_ids.sort)
 			replaceable.__verify
 			replaceable2.__verify
@@ -394,29 +381,17 @@ module ODBA
 			assert_equal([rep1, rep2], result)
 		end
 		def test_array_replacement
-			replacement = Mock.new
-			replacement2 = Mock.new
-			stub = StubMock.new
-			stub2 = StubMock.new
-			stub3 = StubMock.new
+			replacement = Mock.new('replacement')
+			replacement2 = Mock.new('replacement2')
+			stub = StubMock.new('stub')
+			stub2 = StubMock.new('stub2')
+			stub3 = StubMock.new('stub3')
+			stub3.__next(:is_a?) { false }
 			foo = Mock.new("foo")
-			stub.__next(:is_a?) { |arg| true}
-			stub.__next(:odba_id) { 2 }
-			stub.__next(:is_a?) { |arg| true}
-			stub.__next(:odba_replace) { || }
-			stub.__next(:receiver) { || replacement}
-			stub2.__next(:is_a?) { |arg| true}
-			stub2.__next(:odba_id) { 2 }
-			stub2.__next(:is_a?) { |arg| true}
-			stub2.__next(:odba_replace) { || }
-			stub2.__next(:receiver) { || replacement2}
-			stub3.__next(:is_a?) { |arg| false}
-			stub3.__next(:is_a?) { |arg| false}
-			ODBA.cache_server.__next(:bulk_fetch) { |ids, obj|}
 			@array.push(stub)
 			@array.push(stub2)
 			@array.push(stub3)
-			@array.odba_restore
+			@array.odba_restore([[0,replacement], [1,replacement2]])
 			assert_equal(replacement, @array[0])
 			assert_equal(replacement2, @array[1])
 			assert_equal(stub3, @array[2])

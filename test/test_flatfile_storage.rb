@@ -16,24 +16,6 @@ module ODBA
 		def teardown
 			FileUtils.rm_rf(@datadir)
 		end
-		def test_add_object_connection
-			@storage.add_object_connection(1, 3)
-			@storage.flush
-			assert(File.exist?(@datadir), "datadir was not created")
-			datafile = File.expand_path('object_connection.csv', @datadir)
-			assert(File.exist?(datafile), "datafile was not created")
-			expected = <<-EOF
-1	3
-			EOF
-			assert_equal(expected, File.read(datafile))
-			@storage.add_object_connection(3, 4)
-			@storage.flush
-			expected = <<-EOF
-1	3
-3	4
-			EOF
-			assert_equal(expected, File.read(datafile))
-		end
 		def test_store
 			@storage.store(1,"foodump", nil, true)
 			@storage.flush

@@ -3,7 +3,6 @@
 
 module ODBA
 	class CacheEntry
-		CLEAN_PREFETCHABLE = false
 		RETIRE_TIME = 300
 		DESTROY_TIME =  900
 		attr_accessor :last_access, :collection
@@ -44,10 +43,8 @@ module ODBA
 			@accessed_by = keep
 		end
 		def ready_to_destroy?
-			(( self::class::CLEAN_PREFETCHABLE \
-				|| !@odba_object.odba_prefetch? ) \
-				&& ((Time.now - @last_access) > self::class::DESTROY_TIME) \
-				&& @accessed_by.empty?)
+			((Time.now - @last_access) > self::class::DESTROY_TIME) \
+				&& @accessed_by.empty?
 		end
 	end
 end

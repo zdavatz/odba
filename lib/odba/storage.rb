@@ -13,25 +13,20 @@ module ODBA
 		def initialize
 			@id_mutex = Mutex.new
 		end
-		def add_object_connection(origin_id, target_id)
-			sth = @dbi.prepare("SELECT ensure_object_connection(?, ?)")
-			sth.execute(origin_id, target_id)	
-		end
 		def bulk_restore(bulk_fetch_ids)
 			if(bulk_fetch_ids.empty?)
 				[]
-			elsif(bulk_fetch_ids.size > BULK_FETCH_STEP)
-				rows = []
-				0.step(bulk_fetch_ids.size, BULK_FETCH_STEP) { |base|
-					rows.concat(bulk_restore(bulk_fetch_ids[base, BULK_FETCH_STEP].compact))
-				}
-				rows
 			else
-				sql = <<-SQL
-					SELECT odba_id, content FROM object 
-					WHERE odba_id IN (#{bulk_fetch_ids.join(',')})
-				SQL
-				@dbi.select_all(sql)
+				bulk_fetch_ids = bulk_fetch_ids.uniq
+				rows = []
+				while(!(ids = bulk_fetch_ids.slice!(0, BULK_FETCH_STEP)).empty?)
+					sql = <<-SQL
+						SELECT odba_id, content FROM object 
+						WHERE odba_id IN (#{ids.join(',')})
+					SQL
+					rows.concat(@dbi.select_all(sql))
+				end
+				rows
 			end
 		end
 		def create_dictionary_map(language)
@@ -122,17 +117,19 @@ module ODBA
 				SELECT target_id FROM object_connection 
 				WHERE origin_id = ?
 			SQL
-			update_ids = target_ids.uniq
+			target_ids.uniq!
 			if(rows = @dbi.select_all(sql, origin_id))
-				old_ids = rows.collect { |row| row[0].to_i }
+				old_ids = rows.collect { |row| row[0].to_i }.uniq
 				delete_ids = old_ids - target_ids
 				update_ids = target_ids - old_ids
 				unless(delete_ids.empty?)
-					sql = <<-SQL
-						DELETE FROM object_connection 
-						WHERE target_id IN (#{delete_ids.join(',')})
-					SQL
-					@dbi.execute(sql)
+					while(!(ids = delete_ids.slice!(0, BULK_FETCH_STEP)).empty?)
+						sql = <<-SQL
+							DELETE FROM object_connection 
+							WHERE target_id IN (#{ids.join(',')})
+						SQL
+						@dbi.execute(sql)
+					end
 				end
 			end
 			sth = @dbi.prepare <<-SQL
@@ -216,19 +213,6 @@ module ODBA
 			@next_id += 1
 		end
 		def remove_dead_connections(min_id, max_id)
-=begin
-			sth = @dbi.prepare <<-EOQ
-				DELETE FROM object_connection
-				WHERE origin_id BETWEEN ? AND ?
-				AND (origin_id NOT IN 
-				(
-					SELECT odba_id 
-					FROM object 
-					WHERE odba_id BETWEEN ? AND ?
-				) 
-				OR target_id NOT IN (SELECT odba_id FROM object))
-			EOQ
-=end
 			sth = @dbi.prepare <<-EOQ
 				DELETE FROM object_connection
 				WHERE origin_id BETWEEN ? AND ?
@@ -245,59 +229,27 @@ module ODBA
 			)
 			EOQ
 			sth.execute(min_id, max_id)
-=begin
-				DELETE FROM object_connection 
-				WHERE target_id NOT IN 
-				( SELECT odba_id FROM object)
-				OR origin_id NOT IN 
-				( SELECT odba_id FROM object)
-				AND origin_id BETWEEN ? AND ?
-=end
-=begin
-			rows_target = @dbi.select_all("select target_id from object_connection left join object on object.odba_id = target_id where odba_id is null")
-			rows_origin = @dbi.select_all("select origin_id from object_connection left join object on object.odba_id = origin_id where odba_id is null")
-			total_rows = rows_target.concat(rows_origin)
-			total_rows.each { |row|
-				id = row.first
-				sth = @dbi.prepare("delete from object_connection where target_id = ? or origin_id = ?");
-				sth.execute(id, id)
-			}
-=end
+			#if(rows = sth.rows)
+			#	warn("deleted #{rows} dead connections")
+			#end
 		end
 		def remove_dead_objects(min_id, max_id)
-			# remove all objects which are not being linked to 
-=begin
-			sth = @dbi.prepare <<-EOQ
-			DELETE FROM object
-			WHERE odba_id IN ( 
-				SELECT object.odba_id FROM object_connection 
-				RIGHT JOIN object ON 
-					(object.odba_id BETWEEN ? AND ?)
-				AND ((object_connection.origin_id BETWEEN ? AND ?) 
-				OR (object_connection.target_id BETWEEN ? AND ?)) 
-				AND ((object_connection.origin_id = object.odba_id) 
-				OR (object_connection.target_id = object.odba_id)) 
-				WHERE target_id IS null
-			)
-			AND odba_id BETWEEN ? AND ?
-			EOQ
-=end
+			# remove all objects which are not being linked to and have no name
 			sth = @dbi.prepare <<-EOQ
 			DELETE FROM object
 			WHERE (
 				SELECT DISTINCT target_id 
 				FROM object_connection 
 				WHERE target_id=odba_id
+				AND origin_id!=odba_id
 			) IS NULL
+			AND name IS NULL
 			AND odba_id BETWEEN ? AND ?
 			EOQ
 			sth.execute(min_id, max_id)
-=begin
-			unless(rows.first.nil?)
-				sth = @dbi.prepare("delete from object where odba_id in (#{rows.join(',')})");
-				sth.execute
-			end
-=end
+			#if(rows = sth.rows)
+			#	warn("deleted #{rows} dead objects")
+			#end
 		end
 		def remove_dictionary(language)
 			@dbi.execute <<-SQL
@@ -328,12 +280,11 @@ module ODBA
 			term = search_term.gsub(/\s+/, '&').gsub(/[():]/i, 
 				'\\ \\&').gsub(/\s/, '')
 	    sql = <<-EOQ
-				SELECT odba_id, content,
-				max(rank(search_term, to_tsquery(?, ?))) AS relevance
-				FROM object INNER JOIN #{index_name} 
-				ON odba_id = #{index_name}.target_id 
+				SELECT target_id, 
+					max(rank(search_term, to_tsquery(?, ?))) AS relevance
+				FROM #{index_name} 
 				WHERE search_term @@ to_tsquery(?, ?) 
-				GROUP BY odba_id, content
+				GROUP BY target_id
 				ORDER BY relevance DESC
 			EOQ
 			@dbi.select_all(sql, dict, term, dict, term)
@@ -348,19 +299,17 @@ module ODBA
 				search_term = search_term + "%"
 			end
 			sql = <<-EOQ
-				SELECT DISTINCT odba_id, content 
-				FROM object 
-				INNER JOIN #{index_name} 
-				ON odba_id=#{index_name}.target_id 
+				SELECT DISTINCT target_id
+				FROM #{index_name} 
 				WHERE search_term LIKE ?
 			EOQ
-			rows = @dbi.select_all(sql, search_term.downcase)	 
+			@dbi.select_all(sql, search_term.downcase)	 
 		end
 		def restore_collection(odba_id)
 			rows = @dbi.select_all <<-EOQ
 				SELECT key, value FROM collection WHERE odba_id = #{odba_id}
 			EOQ
-			rows unless(rows.nil?)
+			rows
 		end
 		def restore_named(name)
 			row = @dbi.select_one("SELECT content FROM object WHERE name = ?", 
@@ -371,7 +320,7 @@ module ODBA
 			rows = @dbi.select_all <<-EOQ
 				SELECT odba_id, content FROM object WHERE prefetchable = true
 			EOQ
-			rows unless(rows.nil?)
+			rows
 		end
 		def store(odba_id, dump, name, prefetchable)
 			sth = @dbi.prepare("SELECT update_object(?, ?, ?, ?)")

@@ -1,6 +1,9 @@
 #!/usr/bin/env ruby
 # FlatFileStorage -- odba -- 12.08.2004 -- hwyss@ywesee.com
 
+
+# TODO: remove this file, it's not in use and unmaintained
+
 require 'fileutils'
 
 module ODBA

@@ -22,6 +22,7 @@ module ODBA
 			@storage.dbi = dbi
 			dbi.__next(:select_all) { |query|
 				assert_not_nil(query.index('IN (1,23,4)'))
+				[]
 			}
 			@storage.bulk_restore(array)
 			dbi.__verify
@@ -177,7 +178,7 @@ module ODBA
 			sth = Mock.new
 			@storage.dbi = dbi
 			dbi.__next(:select_all) { |sql, search|
-				assert_not_nil(sql.index("INNER JOIN bar"))
+				assert_not_nil(sql.index("SELECT DISTINCT target_id"))
 				sth	
 			}
 			@storage.retrieve_from_index("bar","foo")
@@ -220,39 +221,6 @@ module ODBA
 			@storage.delete_index_element("foo", 2)
 			dbi.__verify
 			sth.__verify
-		end
-=begin
-		def test_update_index
-			dbi = Mock.new("dbi")
-			sth = Mock.new
-			@storage.dbi = dbi
-			dbi.__next(:prepare){|sql|
-				assert_not_nil(sql.index(""))
-				sth
-			}
-			sth.__next(:execute){|search_term, origin_id|
-				assert_equal(search_term, "foobar")
-				assert_equal(origin_id, 1)
-			}
-			@storage.update_index("foo", 1, "foobar")
-		end
-=end
-		def test_add_object_connection
-				dbi = Mock.new("dbi")
-				sth = Mock.new("sth")
-				@storage.dbi = dbi
-				rows = [[0]]
-				dbi.__next(:prepare){ |query| 
-					assert_equal('SELECT ensure_object_connection(?, ?)', query)
-					sth
-				}
-				sth.__next(:execute){ |origin, target|
-					assert_equal(1, origin)
-					assert_equal(3, target)
-				}
-				@storage.add_object_connection(1, 3)
-				dbi.__verify
-				sth.__verify
 		end
 		def test_retrieve_connected_objects
 			dbi = Mock.new("dbi")

@@ -12,6 +12,9 @@ module ODBA
 			@odba_container = odba_container
 			@odba_class = receiver.class unless receiver.nil? 
 		end
+		def class
+			@odba_class || odba_instance.class
+		end
 		def eql?(other)
 			other.is_a?(Persistable) && other.odba_id == @odba_id
 		end
@@ -19,14 +22,11 @@ module ODBA
 			@odba_id.to_i
 		end
 		def is_a?(klass)
-			if([Stub, Persistable, @odba_class].include?(klass))
-				true
-			else
-				odba_replace
-				@receiver.is_a?(klass)
-			end
+			[Stub, Persistable, @odba_class].include?(klass) \
+				|| odba_instance.is_a?(klass)
 		end
 		def method_missing(meth_symbol, *args, &block)
+=begin
 			if(@odba_class \
 				&& @odba_class::ODBA_CACHE_METHODS.include?(meth_symbol) \
 				&& (res = ODBA.scalar_cache.fetch(@odba_id, meth_symbol)))
@@ -35,6 +35,8 @@ module ODBA
 				odba_replace
 				@receiver.send(meth_symbol, *args, &block)
 			end
+=end
+			odba_instance.send(meth_symbol, *args, &block)
 		end
 		def odba_instance
 			odba_replace
@@ -47,6 +49,7 @@ module ODBA
 		end
 		def odba_replace(name=nil)
 			if(@receiver.nil?)
+				$stdout.flush
 				begin
 					@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
 					if(@odba_container)
@@ -64,8 +67,8 @@ module ODBA
 			false
 		end
 		no_override = [
-			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", 
-			"nil?", "respond_to?", "odba_id",
+			"class", "dup", "is_a?", "__id__", "__send__", "inspect", "hash",
+			"eql?", "nil?", "respond_to?", "odba_id", 
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
@@ -84,6 +87,8 @@ module ODBA
 				@receiver.respond_to?(meth)
 			end
 		end
+		## FIXME
+		#  implement full hash/array access - separate collection stub?
 		def [](*args, &block)
 			elm = if(@odba_class == Hash)
 				ODBA.cache_server.fetch_collection_element(@odba_id, args.first)
