@@ -5,6 +5,12 @@ class Object
 	def odba_instance
 		self
 	end
+	#defined here for fetch_collection fetch in cache_server
+	def odba_id
+	end
+	def odba_isolated_stub
+		self
+	end
 end
 module ODBA
 	class Stub; end
@@ -38,6 +44,9 @@ module ODBA
 				end
 			}.compact
 		end
+		def odba_collection
+			[]
+		end
 		def odba_cut_connection(remove_object)
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
@@ -54,10 +63,6 @@ module ODBA
 		def odba_id
 			@odba_id ||= ODBA.storage.next_id
 		end
-		def odba_isolated_store
-			@odba_persistent = true
-			ODBA.cache_server.store(self)
-		end		
 		def odba_isolated_dump
 			# ensure a valid odba_id
 			self.odba_id
@@ -66,6 +71,13 @@ module ODBA
 			twin.odba_replace_excluded!
 			@odba_target_ids = twin.odba_target_ids
 			ODBA.marshaller.dump(twin)
+		end
+		def odba_isolated_store
+			@odba_persistent = true
+			ODBA.cache_server.store(self)
+		end		
+		def odba_isolated_stub
+			Stub.new(self.odba_id, nil, self)
 		end
 		def odba_prefetch?
 			@odba_prefetch || self::class::ODBA_PREFETCH
@@ -119,7 +131,7 @@ module ODBA
 				}
 			end
 		end
-		def odba_restore
+		def odba_restore(collection=[])
 		end
 		def odba_serializables
 			self::class::ODBA_PREDEFINE_SERIALIZABLE \
@@ -218,6 +230,13 @@ class Array
 	def include?(obj)
 		super || (obj.is_a?(ODBA::Stub) && super(obj.receiver))
 	end
+	def odba_collection
+		coll = []
+		each_with_index { |item, index|
+			coll.push([index, item])	
+		}
+		coll
+	end
 	def odba_cut_connection(remove_object)
 		super(remove_object)
 		delete_if { |val| val.eql?(remove_object) }
@@ -231,6 +250,7 @@ class Array
 	def odba_replaceable?(var, name)
 		!empty? && super(var, name)
 	end
+=begin
 	def odba_replace_persistables
 		super
 		each_with_index { |item, idx|
@@ -242,7 +262,12 @@ class Array
 			end
 		}
 	end
-	def odba_restore
+=end
+def odba_replace_persistables
+	super
+	clear
+end
+	def odba_restore(collection=[])
 		bulk_fetch_ids = []
 		each { |item|
 			if(item.is_a?(ODBA::Stub))
@@ -259,6 +284,9 @@ class Array
 				item.odba_replace
 				self[idx] = item.receiver
 			end
+		}
+		collection.each { |key, val| 
+			self[key] = val
 		}
 	end
 	def odba_unsaved_neighbors(snapshot_level = nil)
@@ -294,6 +322,9 @@ class Hash
 			key.eql?(remove_object) || val.eql?(remove_object)
 		}
 	end
+	def odba_collection
+		self.to_a
+	end
 	def odba_prefetch?
 		any? { |item|
 			item.respond_to?(:odba_prefetch?) \
@@ -303,6 +334,7 @@ class Hash
 	def odba_replaceable?(var, name)
 		!empty? && super(var, name)
 	end
+=begin
 	def odba_replace_persistables
 		super
 		self.each {|key, value|
@@ -320,6 +352,14 @@ class Hash
 			end
 		}
 	end
+=end
+#=begin
+	def odba_replace_persistables
+		super
+		clear
+	end
+#=end
+=begin
 	def odba_restore
 		bulk_fetch_ids = []
 		self.each { |key, value|
@@ -344,6 +384,36 @@ class Hash
 			end
 		}
 	end
+=end
+	#=begin
+def odba_restore(collection=[])
+	bulk_fetch_ids = []
+	self.each { |key, value|
+		if(value.is_a?(ODBA::Stub))
+			bulk_fetch_ids.push(value.odba_id)
+		end
+		if(key.is_a?(ODBA::Stub))
+			bulk_fetch_ids.push(key.odba_id)
+		end
+	}
+	ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
+	self.each { |key, value|
+		if(value.is_a?(ODBA::Stub))
+			value.odba_replace
+			value = value.receiver
+			self[key] = value
+		end
+		if(key.is_a?(ODBA::Stub))
+			delete(key)
+			key.odba_replace
+			store(key.receiver, value)
+		end
+	}
+	collection.each { |key, val| 
+		self[key] = val
+	}
+	end
+	#=end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved? \
