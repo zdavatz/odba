@@ -175,7 +175,10 @@ module ODBA
 		def delete_old
 			@hash.each { |key, value|
 				if(value.ready_to_destroy?)
-					update_scalar_cache(value.odba_id, value.odba_cache_entries)
+					# the following is possible because we have already decided to
+					# delete this cache_entry
+					obj = value.odba_object
+					update_scalar_cache(obj.odba_id, obj.odba_cache_entries)
 					@hash.delete(key)
 				end
 			}

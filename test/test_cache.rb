@@ -211,13 +211,16 @@ module ODBA
 		end
 		def test_delete_old
 			value = Mock.new("value")
+			obj = Mock.new('object')
 			@cache.hash.store(12, value)
 			assert_equal(1, @cache.hash.size)
 			value.__next(:ready_to_destroy?) { true }
-			value.__next(:odba_id) { 2 }
-			value.__next(:odba_cache_entries) { {} }
+			value.__next(:odba_object) { obj }
+			obj.__next(:odba_id) { 12 }
+			obj.__next(:odba_cache_entries) { {} }
 			@cache.delete_old
 			value.__verify
+			obj.__verify
 			assert_equal(0, @cache.hash.size)
 		end
 		def test_fetch_named_block
