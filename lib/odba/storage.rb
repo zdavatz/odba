@@ -122,7 +122,7 @@ module ODBA
 				SELECT target_id FROM object_connection 
 				WHERE origin_id = ?
 			SQL
-			update_ids = target_ids
+			update_ids = target_ids.uniq
 			if(rows = @dbi.select_all(sql, origin_id))
 				old_ids = rows.collect { |row| row[0].to_i }
 				delete_ids = old_ids - target_ids
