@@ -1,3 +1,4 @@
+# rwaltert@ywesee.com mwalder@ywesee.com
 #!/usr/bin/env ruby
 
 require 'singleton'
