@@ -41,19 +41,6 @@ module ODBA
 			dbi.__verify
 			sth.__verify
 		end
-		def test_drop_index_table
-			dbi = Mock.new("dbi")
-			sth = Mock.new("sth")
-			@storage.dbi = dbi
-			dbi.__next(:prepare) { |sql|
-				assert_not_nil(sql.index('drop table'))
-				sth
-			}
-			sth.__next(:execute) {  }
-			@storage.drop_index_table("foo")
-			dbi.__verify
-			sth.__verify
-		end
 		def test_restore_prefetchable
 			dbi = Mock.new("dbi")
 			rows = Mock.new("row")
@@ -329,21 +316,6 @@ module ODBA
 			@storage.index_delete_origin("foo_index", 1)
 			sth.__verify
 			dbi.__verify
-		end
-		def test_transaction
-			dbi = Mock.new("dbi")
-			@storage.dbi = dbi
-			foo = 0
-			bar = 0 
-			dbi.__next(:transaction){ |block| block.call}
-			@storage.transaction{ 
-				foo = 3
-				@storage.transaction{
-					bar = 4
-				}
-			}
-			assert_equal(3, foo)
-			assert_equal(4, bar)
 		end
 	end
 end

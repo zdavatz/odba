@@ -39,7 +39,7 @@ module ODBA
 		def odba_id
 			@odba_id ||= ODBA.storage.next_id
 		end
-		def odba_isolated_dump
+		def odba_isolated_store
 			@odba_persistent = true
 			ODBA.cache_server.store(self)
 		end		

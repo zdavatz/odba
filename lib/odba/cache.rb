@@ -97,7 +97,7 @@ module ODBA
 				index = Index.new(index_name, origin_klass, target_klass, mthd, resolve_target, resolve_origin)
 				self.indices.store(index_name, index)
 				puts "store self.indices"
-				self.indices.odba_store('__cache_server_indices__')
+				self.indices.odba_store_unsaved
 				puts "store index"
 				index
 			}
@@ -141,19 +141,20 @@ module ODBA
 			}
 		end
 		def drop_index(index_name)
+			puts "before transaction"
 			ODBA.transaction {
+				puts "in transaction"
 				ODBA.storage.drop_index(index_name)
 				self.delete(self.indices[index_name]) #.odba_delete
 				puts "index #{index_name} deleted"
 			}
 		end
 		def drop_indices
-			ODBA.transaction {
 				keys = self.indices.keys
 				keys.each{ |key|
+					puts "before drop_index"
 					drop_index(key)
 				}
-			}
 		end
 		def fetch(odba_id, odba_caller)
 			cache_entry = @hash.fetch(odba_id) {
