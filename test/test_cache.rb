@@ -498,11 +498,13 @@ module ODBA
 		def test_update_indices
 			index = Mock.new("index")
 			bar = Mock.new("bar")
-			bar.__next(:odba_indexable?){ true}
+			bar.__next(:odba_indexable?){ true }
 			@cache.indices = {
 				"foo" => index
 			}
-			index.__next(:update){|obj|}
+			index.__next(:update){ |obj|
+				assert_equal(bar, obj)
+			}
 			@cache.update_indices(bar)
 			bar.__verify
 			index.__verify
@@ -571,6 +573,9 @@ module ODBA
 				object.__next(:odba_name) { }
 				object.__next(:odba_target_ids) { [1] }
 				object.__next(:odba_id) { 12 }
+				ODBA.storage.__next(:transaction) { |block|
+					block.call
+				}
 				ODBA.storage.__next(:store) { |*args|
 					assert_equal([12, 'dump', nil, false], args)
 				}
@@ -604,6 +609,9 @@ module ODBA
 				object.__verify
 				assert_equal({}, @cache.batch_objects)
 				object.__next(:odba_id) { 12 }
+				ODBA.storage.__next(:transaction) { |block|
+					block.call
+				}
 				ODBA.storage.__next(:delete_persistable) { |odba_id| 
 					assert_equal(12, odba_id)	
 				}
