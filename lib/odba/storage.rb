@@ -270,8 +270,10 @@ module ODBA
 			warn("returning empty result")
 			[]
 		end
-		def retrieve_from_index(index_name, search_term)
-			search_term = search_term + "%"
+		def retrieve_from_index(index_name, search_term, exact=nil)
+			unless(exact)
+				search_term = search_term + "%"
+			end
 			sql = <<-EOQ
 				SELECT DISTINCT odba_id, content 
 				FROM object 

@@ -126,7 +126,8 @@ module ODBA
 			ODBA.storage.create_index(index_definition.index_name)
 		end
 		def retrieve_data(search_term, meta=nil)
-			ODBA.storage.retrieve_from_index(@index_name, search_term)
+			exact = meta.respond_to?(:exact) && meta.exact
+			ODBA.storage.retrieve_from_index(@index_name, search_term, exact)
 		end
 	end
 	class FulltextIndex < IndexCommon
