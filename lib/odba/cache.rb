@@ -6,19 +6,14 @@ require 'delegate'
 require 'tmail'
 require 'net/smtp'
 require 'date'
+
 module ODBA
 	class Cache < SimpleDelegator
 		include Singleton
+		CLEANER_PRIORITY = -1
 		CLEANING_INTERVAL = 900
 		REAPER_ID_STEP = 1000
 		REAPER_INTERVAL = 60
-		MAIL_FROM = 'odba@ywesee.com'
-		MAIL_RECIPIENTS=[
-			"hwyss@ywesee.com",
-			"rwaltert@ywesee.com",
-			"mwalder@ywesee.com",
-		]
-		SMTP_SERVER = 'mail.ywesee.com'
 		attr_reader :batch_threads
 		def initialize
 			if(self::class::CLEANING_INTERVAL > 0)
@@ -109,14 +104,21 @@ module ODBA
 		end
 		def clean
 			delete_old
+			cleaned = 0
 			@hash.each { |key, value|
 				@batch_queue_mutex.synchronize { 
 					if(value.odba_old? \
 						&& !(@batch_mode && @batch_objects.has_key?(value.odba_id)))
+						cleaned += 1
 						value.odba_retire
 					end
 				}
 			}
+			puts "cleaned: #{cleaned} objects"
+			puts "total loaded: #{@hash.size} objects"
+			count = ObjectSpace.each_object { |obj|  }
+			puts "ObjectSpace: #{count} objects"
+			puts "uncached objects: #{count - @hash.size}"
 		end
 		def reap_object_connections
 			@reaper_min_id += REAPER_ID_STEP
@@ -190,8 +192,10 @@ module ODBA
 			}
 		end
 		def delete_old
+			deleted = 0
 			@hash.each { |key, value|
 				if(value.ready_to_destroy?)
+					deleted += 1
 					# the following is possible because we have already decided to
 					# delete this cache_entry
 					obj = value.odba_object
@@ -199,6 +203,7 @@ module ODBA
 					@hash.delete(key)
 				end
 			}
+			puts "deleted: #{deleted} objects"
 		end
 		def drop_index(index_name)
 			ODBA.transaction {
@@ -265,7 +270,7 @@ module ODBA
 		end
 		def start_cleaner
 			@cleaner = Thread.new {
-				Thread.current.priority = -5
+				Thread.current.priority = self::class::CLEANER_PRIORITY
 				loop {
 					sleep(self::class::CLEANING_INTERVAL)
 					begin
