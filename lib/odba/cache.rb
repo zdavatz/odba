@@ -228,7 +228,7 @@ module ODBA
 				unless(cache_values.empty?)
 					puts "call from cache"
 					ODBA.scalar_cache.update(cache_values)
-					ODBA.scalar_cache.odba_isolated_store
+					#			ODBA.scalar_cache.odba_isolated_store
 				end
 				dump = object.odba_isolated_dump
 				name = object.odba_name

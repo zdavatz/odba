@@ -389,6 +389,7 @@ module ODBA
 			ODBA.marshaller.__next(:dump){}
 			ODBA.storage.__next(:store){}
 			ODBA.marshaller.__next(:dump){}
+			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:add_object_connection){}
 			ODBA.storage.__next(:store){}
 			@cache.create_index(index_def_mock, ODBA)
@@ -514,6 +515,7 @@ module ODBA
 			ODBA.storage.__verify
 		end
 		def test_drop_index
+			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call }
 			ODBA.storage.__next(:drop_index){|index_name|
 				assert_equal("foo_index", index_name)
@@ -527,6 +529,7 @@ module ODBA
 			ODBA.storage.__verify
 		end
 		def test_drop_indices
+			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			
 			ODBA.storage.__next(:drop_index){|index_name|

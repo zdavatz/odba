@@ -44,6 +44,7 @@ module ODBA
 		@odba_mutex.synchronize{
 			ODBA.storage.transaction {
 				block.call
+				self.scalar_cache.odba_isolated_store
 			}
 		}
 	end
