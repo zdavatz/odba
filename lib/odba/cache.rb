@@ -108,11 +108,11 @@ module ODBA
 					end
 				}
 			}
-			puts "cleaned: #{cleaned} objects"
-			puts "total loaded: #{@hash.size} objects"
+			#puts "cleaned: #{cleaned} objects"
+			#puts "total loaded: #{@hash.size} objects"
 			count = ObjectSpace.each_object { |obj|  }
-			puts "ObjectSpace: #{count} objects"
-			puts "uncached objects: #{count - @hash.size}"
+			#puts "ObjectSpace: #{count} objects"
+			#puts "uncached objects: #{count - @hash.size}"
 		end
 		def reap_object_connections
 			@reaper_min_id += REAPER_ID_STEP
@@ -197,7 +197,7 @@ module ODBA
 					@hash.delete(key)
 				end
 			}
-			puts "deleted: #{deleted} objects"
+			#puts "deleted: #{deleted} objects"
 		end
 		def drop_index(index_name)
 			ODBA.transaction {
@@ -326,19 +326,19 @@ module ODBA
 			odba_id = object.odba_id
 			update_scalar_cache(odba_id, object.odba_cache_values)
 			dump = object.odba_isolated_dump
-			puts "starting to store collection elements"
+			#puts "starting to store collection elements"
 			store_collection_elements(object)
-			puts "collection elements stored"
+			#puts "collection elements stored"
 			name = object.odba_name
 			prefetchable = object.odba_prefetch?
 			ODBA.storage.store(odba_id, dump, name, prefetchable)
-			puts "object stored"
+			#puts "object stored"
 			# call update_indices both from store_direct and from store_batched
 			# to ensure immediate and long-term index consistency
 			update_indices(object)
-			puts "indices updated"
+			#puts "indices updated"
 			store_object_connections(object)
-			puts "connections stored" 
+			#puts "connections stored" 
 			store_cache_entry(odba_id, object, name)
 		end
 		def store_batched(object)
@@ -386,7 +386,7 @@ module ODBA
 		def store_object_connections(object)
 			name = object.odba_name
 			target_ids = object.odba_target_ids
-			puts "#{target_ids.size} target_ids"
+			#puts "#{target_ids.size} target_ids"
 			origin_id = object.odba_id
 			unless(name.nil?)
 				target_ids.push(origin_id)
