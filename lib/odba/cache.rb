@@ -55,6 +55,8 @@ module ODBA
 			rows.each { |row|
 				dump = row.first
 				obj = restore_object(dump)
+				puts " object class"
+				puts obj.class
 				retrieved_objects.push(obj)
 				if(entry = @hash[obj.odba_id])
 					entry.odba_add_reference(odba_caller)

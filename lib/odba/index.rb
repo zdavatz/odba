@@ -23,7 +23,8 @@ module ODBA
 					src = <<-EOS
 						Proc.new { |odba_item| 
 							puts odba_item.#{@resolve_origin}
-							res = [odba_item.#{@resolve_origin}].flatten!
+							res = [odba_item.#{@resolve_origin}]
+							res.flatten!
 							res.compact!
 							res
 						}
@@ -41,7 +42,8 @@ module ODBA
 				else
 					src = <<-EOS
 						Proc.new { |odba_item| 
-							res = [odba_item.#{@resolve_target}].flatten!
+							res = [odba_item.#{@resolve_target}]
+							res.flatten!
 							res.compact!
 							res
 						}
