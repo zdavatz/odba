@@ -4,11 +4,11 @@
 
 module ODBA
 	class ScalarCache
+		include Persistable
 		ODBA_INDEXABLE = false
 		ODBA_PREFETCH = true
 		ODBA_SERIALIZABLE = ['@scalar_cache']
 		attr_reader :scalar_cache
-		include Persistable
 		def initialize
 			@scalar_cache = Hash.new
 		end

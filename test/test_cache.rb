@@ -389,7 +389,7 @@ module ODBA
 			ODBA.marshaller.__next(:dump){}
 			ODBA.storage.__next(:store){}
 			ODBA.marshaller.__next(:dump){}
-			ODBA.scalar_cache.__next(:odba_isolated_store){}
+			#ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:add_object_connection){}
 			ODBA.storage.__next(:store){}
 			@cache.create_index(index_def_mock, ODBA)
@@ -546,4 +546,3 @@ module ODBA
 		end
 	end
 end
-

@@ -226,9 +226,7 @@ module ODBA
 				odba_id = object.odba_id
 				cache_values = object.odba_cache_values
 				unless(cache_values.empty?)
-					puts "call from cache"
 					ODBA.scalar_cache.update(cache_values)
-					#			ODBA.scalar_cache.odba_isolated_store
 				end
 				dump = object.odba_isolated_dump
 				name = object.odba_name
@@ -258,9 +256,9 @@ module ODBA
 			end
 		end
 		def update_indices(odba_object)
-			puts "UPDATING INDEX:"
+			#puts "UPDATING INDEX:"
 			klass = odba_object.class
-			puts "klass #{klass}"
+			#	puts "klass #{klass}"
 			if(odba_object.odba_indexable?)
 				indices.each { |index_name, index|
 					index.update(odba_object)

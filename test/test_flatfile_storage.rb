@@ -35,20 +35,20 @@ module ODBA
 			assert_equal(expected, File.read(datafile))
 		end
 		def test_store
-			@storage.store(1,"foodump", "foo", true)
+			@storage.store(1,"foodump", nil, true)
 			@storage.flush
 			assert(File.exist?(@datadir), "datadir was not created")
 			datafile = File.expand_path('object.csv', @datadir)
 			assert(File.exist?(datafile), "datafile was not created")
 			expected = <<-EOF
-1	foodump	foo	true
+1	foodump	\\N	true
 			EOF
 			assert_equal(expected, File.read(datafile))
-			@storage.store(2,"bardump", nil, false)
-			@storage.flush
+			@storage.store(2, "bardump", "bar", false)
+			@storage.close
 			expected = <<-EOF
-1	foodump	foo	true
-2	bardump	\\N	false
+1	foodump	\\N	true
+2	bardump	bar	false
 			EOF
 			assert_equal(expected, File.read(datafile))
 		end

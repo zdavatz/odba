@@ -149,7 +149,7 @@ module ODBA
 		end
 		def odba_store(name = nil)
 			#puts "#{name} started transaction"
-			#ODBA.transaction {
+			ODBA.transaction {
 				begin
 					unless (name.nil?)
 						old_name = @odba_name
@@ -161,7 +161,7 @@ module ODBA
 					@odba_name = old_name
 					raise
 				end
-				#}
+			}
 			#puts "#{name} completed transaction"
 		end
 		def odba_take_snapshot
@@ -233,7 +233,13 @@ module ODBA
 end
 class Array
 	include ODBA::Persistable
-	ODBA_CACHE_METHODS = [:length, :size]
+	ODBA_CACHE_METHODS = [:length, :size, :empty?]
+=begin
+#TODO: I can't really believe this does anything good.. what's this for?
+	def <=>(obj)
+		super || (obj.is_a?(ODBA::Stub) && super(obj.receiver))
+	end
+=end
 	def include?(obj)
 		super || (obj.is_a?(ODBA::Stub) && super(obj.receiver))
 	end
@@ -307,7 +313,7 @@ class Array
 end
 class Hash
 	include ODBA::Persistable
-	ODBA_CACHE_METHODS = [:length, :size]
+	ODBA_CACHE_METHODS = [:length, :size, :empty?]
 	def odba_cut_connection(remove_object)
 		super(remove_object)
 		delete_if{|key, val|
