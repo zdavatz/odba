@@ -42,6 +42,7 @@ module ODBA
 			ODBA.marshaller = Mock.new("marshaller")
 			@odba  = ODBAContainer.new
 			ODBA.cache_server = Mock.new("cache_server")
+			ODBA.scalar_cache = Mock.new("scalar")
 		end
 		def test_odba_id
 			ODBA.storage.__next(:next_id) { ||
@@ -59,6 +60,7 @@ module ODBA
 		def test_odba_delete
 			odba_container = ODBAContainer.new
 			odba_container.odba_id = 2
+			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:delete) { |object|
 				assert_equal(odba_container, object)
@@ -307,6 +309,7 @@ module ODBA
 		end
 		def test_odba_dump_has_id
 			@odba.odba_id = nil
+			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.storage.__next(:next_id) { 1 }
 			ODBA.marshaller = Marshal
@@ -321,6 +324,7 @@ module ODBA
 			@odba.odba_name = "foo"
 			cache_server = Mock.new
 			ODBA.cache_server = cache_server
+			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			cache_server.__next(:store) { |dump|
 				raise DBI::ProgrammingError
@@ -336,6 +340,7 @@ module ODBA
 			@odba.odba_name = "foo"
 			cache_server = Mock.new
 			ODBA.cache_server = cache_server
+			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			cache_server.__next(:store) { |dump| }
 			@odba.odba_store('bar')
