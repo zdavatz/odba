@@ -26,7 +26,8 @@ module ODBA
 			@odba_object
 		end
 		def odba_old?
-			Time.now - @last_access > self::class::RETIRE_TIME
+			!@odba_object.odba_unsaved? \
+				&& Time.now - @last_access > self::class::RETIRE_TIME
 		end
 		def odba_retire
 			#replace with stubs in accessed_by 
@@ -43,8 +44,8 @@ module ODBA
 			@accessed_by = keep
 		end
 		def ready_to_destroy?
-			((Time.now - @last_access) > self::class::DESTROY_TIME) \
-				&& @accessed_by.empty?
+			!@odba_object.odba_unsaved? && @accessed_by.empty? \
+				&& ((Time.now - @last_access) > self::class::DESTROY_TIME) 
 		end
 	end
 end

@@ -102,12 +102,17 @@ module ODBA
 		end
 		def delete_persistable(odba_id)
 			sql = <<-SQL
-				DELETE FROM object WHERE odba_id = ?
+				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
 			SQL
 			sth = @dbi.prepare(sql)
 			sth.execute(odba_id)
 			sql = <<-SQL
-				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
+				DELETE FROM collection WHERE odba_id = ?
+			SQL
+			sth = @dbi.prepare(sql)
+			sth.execute(odba_id)
+			sql = <<-SQL
+				DELETE FROM object WHERE odba_id = ?
 			SQL
 			sth = @dbi.prepare(sql)
 			sth.execute(odba_id)
