@@ -23,7 +23,9 @@ module ODBA
 					src = <<-EOS
 						Proc.new { |odba_item| 
 							puts odba_item.#{@resolve_origin}
-							[odba_item.#{@resolve_origin}].flatten.compact
+							res = [odba_item.#{@resolve_origin}].flatten!
+							res.compact!
+							res
 						}
 					EOS
 					puts src
@@ -39,7 +41,9 @@ module ODBA
 				else
 					src = <<-EOS
 						Proc.new { |odba_item| 
-							[odba_item.#{@resolve_target}].flatten.compact
+							res = [odba_item.#{@resolve_target}].flatten!
+							res.compact!
+							res
 						}
 					EOS
 									puts src
@@ -59,9 +63,12 @@ module ODBA
 		end
 		def search_term(odba_obj)
 			if(odba_obj.respond_to?(@search_term_mthd))
-				puts "fooooooo"
-				odba_obj.send(@search_term_mthd)
+				puts "responding"
+				search_trm = odba_obj.send(@search_term_mthd)
+				puts search_trm
+				search_trm
 			else
+				puts "doing to s"
 				odba_obj.to_s
 			end
 		end
@@ -89,7 +96,7 @@ module ODBA
 					rows << [origin.odba_id, value, target_id]
 =end
 					do_update_index( origin.odba_id, 
-						search_term(origin), target_id)
+						self.search_term(origin), target_id)
 					puts "origin is a"
 					puts origin.class
 					#self.update_origin(origin)
