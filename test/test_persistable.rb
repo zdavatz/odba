@@ -266,49 +266,51 @@ module ODBA
 			@odba.instance_variable_set("@odba_persistent", false)
 			assert_equal(true, @odba.odba_unsaved?)
 		end
-=begin
-		def test_odba_isolated_dump
-			#pain in the a... test wont run!
+		def test_odba_target_ids
 			replaceable = StubMock.new("rep")
 			replaceable2 = StubMock.new("rep2")
 			@odba.replaceable = replaceable
 			@odba.replaceable2 = replaceable2
-			
-			#only 4 expected calls because after the duplication
-			# the calls will be made on ODBA::Stub objects
 			replaceable.__next(:is_a?) { |arg| 
-				false # is_a?(Stub) from Persistable::dup
+				true # is_a?(Stub) from Persistable::dup
 			}
 			replaceable.__next(:is_a?) { |arg| 
-				true # is_a?(Persistable) from Persistable::odba_replaceable?
-			}
-			replaceable.__next(:is_a?) { |arg| 
-				false # is_a?(Stub) from Persistable::odba_replaceable?
+				false # is_a?(Persistable) from Persistable::odba_replaceable?
 			}
 			replaceable.__next(:odba_id) { 12 }
-			replaceable.__next(:is_a?) { |arg| true }
-
-			replaceable2.__next(:is_a?) { |arg| false }
-			replaceable2.__next(:is_a?) { |arg| true }
+			replaceable2.__next(:is_a?) { |arg| true}
 			replaceable2.__next(:is_a?) { |arg| false }
 			replaceable2.__next(:odba_id) { 13 }
-			replaceable2.__next(:is_a?) { |arg| false }
-			ODBA.storage.__next(:next_id){ 11 }
-			
-			ODBA.marshaller.__next(:dump) { |twin|
-				assert_equal(true, twin.replaceable.is_a?(Stub))
-				assert_equal(true, twin.replaceable2.is_a?(Stub))
-				"TheDump"
-			}
-			result = @odba.odba_isolated_dump
-			assert_equal(replaceable, @odba.replaceable)
-			assert_equal("TheDump", result)
 			expected = [12, 13]
 			assert_equal(expected, @odba.odba_target_ids.sort)
 			replaceable.__verify
 			replaceable2.__verify
 		end
-=end
+		def test_odba_isolated_dump
+			replaceable = StubMock.new("rep")
+			replaceable2 = StubMock.new("rep2")
+			@odba.replaceable = replaceable
+			@odba.replaceable2 = replaceable2
+			ODBA.storage.__next(:next_id){ 11 }
+
+			replaceable2.__next(:is_a?){false}
+			replaceable2.__next(:is_a?){true}
+			replaceable2.__next(:is_a?){false}
+			replaceable2.__next(:odba_id){ 12}
+
+			replaceable.__next(:is_a?){false}
+			replaceable.__next(:is_a?){true}
+			replaceable.__next(:is_a?){true}
+			ODBA.marshaller.__next(:dump) { |twin|
+				"TheDump"
+			}
+			result = @odba.odba_isolated_dump
+			assert_equal(replaceable, @odba.replaceable)
+			assert_equal(replaceable2, @odba.replaceable2)
+			assert_equal("TheDump", result)
+			replaceable.__verify
+			replaceable2.__verify
+		end
 		def test_odba_isolated_dump_2
 			tmp = ODBA.marshaller
 			ODBA.marshaller = ODBA::Marshal
