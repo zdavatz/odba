@@ -24,6 +24,8 @@ module ODBA
 			@receiver.send(meth_symbol, *args, &block)
 		end
 		def odba_replace(name=nil)
+			puts "odba_replace(#{name})"
+			puts caller[0,4]
 			if(@receiver.nil?)
 				begin
 					@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
@@ -33,8 +35,16 @@ module ODBA
 				end
 			end
 		end
+		def to_yaml(options = {})
+			YAML.quick_emit( self.__id__, options ) { |out|
+				out.map( '!ruby/object:ODBA::Stub' ) { |map|
+					map.add('odba_id', @odba_id)
+				}
+			}
+		end
 		no_override = [
-			"is_a?", "__id__", "__send__", "inspect", "hash"
+			"is_a?", "__id__", "__send__", "inspect", "hash", 
+			"to_yaml",
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
