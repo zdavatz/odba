@@ -100,6 +100,7 @@ module ODBA
 					instance_variable_set(name, stub)
 				end
 			}
+			@odba_target_ids.uniq!
 		end
 		def odba_replace_stubs(stub, substitution, name = nil)
 			if(name)
