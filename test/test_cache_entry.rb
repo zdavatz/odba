@@ -32,12 +32,45 @@ module ODBA
 		end
 		def test_ready_to_destroy_true
 			sleep(1)
-			@mock.__next(:odba_prefetch?){||false}
+			@mock.__next(:odba_prefetch?) { false }
 			assert_equal(true, @cache_entry.ready_to_destroy?)
 		end
-		def test_ready_to_destroy_false
-			@mock.__next(:odba_prefetch?){||true}
-			@cache_entry.accessed_by = ["foo"]
+		def test_ready_to_destroy_true__clean_prefetchable
+			eval <<-EOS
+				class ::ODBA::CacheEntry
+					remove_const :CLEAN_PREFETCHABLE
+					CLEAN_PREFETCHABLE = true
+				end
+			EOS
+			sleep(1)
+			@mock.__next(:odba_prefetch?) { true }
+			assert_equal(true, @cache_entry.ready_to_destroy?)
+		ensure
+			eval <<-EOS
+				class ::ODBA::CacheEntry
+					remove_const :CLEAN_PREFETCHABLE
+					CLEAN_PREFETCHABLE = false
+				end
+			EOS
+		end
+		def test_ready_to_destroy_false__age
+			@mock.__next(:odba_prefetch?) { false }
+			assert_equal(false, @cache_entry.ready_to_destroy?)
+		end
+		def test_ready_to_destroy_false__prefetch
+			sleep(1)
+			@mock.__next(:odba_prefetch?) { true }
+			assert_equal(false, @cache_entry.ready_to_destroy?)
+		end
+		def test_ready_to_destroy_false__accessed_by
+			sleep(1)
+			@mock.__next(:odba_prefetch?) { false }
+			@cache_entry.accessed_by = ['foo']
+			assert_equal(false, @cache_entry.ready_to_destroy?)
+		end
+		def test_ready_to_destroy_false__combined
+			@mock.__next(:odba_prefetch?) { true }
+			@cache_entry.accessed_by = ['foo']
 			assert_equal(false, @cache_entry.ready_to_destroy?)
 		end
 		def test_retire
