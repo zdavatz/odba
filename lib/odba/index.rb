@@ -1,7 +1,6 @@
 #!/usr/bin/env ruby
 # Index -- odba -- 13.05.2004 -- rwaltert@ywesee.com
 
-
 module ODBA
 	class IndexCommon
 		include Persistable

@@ -33,7 +33,7 @@ module ODBA
 		def odba_cut_connection(remove_object)
 			instance_variables.each { |name|
 				var = instance_variable_get(name)
-				if(var.equal?(remove_object))
+				if(var.eql?(remove_object))
 					instance_variable_set(name, nil)
 				end
 			}
@@ -80,7 +80,7 @@ module ODBA
 			}
 		end
 		def odba_replaceable?(var, name)
-			var.is_a?(ODBA::Persistable) \
+			var.is_a?(ODBA::Persistable) && (!var.is_a?(ODBA::Stub)) \
 				&& (!ODBA_PREDEFINE_SERIALIZABLE.include?(name) \
 				&& (!defined?(self::class::ODBA_SERIALIZABLE) \
 				|| !self::class::ODBA_SERIALIZABLE.include?(name))
@@ -88,17 +88,12 @@ module ODBA
 		end
 		def odba_replace_persistables
 			@odba_target_ids = []
-			#puts "odba_replace_persistables"
-			#puts self.class
 			instance_variables.each { |name|
 				var = instance_variable_get(name)
-				#odba_extend_enumerable(var)
 				if(odba_replaceable?(var, name))
-					#	puts "STUBING:"
-					#	puts name
-					#	puts var.odba_id
-					@odba_target_ids.push(var.odba_id)
-					stub = ODBA::Stub.new(var.odba_id, self, var)
+					odba_id = var.odba_id
+					@odba_target_ids.push(odba_id)
+					stub = ODBA::Stub.new(odba_id, self, var)
 					instance_variable_set(name, stub)
 				end
 			}
@@ -109,10 +104,8 @@ module ODBA
 			else
 				instance_variables.each { |name|
 					var = instance_variable_get(name)
-					if(var.equal?(stub))
-						#puts "#{self.class} replacing #{name}"
+					if(stub.eql?(var))
 						instance_variable_set(name, substitution)
-						#puts "#{self.class} finished replacing #{name}"
 					end
 				}
 			end
@@ -125,17 +118,9 @@ module ODBA
 			while(!current_level.empty?)
 				next_level = []
 				current_level.each { |item|
-					#puts "in current level"
 					if(item.odba_unsaved?)
-						#	puts "storing neighbor:"
-						#	puts item.odba_id
-						#puts "befor odba unsaved neighbors"
 						next_level += item.odba_unsaved_neighbors
-						#puts "next objects to store"
-						#	puts next_level.inspect
-						#puts " befor isolated store"
 						item.odba_isolated_store
-						#puts "after odba_isolated_store"
 					end
 				}
 				current_level = next_level #.uniq
@@ -148,8 +133,7 @@ module ODBA
 			end
 		end
 		def odba_store(name = nil)
-			#puts "#{name} started transaction"
-			#ODBA.transaction {
+			ODBA.transaction {
 				begin
 					unless (name.nil?)
 						old_name = @odba_name
@@ -157,12 +141,10 @@ module ODBA
 					end
 					odba_store_unsaved
 				rescue DBI::ProgrammingError => e
-					#	puts "DBI PROGRAMMING ERROR"
 					@odba_name = old_name
 					raise
 				end
-				#}
-			#puts "#{name} completed transaction"
+			}
 		end
 		def odba_take_snapshot
 			@odba_snapshot_level ||= 0
@@ -170,8 +152,6 @@ module ODBA
 			current_level = [self]
 			tree_level = 0
 			while(!current_level.empty?)
-				#puts "tree_level: #{tree_level}"
-				#puts "checking #{current_level.size} objects"
 				tree_level += 1
 				obj_count = 0
 				next_level = []
@@ -183,7 +163,6 @@ module ODBA
 					end
 				}
 				current_level = next_level #.uniq
-				#puts "saved #{obj_count} objects"
 			end
 		end
 		def odba_unsaved_neighbors(snapshot_level = nil)
@@ -366,7 +345,6 @@ class Hash
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
-			#puts "checking hash elements"
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved? \
 				|| key.is_a?(ODBA::Persistable) && key.odba_unsaved?
 		})
