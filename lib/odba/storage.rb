@@ -252,7 +252,7 @@ module ODBA
 			@dbi.select_all(sql, target_id)
 		end
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
-			term = search_term.gsub(/\s+/, '&').gsub(/[()]/i, 
+			term = search_term.gsub(/\s+/, '&').gsub(/[():]/i, 
 				'\\ \\&').gsub(/\s/, '')
 	    sql = <<-EOQ
 				SELECT odba_id, content,
