@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# Storage -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'thread'
 require 'singleton'

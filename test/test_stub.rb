@@ -9,7 +9,7 @@ require 'mock'
 
 module ODBA
 	class Stub
-		attr_accessor :receiver, :carry_bag
+		attr_accessor :receiver, :odba_class
 	end
 	class MockReceiver < Mock
 		ODBA_CACHE_METHODS = []
@@ -50,19 +50,18 @@ module ODBA
 			cache.__verify
 		end
 		def test_method_missing__odba_class_nil # backward-compatibility
-			@stub.instance_variable_set('@odba_class', nil)
-			cache = ODBA.cache_server	
+			@stub.odba_class = nil
 			receiver = Mock.new
-			cache.__next(:fetch) { |odba_id, odba_container|
+			ODBA.cache_server.__next(:fetch) { |odba_id, odba_container|
 				receiver
 			}
 			receiver.__next(:foo_method) { |number|
 				assert_equal(3, number)
 			}
-			@odba_container.__next(:odba_replace_stubs) { |stub,receiver| }
+			@odba_container.__next(:odba_replace_stubs) { |stub, receiver| }
 			assert_nothing_raised { @stub.foo_method(3) }
 			@odba_container.__verify
-			cache.__verify
+			ODBA.cache_server.__verify
 		end
 		def test_odba_replace
 			cache = ODBA.cache_server 

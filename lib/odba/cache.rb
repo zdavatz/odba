@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# rwaltert@ywesee.com mwalder@ywesee.com
+# Cache -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'singleton'
 require 'delegate'

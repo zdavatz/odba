@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# Stub -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'yaml'
 
@@ -52,7 +53,7 @@ module ODBA
 			false
 		end
 		no_override = [
-			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", "nil?"
+			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", "nil?",
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|

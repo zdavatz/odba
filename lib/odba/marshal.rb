@@ -1,10 +1,7 @@
 #!/usr/bin/env ruby
+# Marshal -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
 module ODBA
-	module PersistableHash
-	end
-	module PersistableArray
-	end
 	module Marshal
 		def dump(obj)
 			binary = ::Marshal.dump(obj)

@@ -3,7 +3,6 @@
 
 require 'odba/persistable'
 require 'odba/storage'
-require 'odba/batch_storage'
 require 'odba/cache'
 require 'odba/stub'
 require 'odba/marshal'
