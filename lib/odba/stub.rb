@@ -39,7 +39,8 @@ module ODBA
 			end
 		end
 		def method_missing(meth_symbol, *args, &block)
-			if(@odba_class::ODBA_CACHE_METHODS.include?(meth_symbol) \
+			if(@odba_class \
+				&& @odba_class::ODBA_CACHE_METHODS.include?(meth_symbol) \
 				&& (res = ODBA.scalar_cache.fetch(@odba_id, meth_symbol)))
 				res
 			else
@@ -48,8 +49,8 @@ module ODBA
 			end
 		end
 		def odba_replace(name=nil)
-			puts "odba_replace(#{name})"
-			puts caller[0,4]
+			#puts "odba_replace(#{name})"
+			#puts caller[0,4]
 			if(@receiver.nil?)
 				begin
 					@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
@@ -67,7 +68,8 @@ module ODBA
 			}
 		end
 		no_override = [
-			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?"
+			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", 
+			"instance_variable_set", "instance_variable_get"
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|

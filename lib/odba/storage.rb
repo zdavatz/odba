@@ -21,8 +21,8 @@ module ODBA
 			dict = "DictFile=\"/var/www/oddb.org/ext/fulltext/swiss/swiss.med\","
 			stop = "StopFile=\"/var/www/oddb.org/ext/fulltext/swiss/swiss.stop\""
 			path = dict << aff << stop
-			puts "path:"
-			puts path
+			#puts "path:"
+			#puts path
 			sth.execute(path)
 			create_dictionary_map(language)
 			sql = " INSERT INTO pg_ts_dict (dict_name,dict_init,dict_initoption, dict_lexize, dict_comment) VALUES('german_stem','snb_en_init(text)','/var/www/oddb.org/ext/fulltext/swiss/swiss.stop','snb_lexize(internal,internal,integer)','german stem')"
@@ -255,10 +255,10 @@ module ODBA
 			sth_insert.execute(origin_id, dict, search_term, target_id)
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
-			puts "updating index  with:"
-			puts "*******"
-			puts search_term
-			puts "***********"
+			#puts "updating index  with:"
+			#puts "*******"
+			#puts search_term
+			#puts "***********"
 			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, ?, ?)")
 			sth_insert.execute(origin_id, search_term, target_id)
 		end

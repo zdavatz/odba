@@ -38,16 +38,30 @@ module ODBA
 			@stub.receiver = nil
 			cache = ODBA.cache_server	
 			receiver = Mock.new
-			cache.__next(:fetch){|odba_id, odba_container|
+			cache.__next(:fetch) { |odba_id, odba_container|
 				receiver
 			}
-			@odba_container.__next(:odba_replace_stubs){ |stub,receiver|}
-			@stub.odba_replace
-			@odba_container.__verify
-			@stub.receiver.__next(:foo_method){ |number|
+			receiver.__next(:foo_method) { |number|
 				assert_equal(3, number)
 			}
-			@stub.foo_method(3)
+			@odba_container.__next(:odba_replace_stubs) { |stub,receiver| }
+			assert_nothing_raised { @stub.foo_method(3) }
+			@odba_container.__verify
+			cache.__verify
+		end
+		def test_method_missing__odba_class_nil # backward-compatibility
+			@stub.instance_variable_set('@odba_class', nil)
+			cache = ODBA.cache_server	
+			receiver = Mock.new
+			cache.__next(:fetch) { |odba_id, odba_container|
+				receiver
+			}
+			receiver.__next(:foo_method) { |number|
+				assert_equal(3, number)
+			}
+			@odba_container.__next(:odba_replace_stubs) { |stub,receiver| }
+			assert_nothing_raised { @stub.foo_method(3) }
+			@odba_container.__verify
 			cache.__verify
 		end
 		def test_odba_replace
@@ -91,13 +105,6 @@ module ODBA
 			}
 			receiver.__verify
 			assert_equal(false, @stub.respond_to?(:odba_replace))
-		end
-		def test_to_yaml
-			expected = <<-EOS
---- !ruby/object:ODBA::Stub 
-odba_id: 9
-			EOS
-			assert_equal(expected.strip, @stub.to_yaml)
 		end
 	end
 end

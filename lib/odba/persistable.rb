@@ -141,7 +141,7 @@ module ODBA
 			end
 		end
 		def odba_store(name = nil)
-			puts "#{name} started transaction"
+			#puts "#{name} started transaction"
 			ODBA.transaction {
 				begin
 					unless (name.nil?)
@@ -154,7 +154,7 @@ module ODBA
 					raise
 				end
 			}
-			puts "#{name} completed transaction"
+			#puts "#{name} completed transaction"
 		end
 		def odba_take_snapshot
 			@odba_snapshot_level ||= 0
@@ -191,7 +191,7 @@ module ODBA
 				unless(exclude.include?(name))
 					item = instance_variable_get(name)
 					#odba_extend_enumerable(item)
-					puts "item******** #{item}"
+					#puts "item******** #{item}"
 					if(item.is_a?(ODBA::Persistable) \
 						&& item.odba_unsaved?(snapshot_level))
 						unsaved.push(item)
