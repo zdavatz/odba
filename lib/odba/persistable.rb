@@ -69,7 +69,6 @@ module ODBA
 			twin = self.dup
 			twin.odba_replace_persistables
 			twin.odba_replace_excluded!
-			@odba_target_ids = twin.odba_target_ids
 			ODBA.marshaller.dump(twin)
 		end
 		def odba_isolated_store
@@ -86,7 +85,7 @@ module ODBA
 			@odba_indexable || self::class::ODBA_INDEXABLE
 		end
 		def odba_potentials
-			instance_variables - odba_serializables - self::class::ODBA_EXCLUDE_VARS
+			instance_variables - odba_serializables
 		end
 		def odba_replace_persistable(obj)
 			odba_potentials.each { |name|
@@ -107,17 +106,14 @@ module ODBA
 				&& (!odba_serializables.include?(name))
 		end
 		def odba_replace_persistables
-			@odba_target_ids = []
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				if(odba_replaceable?(var, name))
 					odba_id = var.odba_id
-					@odba_target_ids.push(odba_id)
 					stub = ODBA::Stub.new(odba_id, self, var)
 					instance_variable_set(name, stub)
 				end
 			}
-			@odba_target_ids.uniq!
 		end
 		def odba_replace_stubs(stub, substitution, name = nil)
 			if(name)
@@ -188,13 +184,24 @@ module ODBA
 				current_level = next_level #.uniq
 			end
 		end
+		def odba_target_ids
+			odba_potentials.collect { |name|
+				var = instance_variable_get(name)
+				if(odba_replaceable?(var, name))
+					var.odba_id
+				end
+			}.compact.uniq
+		end
 		def odba_unsaved_neighbors(snapshot_level = nil)
 			unsaved = []
 			odba_potentials.each { |name|
-				item = instance_variable_get(name)
-				if(item.is_a?(ODBA::Persistable) \
-					&& item.odba_unsaved?(snapshot_level))
-					unsaved.push(item)
+				unless(self::class::ODBA_EXCLUDE_VARS.include?(name))
+					item = instance_variable_get(name)
+					#odba_extend_enumerable(item)
+					if(item.is_a?(ODBA::Persistable) \
+						&& item.odba_unsaved?(snapshot_level))
+						unsaved.push(item)
+					end
 				end
 			}
 			unsaved
@@ -202,6 +209,7 @@ module ODBA
 		def odba_unsaved?(snapshot_level = nil)
 			if(snapshot_level.nil?)
 				!@odba_persistent
+				#true
 			else
 				@odba_snapshot_level.to_i < snapshot_level
 			end
@@ -243,22 +251,12 @@ class Array
 				&& item.odba_prefetch? 
 		}
 	end
-=begin
-	def odba_replace_persistables
-		super
-		each_with_index { |item, idx|
-			#odba_extend_enumerable(item)
-			if(item.is_a?(ODBA::Persistable))
-				@odba_target_ids.push(item.odba_id)
-				stub = ODBA::Stub.new(item.odba_id, self, item)
-				self[idx] = stub
-			end
-		}
+	def odba_replaceable?(var, name)
+		!empty? && super(var, name)
 	end
-=end
 def odba_replace_persistables
-	super
 	clear
+	super
 end
 	def odba_restore(collection=[])
 		bulk_fetch_ids = []
@@ -270,9 +268,8 @@ end
 				#self[idx] = item.receiver
 			end
 		}
-		unless(bulk_fetch_ids.empty?)
-			ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
-		end
+		ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
+		#ODBA.chache_server.bulk_fetch_execute
 		each_with_index { |item, idx|
 			if(item.is_a? ODBA::Stub)
 				item.odba_replace
@@ -306,6 +303,15 @@ end
 			old_flatten!
 		end
 	end
+	def odba_target_ids
+		ids = super
+		self.each {|value|
+			if(value.is_a?(ODBA::Persistable))
+				ids.push(value.odba_id)
+			end
+		}
+		ids.uniq
+	end
 end
 class Hash
 	include ODBA::Persistable
@@ -325,60 +331,13 @@ class Hash
 				&& item.odba_prefetch?
 		}
 	end
-=begin
-	def odba_replace_persistables
-		super
-		self.each {|key, value|
-			if(value.is_a?(ODBA::Persistable))
-				@odba_target_ids.push(value.odba_id)
-				stub = ODBA::Stub.new(value.odba_id, self, value)
-				value = stub
-				self[key] = stub
-			end
-			if(key.is_a?(ODBA::Persistable))
-				@odba_target_ids.push(key.odba_id)
-				stub = ODBA::Stub.new(key.odba_id, self, key)
-				delete(key)
-				store(stub, value)
-			end
-		}
+	def odba_replaceable?(var, name)
+		!empty? && super(var, name)
 	end
-=end
-#=begin
 	def odba_replace_persistables
-		super
 		clear
+		super
 	end
-#=end
-=begin
-	def odba_restore
-		bulk_fetch_ids = []
-		self.each { |key, value|
-			if(value.is_a?(ODBA::Stub))
-				bulk_fetch_ids.push(value.odba_id)
-			end
-			if(key.is_a?(ODBA::Stub))
-				bulk_fetch_ids.push(key.odba_id)
-			end
-		}
-		unless(bulk_fetch_ids.empty?)
-			ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self) 
-		end
-		self.each { |key, value|
-			if(value.is_a?(ODBA::Stub))
-				value.odba_replace
-				value = value.receiver
-				self[key] = value
-			end
-			if(key.is_a?(ODBA::Stub))
-				delete(key)
-				key.odba_replace
-				store(key.receiver, value)
-			end
-		}
-	end
-=end
-	#=begin
 def odba_restore(collection=[])
 	bulk_fetch_ids = []
 	self.each { |key, value|
@@ -406,7 +365,6 @@ def odba_restore(collection=[])
 		self[key] = val
 	}
 	end
-	#=end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved? \
@@ -425,5 +383,17 @@ def odba_restore(collection=[])
 			}
 		}
 		unsaved
+	end
+	def odba_target_ids
+		ids = super
+		self.each {|key, value|
+			if(value.is_a?(ODBA::Persistable))
+				ids.push(value.odba_id)
+			end
+			if(key.is_a?(ODBA::Persistable))
+				ids.push(key.odba_id)
+			end
+		}
+		ids.uniq
 	end
 end

@@ -12,6 +12,9 @@ module ODBA
 			def is_a?(arg)
 				true
 			end
+			def odba_id
+				1
+			end
 		end
 		class ODBAContainer
 			include Persistable
@@ -161,23 +164,8 @@ module ODBA
 			key1 = StubMock.new("key")
 			value1 = StubMock.new("value")
 			@hash.store(key1, value1)
-			
-			key1.__next(:is_a?) { |arg| true }
-			key1.__next(:odba_id) { || 1}
-			key1.__next(:odba_id) { || 1}
-			
-			value1.__next(:is_a?) { |arg| true }
-			value1.__next(:odba_id) { || 2}
-			value1.__next(:odba_id) { || 2}
-
 			@hash.odba_replace_persistables
-			@hash.each { |key, value|
-				assert_equal(true, key.is_a?(Stub))
-				assert_equal(true, value.is_a?(Stub))
-			}
-			key1.__verify
-			value1.__verify
-			ODBA.storage.__verify
+			assert_equal(@hash, {})
 		end
 		def test_odba_prefetch
 			key1  = StubMock.new("key")
