@@ -29,11 +29,20 @@ module ODBA
 			end
 		end
 		def create_index(table_name)
-			sql	= "create table #{table_name} ( origin_id integer, search_term text, target_id integer )"
+			sql = "create table #{table_name} (origin_id integer, search_term text, target_id integer)" 
 			@dbi.prepare(sql).execute
 			#index search_term
 			sql = "create index search_term_#{table_name} on #{table_name}(search_term)"
 			@dbi.prepare(sql).execute
+		end
+		def create_fulltext_index(table_name)
+			sql = "create table #{table_name} (origin_id integer, search_term tsvector, target_id integer)" 
+			@dbi.prepare(sql).execute
+			sql = "CREATE INDEX search_term_#{table_name} ON #{table_name} USING gist(search_term)"
+			@dbi.prepare(sql).execute
+		end
+		def db_type
+			"mysql"
 		end
 		def drop_index(index_name)
 			sth = @dbi.prepare("DROP TABLE #{index_name}")
@@ -127,9 +136,13 @@ module ODBA
 		def retrieve_connected_objects(target_id)
 			@dbi.select_all("select origin_id from object_connection where target_id = ?", target_id)
 		end
+		def retrieve_from_fulltext_index(index_name, search_term)
+			search_term.gsub!(/ /,"&")
+	    rows = @dbi.select_all("SELECT distinct odba_id, content FROM object INNER JOIN #{index_name} on odba_id = #{index_name}.target_id WHERE search_term @@ to_tsquery('default_german', '#{search_term}');")
+		end
 		def retrieve_from_index(index_name, search_term)
 			search_term = search_term+"%"
-			rows = @dbi.select_all("select distinct odba_id, content from object inner join #{index_name} on odba_id = #{index_name}.target_id where search_term ilike ?", search_term)	 
+			rows = @dbi.select_all("select distinct odba_id, content from object inner join #{index_name} on odba_id = #{index_name}.target_id where lower(search_term) like ?", search_term.downcase)	 
 		end
 		def restore_named(name)
 			#			puts "storage loading #{name}"
@@ -142,16 +155,29 @@ module ODBA
 			[]
 			rows unless(rows.nil?)
 		end
+		#it is a test method
+		def search_indication(index_name, search)
+			@dbi.select_all("SELECT origin_id FROM #{index_name} WHERE MATCH (search_term) AGAINST (?)", search);
+		end
 		def store(odba_id, dump, name, prefetchable)
 			if(update(odba_id, dump, name, prefetchable) == 0)
 				sth = @dbi.prepare("insert into object (odba_id, content, name, prefetchable) VALUES (?, ?, ?, ?)")
 				sth.execute(odba_id, dump, name, prefetchable)
 			end
 		end
+
 		def transaction(&block)
 			@dbi.transaction(&block)
 		end
+		def update_fulltext_index(index_name, origin_id, search_term, target_id)
+			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector('default_german', ? ), ?)")
+			sth_insert.execute(origin_id, search_term, target_id)
+		end
 		def update_index(index_name, origin_id, search_term, target_id)
+			puts "updating index  with:"
+			puts "*******"
+			puts search_term
+			puts "***********"
 			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, ?, ?)")
 			sth_insert.execute(origin_id, search_term, target_id)
 		end
