@@ -5,7 +5,7 @@ module ODBA
 	class CacheEntry
 		CLEAN_PREFETCHABLE = false
 		RETIRE_TIME = 300
-		DESTROY_TIME =  1500
+		DESTROY_TIME =  900
 		attr_accessor :last_access
 		attr_reader :accessed_by
 		def initialize(obj)

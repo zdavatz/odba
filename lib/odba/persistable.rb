@@ -146,18 +146,16 @@ module ODBA
 			end
 		end
 		def odba_store(name = nil)
-			#ODBA.transaction {
-				begin
-					unless (name.nil?)
-						old_name = @odba_name
-						@odba_name = name
-					end
-					odba_store_unsaved
-				rescue DBI::ProgrammingError => e
-					@odba_name = old_name
-					raise
+			begin
+				unless (name.nil?)
+					old_name = @odba_name
+					@odba_name = name
 				end
-				#}
+				odba_store_unsaved
+			rescue DBI::ProgrammingError => e
+				@odba_name = old_name
+				raise
+			end
 		end
 		def odba_take_snapshot
 			@odba_snapshot_level ||= 0
