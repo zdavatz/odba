@@ -1,6 +1,11 @@
 #!/usr/bin/env ruby
 # Persistable -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
+class Object
+	def odba_instance
+		self
+	end
+end
 module ODBA
 	class Stub; end
 	module Persistable

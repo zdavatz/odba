@@ -37,6 +37,10 @@ module ODBA
 				@receiver.send(meth_symbol, *args, &block)
 			end
 		end
+		def odba_instance
+			odba_replace
+			@receiver
+		end
 		def odba_replace(name=nil)
 			if(@receiver.nil?)
 				begin
