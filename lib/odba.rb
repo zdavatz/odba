@@ -1,8 +1,9 @@
 #!/usr/bin/env ruby
-# -- oddb -- 13.05.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
+# ODBA -- odba -- 13.05.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'odba/persistable'
 require 'odba/storage'
+require 'odba/batch_storage'
 require 'odba/cache'
 require 'odba/stub'
 require 'odba/marshal'
@@ -13,6 +14,16 @@ require 'odba/scalar_cache'
 require 'thread'
 
 module ODBA
+	def batch(&block)
+		transaction {
+			begin
+				@batch_mode = true
+				cache_server.batch(&block)
+			ensure
+				@batch_mode = false
+			end
+		}
+	end
 	def cache_server
 		@cache_server ||= ODBA::Cache.instance
 	end
@@ -29,9 +40,9 @@ module ODBA
 		@scalar_cache = scalar_cache
 	end
 	def scalar_cache
-		@scalar_cache ||= cache_server.fetch_named('__scalar_cache__', self){
+		@scalar_cache ||= #cache_server.fetch_named('__scalar_cache__', self) {
 			ScalarCache.new
-		}
+		#}
 	end
 	def storage
 		@storage ||= ODBA::Storage.instance
@@ -40,21 +51,28 @@ module ODBA
 		@storage = storage
 	end
 	def transaction(&block)
-		@odba_mutex ||= Mutex.new
-		@odba_mutex.synchronize{
-			ODBA.storage.transaction {
-				block.call
+		if(@batch_mode)
+			block.call
+		else
+			@odba_mutex ||= Mutex.new
+			@odba_mutex.synchronize {
+				ODBA.storage.transaction {
+					#res = 
+					block.call
+					#scalar_cache.odba_isolated_store
+					#res
+				}
 			}
-		}
+		end
 	end
 	def index_factory(index_definition, origin_module)	
 		if(index_definition.fulltext)
-			#puts "creating fulltext index"
 			FulltextIndex.new(index_definition, origin_module)
 		else
 			Index.new(index_definition, origin_module)
 		end
 	end
+	module_function :batch
 	module_function :index_factory
 	module_function :cache_server
 	module_function :cache_server=
@@ -66,4 +84,3 @@ module ODBA
 	module_function :storage=
 	module_function :transaction
 end
-

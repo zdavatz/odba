@@ -10,18 +10,6 @@ module ODBA
 			@odba_id = odba_id
 			@odba_container = odba_container
 			@odba_class = receiver.class unless receiver.nil? 
-=begin
-			@carry_bag = {}
-			if(receiver)
-				receiver.odba_carry_methods.each { |symbol|
-					begin
-						@carry_bag.store(symbol, receiver.send(symbol))
-					rescue
-					end
-				}
-			end
-=end
-			#			delegate_object_methods
 		end
 		def eql?(other)
 			other.is_a?(Persistable) && other.odba_id == @odba_id
@@ -49,33 +37,27 @@ module ODBA
 			end
 		end
 		def odba_replace(name=nil)
-			#puts "odba_replace(#{name})"
-			#puts caller[0,4]
 			if(@receiver.nil?)
 				begin
 					@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
 					@odba_container.odba_replace_stubs(self, @receiver)
 				rescue OdbaError => e
-					puts self.inspect
+					#require 'debug'
+					#puts "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
 				end
 			end
 		end
-		def to_yaml(options = {})
-			YAML.quick_emit( self.__id__, options ) { |out|
-				out.map( '!ruby/object:ODBA::Stub' ) { |map|
-					map.add('odba_id', @odba_id)
-				}
-			}
+		# A stub always references a Persistable that has already been saved.
+		def odba_unsaved?(snapshot_level=nil)
+			false
 		end
 		no_override = [
-			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", 
-			"instance_variable_set", "instance_variable_get"
+			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", "nil?"
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
 			eval <<-EOS
 				def #{method}(*args)
-					#	puts "replaced method #{method}"
 					odba_replace
 					@receiver.#{method}(*args)
 				end
