@@ -368,22 +368,20 @@ module ODBA
 			foo.__verify
 		end
 		def test_create_index
+			ODBA.storage.__next(:transaction){|block| block.call}
 			ODBA.storage.__next(:create_index) { |index_name|  }
-			ODBA.storage.__next(:transaction){|block| block.call}
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:store) { |name, index, mp, pref|  
-			}
+			ODBA.storage.__next(:store) { |name, index, mp, pref| } 
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.storage.__next(:add_object_connection) { |id, targedid|  }
-			ODBA.storage.__next(:add_object_connection) { |id, targedid|  }
-			ODBA.storage.__next(:transaction){|block| block.call}
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:store) { |name, index, mp, pref| }
+			ODBA.storage.__next(:store) { |name, index, mp, pref| } 
 			ODBA.storage.__next(:next_id) {  }
+			#ODBA.storage.__next(:next_id) {  }
 			ODBA.marshaller.__next(:dump) { |dump| }
 			ODBA.marshaller.__next(:dump) { |dump| }
 			@cache.create_index("foo", Mock, Mock, "meth", "res_target")
@@ -392,9 +390,6 @@ module ODBA
 		end
 		def prepare_store(store_array, &block)
 			store_array.each{ |mock|
-				ODBA.storage.__next(:transaction){ |block|
-					block.call
-				}
 				mock.__next(:odba_id){ || }
 				mock.__next(:odba_isolated_dump){ || }
 				mock.__next(:odba_name){ || }
@@ -424,10 +419,8 @@ module ODBA
 			@cache.hash.store(1, delete_item)
 			ODBA.storage.__next(:retrieve_connected_objects) { |id|					[[2]] 
 			}
-			ODBA.storage.__next(:transaction){|block| block.call}
 			ODBA.storage.__next(:delete_persistable) { |id| } 
 			prepare_fetch(2, origin_obj)
-			ODBA.storage.__next(:transaction){|block| block.call}
 			ODBA.storage.__next(:store) { |id, dump, name, prefetch|}
 			ODBA.marshaller.__next(:dump) { |ob| "foo"}
 			@cache.delete(delete_item)
@@ -436,35 +429,18 @@ module ODBA
 			ODBA.storage.__verify
 			ODBA.marshaller.__verify
 		end
-		def test_delete_index
-			index = Mock.new("index")
-			@cache.hash.store(1, index)
-			@cache.hash.store("foobar", index)
-			@cache.indices.store("foobar", index)
-			ODBA.storage.__next(:transaction){|block| block.call}
-			ODBA.storage.__next(:next_id) { 1}
-			ODBA.storage.__next(:store) { |id, dump, name, pref| }
-			#ODBA.storage.__next(:add_object_connection) { |id, target_id| }
-			index.__next(:odba_object) { }
-			prepare_delete(index, "foobar", 1)
-			ODBA.storage.__next(:drop_index_table) { |name| }
-			ODBA.marshaller.__next(:dump) {	|dum| "foo" } 
-			@cache.delete_index("foobar")
-			assert_equal(0, @cache.indices.size)
-			assert_equal(0, @cache.size)
-			index.__verify
-			ODBA.storage.__verify
-		end
 		def prepare_delete(mock, name, id)
 			mock.__next(:odba_id) { id }
 			ODBA.storage.__next(:retrieve_connected_objects) { |id|
 				[]
 			}
-			ODBA.storage.__next(:transaction){|block| block.call}
-			ODBA.storage.__next(:delete_persistable) { |id| }
 			mock.__next(:odba_id) { id }
 			mock.__next(:odba_name) { name }
+			ODBA.storage.__next(:delete_persistable) { |id| }
 			mock.__next(:odba_id) { id }
+			mock.__next(:origin_class?) { true }
+			mock.__next(:odba_id) { 2}
+			ODBA.storage.__next(:delete_index_element){ }
 		end
 		def prepare_bulk_restore(rows)
 			rows.each { |foo|
@@ -524,158 +500,33 @@ module ODBA
 			ODBA.storage.__verify
 		end
 		def test_drop_index
+			ODBA.storage.__next(:transaction) { |block| block.call }
 			ODBA.storage.__next(:drop_index){|index_name|
 				assert_equal("foo_index", index_name)
 			}
+			
 			index = Mock.new("index")
-			index.__next(:odba_delete){}
+			prepare_delete(index, "foo", 2)
 			@cache.indices.store("foo_index", index)
 			@cache.drop_index("foo_index")
 			index.__verify
 			ODBA.storage.__verify
 		end
 		def test_drop_indices
-			ODBA.storage.__next(:drop_index){|index_name|
-				assert_equal("bar_index", index_name)
-			}
+			ODBA.storage.__next(:transaction) { |block| block.call}
+			
 			ODBA.storage.__next(:drop_index){|index_name|
 				assert_equal("foo_index", index_name)
 			}
 			index = Mock.new("index")
-			index.__next(:odba_delete){}
-			index.__next(:odba_delete){}
+			prepare_delete(index, "foo", 2)
+						
+			
 			@cache.indices.store("foo_index", index)
-			@cache.indices.store("bar_index", index)
 			@cache.drop_indices
 			index.__verify
 			ODBA.storage.__verify
 		end
-=begin
-		def test_synchronized_delete
-			delete_time1 = nil
-			delete_time2 = nil
-			
-			delete_item = ODBAContainer.new
-			delete_item.odba_id = 1
-			origin_obj = ODBAContainer.new
-			origin_obj.odba_id = 2
-			origin_obj.odba_connection = delete_item
-
-			delete_item2 = ODBAContainer.new
-			delete_item2.odba_id = 3
-			origin_obj2 = ODBAContainer.new
-			origin_obj2.odba_id = 4
-			origin_obj2.odba_connection = delete_item2
-
-			@cache.hash.store(1, delete_item)
-			@cache.hash.store(3, delete_item2)
-			#first
-			ODBA.storage.__next(:retrieve_connected_objects) { |id|					[[2]] 
-			}
-			prepare_fetch(2, origin_obj)
-			ODBA.storage.__next(:store) { |id, dump, name, prefetch|}
-		  ODBA.storage.__next(:delete_persistable) { |id| } 
-			ODBA.marshaller.__next(:dump) { |ob| 
-				sleep(0.5)
-				"foo"
-				delete_time1 = Time.now
-			}
-			#second
-			ODBA.storage.__next(:retrieve_connected_objects) { |id|					[[4]] 
-			}
-			prepare_fetch(4, origin_obj2)
-			ODBA.storage.__next(:store) { |id, dump, name, prefetch|}
-			ODBA.storage.__next(:delete_persistable) { |id| } 
-			ODBA.marshaller.__next(:dump) { |ob| 
-				"foo"
-				delete_time2 = Time.now
-			}
-			first = Thread.new{
-				@cache.delete(delete_item)
-			}
-			second = Thread.new{
-				puts "call2"
-				@cache.delete(delete_item2)
-			}
-			sleep(1)
-			assert(delete_time2 > delete_time1, 
-			"synchronisation failure, store did not wait for storage to return")
-		end
-		def test_fill_index_synchronize
-			delete_time1 = nil
-			delete_time2 = nil
-			foo = Mock.new("foo")
-			@cache.indices = { 
-				"foo" => foo
-			}
-			#first
-			foo.__next(:fill) { |target| 
-				sleep(0.5)
-				delete_time1 = Time.new
-				assert_equal("bar", target)
-			}
-			#second
-			foo.__next(:fill) { |target| 
-				delete_time2 = Time.new
-				assert_equal("baz", target)
-			}
-			first = Thread.new{
-				@cache.fill_index("foo" , "bar")
-			}
-			second = Thread.new{
-				puts "call2"
-				@cache.fill_index("foo" , "baz")
-			}
-			sleep(1)
-			assert(delete_time2 > delete_time1, 
-			"synchronisation failure, store did not wait for storage to return")
-		end
-		def test_drop_indices_synchronize
-			delete_time1 = nil
-			delete_time2 = nil
-			index = Mock.new("index")
-			#first
-			ODBA.storage.__next(:drop_index){|index_name|
-				sleep(0.5)
-				delete_time1 = Time.new
-				assert_equal("bar_index", index_name)
-			}
-			ODBA.storage.__next(:drop_index){|index_name|
-				assert_equal("foo_index", index_name)
-			}
-			index = Mock.new("index")
-			index.__next(:odba_delete){}
-			index.__next(:odba_delete){}
-			@cache.indices.store("foo_index", index)
-			@cache.indices.store("bar_index", index)
-
-			#second
-			ODBA.storage.__next(:drop_index){|index_name|
-				delete_time2 = Time.new
-				assert_equal("bar_index", index_name)
-			}
-			ODBA.storage.__next(:drop_index){|index_name|
-				assert_equal("foo_index", index_name)
-			}
-			index.__next(:odba_delete){}
-			index.__next(:odba_delete){}
-			@cache.indices.store("foo_index", index)
-			@cache.indices.store("bar_index", index)
-			#second
-			@cache.drop_indices
-			first = Thread.new{
-				sleep(0.5)
-				@cache.drop_indices
-			}
-			second = Thread.new{
-				puts "call2"
-				@cache.drop_indices
-			}
-			sleep(1)
-			assert(delete_time2 > delete_time1, 
-			"synchronisation failure, store did not wait for storage to return")
-		end
-=end
 	end
 end
 

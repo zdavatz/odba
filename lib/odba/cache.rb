@@ -8,7 +8,7 @@ module ODBA
 	class Cache < SimpleDelegator
 		attr_reader :indices
 		include Singleton
-		CLEANING_INTERVAL = 900
+		CLEANING_INTERVAL = 30
 		CLEANER_ID_STEP = 100
 		def initialize
 			#=begin
@@ -18,7 +18,7 @@ module ODBA
 					begin
 						puts "cleaning up DB"
 						clean
-						#	clean_object_connections
+						clean_object_connections
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
@@ -65,8 +65,8 @@ module ODBA
 						@hash.store(obj.odba_name, cache_entry)
 					end
 				end
-				#puts "bulk_restore"
-				#puts obj.class
+				puts "bulk_restore"
+				puts obj.class
 				retrieved_objects.push(obj)
 			}
 			#puts "found:"
@@ -96,15 +96,15 @@ module ODBA
 			ODBA.transaction{
 				index = Index.new(index_name, origin_klass, target_klass, mthd, resolve_target, resolve_origin)
 				self.indices.store(index_name, index)
-				#puts "store self.indices"
+				puts "store self.indices"
 				self.indices.odba_store_unsaved
-				#puts "store index"
+				puts "store index"
 				index
 			}
 		end
 		def delete(object)
 			rows = nil
-			#puts "delteting"
+			puts "delteting"
 			rows = ODBA.storage.retrieve_connected_objects(object.odba_id)
 			@hash.delete(object.odba_id)
 			@hash.delete(object.odba_name)
@@ -116,8 +116,8 @@ module ODBA
 					id = row.first
 					connected_object = fetch(id, nil)
 					connected_object.odba_cut_connection(object)
-					#puts "saving connected_object"
-					#puts "object is a : #{connected_object.class}"
+					puts "saving connected_object"
+					puts "object is a : #{connected_object.class}"
 					connected_object.odba_store_unsaved
 				}
 			end
@@ -126,7 +126,7 @@ module ODBA
 			klass = odba_object.class
 			indices.each { |index_name, index|
 				if(index.origin_class?(klass))
-					#puts "deleting from index #{index_name}"
+					puts "deleting from index #{index_name}"
 					# no transaction needed, because method call is
 					# already in a transaction (see delete)
 					ODBA.storage.delete_index_element(index_name, odba_object.odba_id)
@@ -141,19 +141,20 @@ module ODBA
 			}
 		end
 		def drop_index(index_name)
+			puts "before transaction"
 			ODBA.transaction {
+				puts "in transaction"
 				ODBA.storage.drop_index(index_name)
 				self.delete(self.indices[index_name]) #.odba_delete
-				#puts "index #{index_name} deleted"
+				puts "index #{index_name} deleted"
 			}
 		end
 		def drop_indices
-			ODBA.transaction {
 				keys = self.indices.keys
 				keys.each{ |key|
+					puts "before drop_index"
 					drop_index(key)
 				}
-			}
 		end
 		def fetch(odba_id, odba_caller)
 			cache_entry = @hash.fetch(odba_id) {
@@ -176,9 +177,9 @@ module ODBA
 				dump = ODBA.storage.restore_named(name)
 				obj = nil
 				if(dump.nil?)
-					#puts "#{name} dump is nil"
+					puts "#{name} dump is nil"
 					obj = block.call
-					#puts "after block call"
+					puts "after block call"
 					obj.odba_name = name
 					#			store(obj, name) 
 					obj.odba_store(name)
@@ -195,9 +196,9 @@ module ODBA
 			cache_entry.odba_object
 		end
 		def fill_index(index_name, targets)
-			#puts "in cache fill index"
+			puts "in cache fill index"
 				self.indices[index_name].fill(targets)
-				#puts "index filled"
+				puts "index filled"
 		end
 		def indices
 			@indices ||= fetch_named('__cache_server_indices__',self){
@@ -247,7 +248,7 @@ module ODBA
 		end
 		def update_indices(odba_object)
 			klass = odba_object.class
-			#puts "klass #{klass}"
+			puts "klass #{klass}"
 			indices.each { |index_name, index|
 				index.update(odba_object)
 =begin

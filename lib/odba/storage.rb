@@ -47,10 +47,6 @@ module ODBA
 			sth = @dbi.prepare("delete from object where odba_id = ?")
 			sth.execute(odba_id)
 		end
-		def drop_index_table(name)
-			sth = @dbi.prepare("drop table #{name}")
-			sth.execute
-		end
 		def index_delete_origin(index_name, origin_id)
 			sth = @dbi.prepare("delete from #{index_name}  where origin_id = ?")
 			sth.execute(origin_id)
@@ -153,18 +149,7 @@ module ODBA
 			end
 		end
 		def transaction(&block)
-			if(@transaction)
-				block.call
-			else
-				begin
-					@transaction = true
-					@dbi.transaction { 
-						block.call
-					}
-				ensure
-					@transaction = false
-				end
-			end
+			@dbi.transaction(&block)
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
 			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, ?, ?)")

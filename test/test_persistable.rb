@@ -59,6 +59,7 @@ module ODBA
 		def test_odba_delete
 			odba_container = ODBAContainer.new
 			odba_container.odba_id = 2
+			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:delete) { |object|
 				assert_equal(odba_container, object)
 			}
@@ -314,6 +315,7 @@ module ODBA
 		end
 		def test_odba_dump_has_id
 			@odba.odba_id = nil
+			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.storage.__next(:next_id) { 1 }
 			ODBA.marshaller = Marshal
 			ODBA.cache_server.__next(:store) { |obj|
@@ -327,6 +329,7 @@ module ODBA
 			@odba.odba_name = "foo"
 			cache_server = Mock.new
 			ODBA.cache_server = cache_server
+			ODBA.storage.__next(:transaction) { |block| block.call}
 			cache_server.__next(:store) { |dump|
 				raise DBI::ProgrammingError
 			}
@@ -341,6 +344,7 @@ module ODBA
 			@odba.odba_name = "foo"
 			cache_server = Mock.new
 			ODBA.cache_server = cache_server
+			ODBA.storage.__next(:transaction) { |block| block.call}
 			cache_server.__next(:store) { |dump| }
 			@odba.odba_store('bar')
 			assert_equal("bar", @odba.odba_name)
