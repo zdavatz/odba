@@ -85,7 +85,7 @@ module ODBA
 			@odba_indexable || self::class::ODBA_INDEXABLE
 		end
 		def odba_potentials
-			instance_variables - odba_serializables
+			instance_variables - odba_serializables - self::class::ODBA_EXCLUDE_VARS
 		end
 		def odba_replace_persistable(obj)
 			odba_potentials.each { |name|
@@ -195,6 +195,7 @@ module ODBA
 		def odba_unsaved_neighbors(snapshot_level = nil)
 			unsaved = []
 			odba_potentials.each { |name|
+=begin
 				unless(self::class::ODBA_EXCLUDE_VARS.include?(name))
 					item = instance_variable_get(name)
 					#odba_extend_enumerable(item)
@@ -202,8 +203,13 @@ module ODBA
 						&& item.odba_unsaved?(snapshot_level))
 						unsaved.push(item)
 					end
-				end
-			}
+=end
+				item = instance_variable_get(name)
+					if(item.is_a?(ODBA::Persistable) \
+						&& item.odba_unsaved?(snapshot_level))
+						unsaved.push(item)
+					end
+				}
 			unsaved
 		end
 		def odba_unsaved?(snapshot_level = nil)
@@ -250,9 +256,6 @@ class Array
 			item.respond_to?(:odba_prefetch?) \
 				&& item.odba_prefetch? 
 		}
-	end
-	def odba_replaceable?(var, name)
-		!empty? && super(var, name)
 	end
 def odba_replace_persistables
 	clear
@@ -330,9 +333,6 @@ class Hash
 			item.respond_to?(:odba_prefetch?) \
 				&& item.odba_prefetch?
 		}
-	end
-	def odba_replaceable?(var, name)
-		!empty? && super(var, name)
 	end
 	def odba_replace_persistables
 		clear
