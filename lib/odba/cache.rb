@@ -16,7 +16,7 @@ module ODBA
 					begin
 						puts "cleaning up DB"
 						clean
-						#		clean_object_connections
+						#clean_object_connections
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
@@ -55,6 +55,8 @@ module ODBA
 			rows.each { |row|
 				dump = row.first
 				obj = restore_object(dump)
+				puts "load object"
+				puts obj.class
 				retrieved_objects.push(obj)
 				if(entry = @hash[obj.odba_id])
 					entry.odba_add_reference(odba_caller)
@@ -67,8 +69,8 @@ module ODBA
 					end
 				end
 			}
-			puts "found:"
-			puts retrieved_objects.size
+			#puts "found:"
+			#puts retrieved_objects.size
 			retrieved_objects
 		end
 		def clean
@@ -81,6 +83,7 @@ module ODBA
 			}
 		end
 		def clean_object_connections
+			puts "clean object conne"
 			ODBA.storage.remove_dead_objects
 			ODBA.storage.remove_dead_connections
 		end
@@ -222,6 +225,7 @@ puts "rows each"
 		def fill_index(index_name, targets)
 			puts "in cache fill index"
 			self.indices[index_name].fill(targets)
+			puts "index filled"
 		end
 		def retrieve_from_index(index_name, search_term)
 			bulks = ODBA.storage.retrieve_from_index(index_name, search_term)
