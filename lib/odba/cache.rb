@@ -18,7 +18,7 @@ module ODBA
 					begin
 						puts "cleaning up DB"
 						clean
-						#clean_object_connections
+						clean_object_connections
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
