@@ -54,11 +54,18 @@ module ODBA
 			puts "in bulk_restore"
 			retrieved_objects= []
 			rows.each { |row|
-				dump = row.first
-				obj = restore_object(dump)
-				retrieved_objects.push(obj)
-				if(entry = @hash[obj.odba_id])
-					entry.odba_add_reference(odba_caller)
+				obj_id, dump = row
+				#dump = row.first
+				#obj = restore_object(dump)
+				#puts " object class"
+				#puts obj.class
+				puts "********3"
+				puts obj_id
+				puts dump
+				if(cache_entry = @hash.fetch(obj_id.to_i, false))
+					puts "already loaded"
+					obj = cache_entry.odba_object
+					cache_entry.odba_add_reference(odba_caller)
 				else
 					puts "loading from DB"
 					obj = restore_object(dump)
