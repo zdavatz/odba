@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 module ODBA
+	class Stub; end
 	module Persistable
 		attr_accessor :odba_name
 		attr_reader :odba_target_ids
@@ -226,6 +227,11 @@ module ODBA
 end
 class Array
 	include ODBA::Persistable
+	def include?(obj)
+		super || if(obj.is_a?(ODBA::Stub))
+			super(obj.receiver)
+		end
+	end
 	def odba_prefetch?
 		any? { |item| 
 			item.respond_to?(:odba_prefetch?) \

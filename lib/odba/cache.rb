@@ -55,12 +55,12 @@ module ODBA
 			rows.each { |row|
 				dump = row.first
 				obj = restore_object(dump)
-				puts "load object"
-				puts obj.class
 				retrieved_objects.push(obj)
 				if(entry = @hash[obj.odba_id])
 					entry.odba_add_reference(odba_caller)
 				else
+					puts "loading from DB"
+					obj = restore_object(dump)
 					cache_entry = CacheEntry.new(obj)
 					cache_entry.odba_add_reference(odba_caller)
 					@hash.store(obj.odba_id, cache_entry)
@@ -68,6 +68,7 @@ module ODBA
 						@hash.store(obj.odba_name, cache_entry)
 					end
 				end
+				retrieved_objects.push(obj)
 			}
 			#puts "found:"
 			#puts retrieved_objects.size
@@ -187,6 +188,17 @@ puts "rows each"
 				end
 			}
 		end
+		def drop_index(index_name)
+			ODBA.storage.drop_index(index_name)
+			self.indices[index_name].odba_delete
+			puts "index #{index_name} deleted"
+		end
+		def drop_indices
+			keys = self.indices.keys
+			keys.each{ |key|
+				drop_index(key)
+			}	
+		end
 		def fetch_named(name, caller, &block)
 			cache_entry = @hash[name]
 			if(cache_entry.nil?)
@@ -230,6 +242,7 @@ puts "rows each"
 		def retrieve_from_index(index_name, search_term)
 			bulks = ODBA.storage.retrieve_from_index(index_name, search_term)
 			bulk_restore(bulks)
+
 		end
 		def update_indices(odba_object)
 			klass = odba_object.class

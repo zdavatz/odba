@@ -25,13 +25,20 @@ module ODBA
 			if(bulk_fetch_ids.empty?)
 				[]
 			else
-				sql = "select content from object where odba_id in (#{bulk_fetch_ids.join(',')})"
+				sql = "select odba_id, content from object where odba_id in (#{bulk_fetch_ids.join(',')})"
 				@dbi.select_all(sql)
 			end
 		end
 		def create_index(table_name)
 			sql	= "create table #{table_name} ( origin_id integer, search_term text, target_id integer )"
 			@dbi.prepare(sql).execute
+			#index search_term
+			sql = "create index search_term_#{table_name} on #{table_name}(search_term)"
+			@dbi.prepare(sql).execute
+		end
+		def drop_index(index_name)
+			sth = @dbi.prepare("DROP TABLE #{index_name}")
+			sth.execute
 		end
 		def delete_index_element(index_name, odba_id)
 			puts "deleting index element"
@@ -101,8 +108,8 @@ module ODBA
 			rows = @dbi.select_all("select target_id from #{index_name} where origin_id = ?", origin_id)
 =end
 			#DELETE
-			sth_delete = @dbi.prepare("delete from #{index_name} where origin_id = ?")
-			sth_delete.execute(origin_id)
+			sth_delete = @dbi.prepare("delete from #{index_name} where origin_id = ? and target_id = ?")
+			sth_delete.execute(origin_id, target_id)
 			#INSERT
 			#error string:
 			#Dexamethason HelvePharm 2, Injektionslösung
@@ -122,7 +129,7 @@ module ODBA
 		end	
 		def retrieve_from_index(index_name, search_term)
 			search_term = search_term+"%"
-			rows = @dbi.select_all("select distinct content from object inner join #{index_name} on odba_id = #{index_name}.target_id where search_term ilike ?", search_term)	 
+			rows = @dbi.select_all("select distinct odba_id, content from object inner join #{index_name} on odba_id = #{index_name}.target_id where search_term ilike ?", search_term)	 
 		end
 		def retrieve_connected_objects(target_id)
 			@dbi.select_all("select origin_id from object_connection where target_id = ?", target_id)
@@ -133,7 +140,7 @@ module ODBA
 			row.first unless row.nil?
 		end
 		def restore_prefetchable
-			sql = "select content from object where prefetchable = true"
+			sql = "select odba_id, content from object where prefetchable = true"
 			rows = @dbi.select_all(sql)
 			[]
 			rows unless(rows.nil?)

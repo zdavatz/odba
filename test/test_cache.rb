@@ -75,22 +75,18 @@ module ODBA
 			ODBA.marshaller = Mock.new
 			ODBA.storage = storage
 			storage.__next(:bulk_restore) { |ids|
-				[foo, bar]
+				[[2, foo],[3, bar]]
 			}
 			ODBA.marshaller.__next(:load) { |dump|
 				foo
 			}
-			foo.__next(:first) { || foo}
 			foo.__next(:odba_restore) { }
-			foo.__next(:odba_id) { 2 }
 			foo.__next(:odba_id) { 2 }
 			foo.__next(:odba_name) { nil }
 			ODBA.marshaller.__next(:load) { |dump|
 				bar
 			}
-			bar.__next(:first) {|| bar }
 			bar.__next(:odba_restore) { }
-			bar.__next(:odba_id) { 3 }
 			bar.__next(:odba_id) { 3 }
 			bar.__next(:odba_name) { nil }
 			@cache.bulk_fetch(array, caller)
@@ -116,22 +112,18 @@ module ODBA
 			}
 			baz.__next(:odba_add_reference) { |caller| }
 			storage.__next(:bulk_restore) { |ids|
-				[foo, bar]
+				[[2, foo], [3,bar]]
 			}
 			ODBA.marshaller.__next(:load) { |dump|
 				foo
 			}
-			foo.__next(:first) {|| foo }
 			foo.__next(:odba_restore) { }
-			foo.__next(:odba_id) { 2 }
 			foo.__next(:odba_id) { 2 }
 			foo.__next(:odba_name) { nil }
 			ODBA.marshaller.__next(:load) { |dump|
 				bar
 			}
-			bar.__next(:first) {|| bar }
 			bar.__next(:odba_restore) { }
-			bar.__next(:odba_id) { 3 }
 			bar.__next(:odba_id) { 3 }
 			bar.__next(:odba_name) { nil }
 			@cache.bulk_fetch(array, caller)
@@ -145,29 +137,31 @@ module ODBA
 		end
 		def test_bulk_restore
 			foo = Mock.new("foo")
-			rows = [foo]
-			foo.__next(:first) {|| foo }
-			foo.__next(:odba_restore) { }
-			foo.__next(:odba_id) { 2 }
-			foo.__next(:odba_id) { 2 }
-			foo.__next(:odba_name) { nil }
+			rows = [[2, foo]]
+			#foo.__next(:to_i) {|| 1 }
+			#foo.__next(:first) {|| foo }
+			#foo.__next(:odba_id) { 2 }
+			
 			ODBA.marshaller.__next(:load) { |dump|
 				foo
 			}
+			foo.__next(:odba_restore) { }
+			foo.__next(:odba_id) { 2 }
+			foo.__next(:odba_name) { nil }
 			@cache.bulk_restore(rows, "foo")
 			foo.__verify
 		end
 		def test_bulk_restore_in_hash
 			foo = Mock.new("foo")
-			rows = [foo]
+			rows = [[2, foo]]
 			@cache.hash.store(1, foo)
-			foo.__next(:first) {|| foo }
-			foo.__next(:odba_restore) { }
+			#foo.__next(:first) {|| foo }
 			ODBA.marshaller.__next(:load) { |dump|
 				foo
 			}
+			foo.__next(:odba_restore) { }
 			foo.__next(:odba_id){|| 1}
-			foo.__next(:odba_add_reference){|caller|}
+			foo.__next(:odba_name) { nil }
 			@cache.bulk_restore(rows, "foo")
 			foo.__verify
 			ODBA.marshaller.__verify
@@ -354,7 +348,7 @@ module ODBA
 			foo = Mock.new("foo")
 			ODBA.storage = Mock.new("storage")
 			ODBA.storage.__next(:restore_prefetchable){||
-				[foo]
+				[[2, foo]]
 			
 			}
 			prepare_bulk_restore([foo])
@@ -460,9 +454,7 @@ module ODBA
 		end
 		def prepare_bulk_restore(rows)
 			rows.each { |foo|
-				foo.__next(:first) {|| foo }
 				foo.__next(:odba_restore) { }
-				foo.__next(:odba_id) { 2 }
 				foo.__next(:odba_id) { 2 }
 				foo.__next(:odba_name) { nil }
 				ODBA.marshaller.__next(:load) { |dump|
@@ -473,7 +465,7 @@ module ODBA
 		def test_retrieve_from_index
 				foo = Mock.new
 				ODBA.storage.__next(:retrieve_from_index){|name, term|
-					[foo]
+					[[2, foo]]
 				}
 				prepare_bulk_restore([foo])
 				@cache.retrieve_from_index("bar", "search bar")
@@ -515,6 +507,33 @@ module ODBA
 				assert_equal(id, 1)
 			}
 			@cache.delete_index_element(bar)
+			ODBA.storage.__verify
+		end
+		def test_drop_index
+			ODBA.storage.__next(:drop_index){|index_name|
+				assert_equal("foo_index", index_name)
+			}
+			index = Mock.new("index")
+			index.__next(:odba_delete){}
+			@cache.indices.store("foo_index", index)
+			@cache.drop_index("foo_index")
+			index.__verify
+			ODBA.storage.__verify
+		end
+		def test_drop_indices
+			ODBA.storage.__next(:drop_index){|index_name|
+				assert_equal("bar_index", index_name)
+			}
+			ODBA.storage.__next(:drop_index){|index_name|
+				assert_equal("foo_index", index_name)
+			}
+			index = Mock.new("index")
+			index.__next(:odba_delete){}
+			index.__next(:odba_delete){}
+			@cache.indices.store("foo_index", index)
+			@cache.indices.store("bar_index", index)
+			@cache.drop_indices
+			index.__verify
 			ODBA.storage.__verify
 		end
 	end

@@ -131,6 +131,7 @@ module ODBA
 			}
 		end
 		def do_update_index(origin_id, search_term, target_id)
+			puts "updating with values #{origin_id} #{search_term} #{target_id}"
 			ODBA.storage.update_index(@index_name, origin_id, 
 				search_term, target_id)
 		end
