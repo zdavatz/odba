@@ -39,7 +39,7 @@ module ODBA
 		def odba_id
 			@odba_id ||= ODBA.storage.next_id
 		end
-		def odba_isolated_dump
+		def odba_isolated_store
 			@odba_persistent = true
 			ODBA.cache_server.store(self)
 		end		
@@ -78,8 +78,8 @@ module ODBA
 		end
 		def odba_replace_persistables
 			@odba_target_ids = []
-			puts "odba_replace_persistables"
-			puts self.class
+			#puts "odba_replace_persistables"
+			#puts self.class
 			instance_variables.each { |name|
 				var = instance_variable_get(name)
 				#odba_extend_enumerable(var)
@@ -97,9 +97,9 @@ module ODBA
 				instance_variables.each { |name|
 					var = instance_variable_get(name)
 					if(var.equal?(stub))
-						puts "#{self.class} replacing #{name}"
+						#puts "#{self.class} replacing #{name}"
 						instance_variable_set(name, substitution)
-						puts "#{self.class} finished replacing #{name}"
+						#puts "#{self.class} finished replacing #{name}"
 					end
 				}
 			end
@@ -112,13 +112,13 @@ module ODBA
 			while(!current_level.empty?)
 				next_level = []
 				current_level.each { |item|
-					puts "in current level"
+					#puts "in current level"
 					if(item.odba_unsaved?)
-						puts "befor odba unsaved neighbors"
+						#puts "befor odba unsaved neighbors"
 						next_level += item.odba_unsaved_neighbors
-						puts " befor isolated store"
+						#puts " befor isolated store"
 						item.odba_isolated_store
-						puts "after odba_isolated_store"
+						#puts "after odba_isolated_store"
 					end
 				}
 				current_level = next_level #.uniq
@@ -150,8 +150,8 @@ module ODBA
 			current_level = [self]
 			tree_level = 0
 			while(!current_level.empty?)
-				puts "tree_level: #{tree_level}"
-				puts "checking #{current_level.size} objects"
+				#puts "tree_level: #{tree_level}"
+				#puts "checking #{current_level.size} objects"
 				tree_level += 1
 				obj_count = 0
 				next_level = []
@@ -272,7 +272,7 @@ class Array
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |val|
-			puts "checking array elements"
+			#puts "checking array elements"
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved?
 		} )
 	end
@@ -344,7 +344,7 @@ class Hash
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
-			puts "checking hash elements"
+			#puts "checking hash elements"
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved? \
 				|| key.is_a?(ODBA::Persistable) && key.odba_unsaved?
 		})
