@@ -39,7 +39,6 @@ module ODBA
 			}
 		end
 		def odba_delete
-			#			ODBA.db_lock.synchronize {
 			ODBA.transaction {
 				ODBA.cache_server.delete(self)
 			}
@@ -200,10 +199,6 @@ module ODBA
 				unless(exclude.include?(name))
 					item = instance_variable_get(name)
 					#odba_extend_enumerable(item)
-					#	puts "******___******"
-					#	puts "checking if #{name} is unsaved"
-					type = item.is_a?(ODBA::Persistable)
-					#	puts "#{name} is #{type}"
 					if(item.is_a?(ODBA::Persistable) \
 						&& item.odba_unsaved?(snapshot_level))
 						#	puts "item #{item.odba_id} is unsaved"
@@ -240,13 +235,11 @@ class Array
 	include ODBA::Persistable
 	ODBA_CACHE_METHODS = [:length, :size]
 	def include?(obj)
-		super || if(obj.is_a?(ODBA::Stub))
-			super(obj.receiver)
-		end
+		super || (obj.is_a?(ODBA::Stub) && super(obj.receiver))
 	end
 	def odba_cut_connection(remove_object)
 		super(remove_object)
-		delete_if{|val| val == remove_object}
+		delete_if{|val| val.eql?(remove_object)}
 	end
 	def odba_prefetch?
 		any? { |item| 
@@ -318,7 +311,7 @@ class Hash
 	def odba_cut_connection(remove_object)
 		super(remove_object)
 		delete_if{|key, val|
-			key == remove_object || val == remove_object
+			key.eql?(remove_object) || val.eql?(remove_object)
 		}
 	end
 	def odba_prefetch?
