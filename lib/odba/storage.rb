@@ -12,7 +12,6 @@ module ODBA
 			@id_mutex = Mutex.new
 		end
 		def add_object_connection(origin_id, target_id)
-			#puts "adding object connection #{origin_id} => #{target_id}"
 			sth = @dbi.prepare("SELECT ensure_object_connection(?, ?)")
 			sth.execute(origin_id, target_id)	
 =begin
@@ -100,7 +99,6 @@ module ODBA
 				'DictFile="' << File.expand_path("fulltext.dict", dict_dir) << '"',
 				'StopFile="' << stopfile << '"',
 			].join(',')
-			puts "path:#{path}"
 			sth.execute(path)
 			create_dictionary_map(language)
 			@dbi.execute <<-SQL
@@ -130,6 +128,7 @@ module ODBA
 			@next_id += 1
 		end
 		def remove_dead_connections(min_id, max_id)
+=begin
 			sth = @dbi.prepare <<-EOQ
 				DELETE FROM object_connection
 				WHERE origin_id BETWEEN ? AND ?
@@ -141,7 +140,23 @@ module ODBA
 				) 
 				OR target_id NOT IN (SELECT odba_id FROM object))
 			EOQ
-			sth.execute(min_id, max_id, min_id, max_id)
+=end
+			sth = @dbi.prepare <<-EOQ
+				DELETE FROM object_connection
+				WHERE origin_id BETWEEN ? AND ?
+				AND (
+				(
+					SELECT odba_id FROM object 
+					WHERE odba_id=origin_id
+				) IS NULL
+				OR
+				(
+					SELECT odba_id FROM object 
+					WHERE odba_id=target_id
+				)	IS NULL
+			)
+			EOQ
+			sth.execute(min_id, max_id)
 =begin
 				DELETE FROM object_connection 
 				WHERE target_id NOT IN 
@@ -162,6 +177,8 @@ module ODBA
 =end
 		end
 		def remove_dead_objects(min_id, max_id)
+			# remove all objects which are not being linked to 
+=begin
 			sth = @dbi.prepare <<-EOQ
 			DELETE FROM object
 			WHERE odba_id IN ( 
@@ -176,8 +193,17 @@ module ODBA
 			)
 			AND odba_id BETWEEN ? AND ?
 			EOQ
-			sth.execute(min_id, max_id, min_id, max_id,
-				min_id, max_id, min_id, max_id)
+=end
+			sth = @dbi.prepare <<-EOQ
+			DELETE FROM object
+			WHERE (
+				SELECT DISTINCT target_id 
+				FROM object_connection 
+				WHERE target_id=odba_id
+			) IS NULL
+			AND odba_id BETWEEN ? AND ?
+			EOQ
+			sth.execute(min_id, max_id)
 =begin
 			unless(rows.first.nil?)
 				sth = @dbi.prepare("delete from object where odba_id in (#{rows.join(',')})");
@@ -185,8 +211,21 @@ module ODBA
 			end
 =end
 		end
+		def remove_dictionary(language)
+			@dbi.execute <<-SQL
+				DELETE FROM pg_ts_cfg 
+				WHERE ts_name='default_#{language}'
+			SQL
+			@dbi.execute <<-SQL
+				DELETE FROM pg_ts_dict 
+				WHERE dict_name IN ('#{language}_ispell', '#{language}_stem')
+			SQL
+			@dbi.execute <<-SQL
+				DELETE FROM pg_ts_cfgmap
+				WHERE ts_name='default_#{language}'
+			SQL
+		end
 		def restore(odba_id)
-			#	puts "storage loading #{odba_id}"
 			row = @dbi.select_one("SELECT content FROM object WHERE odba_id = ?", odba_id)
 			row.first unless row.nil?
 		end	
@@ -194,7 +233,7 @@ module ODBA
 			@dbi.select_all("select origin_id from object_connection where target_id = ?", target_id)
 		end
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
-			search_term.gsub!(/ /,"&")
+			search_term.gsub!(/\s+/,"&")
 	    sql = <<-EOQ
 			SELECT odba_id, content,
 			max(rank(search_term, to_tsquery(?, ?))) AS relevance
@@ -211,8 +250,8 @@ module ODBA
 			rows = @dbi.select_all("select distinct odba_id, content from object inner join #{index_name} on odba_id = #{index_name}.target_id where lower(search_term) like ?", search_term.downcase)	 
 		end
 		def restore_named(name)
-			#			puts "storage loading #{name}"
-			row = @dbi.select_one("select content from object where name = ?", name)
+			row = @dbi.select_one("SELECT content FROM object WHERE name = ?", 
+				name)
 			row.first unless row.nil?
 		end
 		def restore_prefetchable
@@ -222,7 +261,6 @@ module ODBA
 			rows unless(rows.nil?)
 		end
 		def store(odba_id, dump, name, prefetchable)
-			#puts "storing object #{odba_id}"
 			sth = @dbi.prepare("SELECT update_object(?, ?, ?, ?)")
 			sth.execute(odba_id, dump, name, prefetchable)
 =begin
@@ -240,17 +278,14 @@ module ODBA
 			sth_insert.execute(origin_id, dict, search_term, target_id)
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
-			puts "updating index  with:"
-			puts "*******"
-			puts search_term
-			puts "***********"
-			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, ?, ?)")
+			sth_insert = @dbi.prepare <<-SQL
+				INSERT INTO #{index_name} (origin_id, search_term, target_id) 
+				VALUES (?, ?, ?)
+			SQL
 			sth_insert.execute(origin_id, search_term, target_id)
 		end
 =begin
 		def update(odba_id, dump, name, prefetchable)
-			puts "UPDATING" 
-			puts odba_id
 			sth = @dbi.prepare("update object set content = ?, name = ?, prefetchable = ? where odba_id = ?")
 			sth.execute(dump, name, prefetchable, odba_id)
 			sth.rows

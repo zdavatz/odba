@@ -10,18 +10,6 @@ module ODBA
 			@odba_id = odba_id
 			@odba_container = odba_container
 			@odba_class = receiver.class unless receiver.nil? 
-=begin
-			@carry_bag = {}
-			if(receiver)
-				receiver.odba_carry_methods.each { |symbol|
-					begin
-						@carry_bag.store(symbol, receiver.send(symbol))
-					rescue
-					end
-				}
-			end
-=end
-			#			delegate_object_methods
 		end
 		def eql?(other)
 			other.is_a?(Persistable) && other.odba_id == @odba_id
@@ -57,14 +45,17 @@ module ODBA
 				end
 			end
 		end
+		# A stub always references a Persistable that has already been saved.
+		def odba_unsaved?(snapshot_level=nil)
+			false
+		end
 		no_override = [
-			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?"
+			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", "nil?"
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
 			eval <<-EOS
 				def #{method}(*args)
-					#	puts "replaced method #{method}"
 					odba_replace
 					@receiver.#{method}(*args)
 				end

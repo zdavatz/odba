@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# -- oddb -- 13.05.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
+# ODBA -- odba -- 13.05.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'odba/persistable'
 require 'odba/storage'
@@ -43,14 +43,14 @@ module ODBA
 		@odba_mutex ||= Mutex.new
 		@odba_mutex.synchronize{
 			ODBA.storage.transaction {
-				block.call
-				self.scalar_cache.odba_isolated_store
+				res = block.call
+				scalar_cache.odba_isolated_store
+				res
 			}
 		}
 	end
 	def index_factory(index_definition, origin_module)	
 		if(index_definition.fulltext)
-			puts "creating fulltext index"
 			FulltextIndex.new(index_definition, origin_module)
 		else
 			Index.new(index_definition, origin_module)
@@ -67,4 +67,3 @@ module ODBA
 	module_function :storage=
 	module_function :transaction
 end
-

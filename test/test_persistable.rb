@@ -40,9 +40,19 @@ module ODBA
 		def setup
 			ODBA.storage = Mock.new("storage")
 			ODBA.marshaller = Mock.new("marshaller")
-			@odba  = ODBAContainer.new
 			ODBA.cache_server = Mock.new("cache_server")
-			ODBA.scalar_cache = Mock.new("scalar")
+			ODBA.scalar_cache = Mock.new("scalar_cache")
+			@odba  = ODBAContainer.new
+		end
+		def teardown
+			ODBA.storage.__verify
+			ODBA.marshaller.__verify
+			ODBA.cache_server.__verify
+			ODBA.scalar_cache.__verify
+			ODBA.storage = nil
+			ODBA.marshaller = nil
+			ODBA.cache_server = nil
+			ODBA.scalar_cache = nil
 		end
 		def test_odba_id
 			ODBA.storage.__next(:next_id) { ||
@@ -65,8 +75,8 @@ module ODBA
 			ODBA.cache_server.__next(:delete) { |object|
 				assert_equal(odba_container, object)
 			}
+			ODBA.scalar_cache.__next(:odba_isolated_store) { }
 			odba_container.odba_delete
-			ODBA.cache_server.__verify
 		end
 		def test_odba_replace_excluded
 			odba = ODBAExcluding.new
@@ -146,6 +156,7 @@ module ODBA
 			var = StubMock.new
 			name = "foo"
 			var.__next(:is_a?) { |persistable| true }
+			var.__next(:is_a?) { |stub| false }
 			assert_equal(true, @odba.odba_replaceable?(var, name))
 			var.__verify
 		end
@@ -179,7 +190,7 @@ module ODBA
 				assert_equal(Persistable, arg)
 				false
 			}
-			ODBA.storage.__next(:next_id){||13 }
+			#ODBA.storage.__next(:next_id){ 13 }
 			@odba.odba_replace_persistables
 			assert_instance_of(StubMock, @odba.non_replaceable)
 			assert_equal(12, @odba.replaceable.odba_id)
@@ -256,24 +267,26 @@ module ODBA
 		def test_odba_isolated_dump
 			replaceable = StubMock.new("rep")
 			replaceable2 = StubMock.new("rep2")
-			@odba.replaceable2 = replaceable2
 			@odba.replaceable = replaceable
+			@odba.replaceable2 = replaceable2
 			
 			#only 4 expected calls because after the duplication
 			# the calls will be made on ODBA::Stub objects
-			replaceable.__next(:is_a?) { |arg| true}
+			replaceable.__next(:is_a?) { |arg| 
+				false # is_a?(Stub) from Persistable::dup
+			}
+			replaceable.__next(:is_a?) { |arg| 
+				true # is_a?(Persistable) from Persistable::odba_replaceable?
+			}
+			replaceable.__next(:is_a?) { |arg| 
+				false # is_a?(Stub) from Persistable::odba_replaceable?
+			}
 			replaceable.__next(:odba_id) { 12 }
-			replaceable2.__next(:is_a?) { |arg| true}
+			replaceable2.__next(:is_a?) { |arg| false }
+			replaceable2.__next(:is_a?) { |arg| true }
+			replaceable2.__next(:is_a?) { |arg| false }
 			replaceable2.__next(:odba_id) { 13 }
-			ODBA.storage.__next(:next_id){|| 2}
-			f_obj1 = Mock.new("fobj1")
-			f_obj1.__next(:odba_carry_methods){[]}
-			f_obj2 = Mock.new("fobj2")
-			f_obj2.__next(:odba_carry_methods){[]}
-			ODBA.cache_server.__next(:fetch) { |id,container| f_obj1}
-			ODBA.cache_server.__next(:fetch) { |id,container| f_obj2}
-			#ODBA.cache_server.__next(:add_object_connection){|id,id2|}
-			#			ODBA.cache_server.__next(:add_object_connection){|id,id2|}
+			ODBA.storage.__next(:next_id){ 11 }
 			
 			ODBA.marshaller.__next(:dump) { |twin|
 				assert_equal(true, twin.replaceable.is_a?(Stub))
@@ -285,12 +298,13 @@ module ODBA
 			assert_equal("TheDump", result)
 			assert(@odba.odba_target_ids.include?(12))
 			assert(@odba.odba_target_ids.include?(13))
-			#expected = [12, 13]
-			#assert_equal(expected, @odba.odba_target_ids)
+			expected = [12, 13]
+			assert_equal(expected, @odba.odba_target_ids.sort)
 			replaceable.__verify
-			ODBA.cache_server.__verify
+			replaceable2.__verify
 		end
 		def test_odba_isolated_dump_2
+			tmp = ODBA.marshaller
 			ODBA.marshaller = ODBA::Marshal
 			odba = ODBAExcluding.new
 			odba.excluded = "foo"
@@ -300,6 +314,7 @@ module ODBA
 			obj = ODBA.marshaller.load(dump)
 			assert_equal(nil, obj.excluded)
 			assert_equal("baz", obj.included)
+			ODBA.marshaller = tmp
 		end
 		def test_odba_id
 			@odba.odba_id = nil
@@ -309,43 +324,35 @@ module ODBA
 		end
 		def test_odba_dump_has_id
 			@odba.odba_id = nil
-			ODBA.scalar_cache.__next(:odba_isolated_store){}
+			ODBA.scalar_cache.__next(:odba_isolated_store) { }
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.storage.__next(:next_id) { 1 }
-			ODBA.marshaller = Marshal
 			ODBA.cache_server.__next(:store) { |obj|
 				assert_equal(1, obj.odba_id)
 			}
 			@odba.odba_store
-			ODBA.storage.__verify
 		end
 		def test_odba_store_error_raised
-			ODBA.marshaller = Marshal
 			@odba.odba_name = "foo"
-			cache_server = Mock.new
-			ODBA.cache_server = cache_server
 			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
-			cache_server.__next(:store) { |dump|
+			ODBA.cache_server.__next(:store) { |dump|
 				raise DBI::ProgrammingError
 			}
 			assert_raises(DBI::ProgrammingError) {
 				@odba.odba_store('baz')
 			}
 			assert_equal("foo", @odba.odba_name)
-			cache_server.__verify
 		end
 		def test_odba_store_no_error_raised
-			ODBA.marshaller = Marshal
 			@odba.odba_name = "foo"
-			cache_server = Mock.new
-			ODBA.cache_server = cache_server
 			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
-			cache_server.__next(:store) { |dump| }
+			ODBA.cache_server.__next(:store) { |obj| 
+				assert_equal(@odba, obj)
+			}
 			@odba.odba_store('bar')
 			assert_equal("bar", @odba.odba_name)
-			cache_server.__verify
 		end
 	end	
 	class TestArrayReplaceStubs < Test::Unit::TestCase
@@ -472,4 +479,3 @@ module ODBA
 		end
 	end
 end
-
