@@ -367,7 +367,6 @@ module ODBA
 			foo.__next(:fill) { |target| 
 				assert_equal("baz", target)
 			}
-			ODBA.storage.__next(:fill_index) { |index_name, row| }
 			@cache.indices = { 
 				"foo" => foo
 			}

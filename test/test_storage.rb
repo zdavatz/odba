@@ -335,5 +335,17 @@ module ODBA
 			sth1.__verify
 			dbi.__verify
 		end
+		def test_delete_index_element
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			@storage.dbi = dbi
+			dbi.__next(:prepare){|sql|
+				sth
+			}
+			sth.__next(:execute){|target_id|}
+			@storage.delete_target_ids("foo_index", 1)
+			sth.__verify
+			dbi.__verify
+		end
 	end
 end

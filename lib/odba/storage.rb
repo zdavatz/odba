@@ -38,6 +38,10 @@ module ODBA
 		sth = @dbi.prepare("delete from #{index_name} where origin_id = ?")
 			sth.execute(odba_id)
 		end
+		def delete_target_ids(index_name, target_id)
+			sth = @dbi.prepare("delete from #{index_name}  where target_id = ?")
+			sth.execute(target_id)
+		end
 		def delete_persistable(odba_id)
 			sth = @dbi.prepare("delete from object where odba_id = ?")
 			sth.execute(odba_id)
@@ -115,7 +119,7 @@ module ODBA
 			row.first unless row.nil?
 		end	
 		def retrieve_from_index(index_name, search_term)
-			search_term = "%"+search_term+"%"
+			search_term = search_term+"%"
 			rows = @dbi.select_all("select distinct content from object inner join #{index_name} on odba_id = #{index_name}.target_id where search_term ilike ?", search_term)	 
 		end
 		def retrieve_connected_objects(target_id)

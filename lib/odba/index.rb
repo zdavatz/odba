@@ -5,14 +5,14 @@
 module ODBA
 	class Index
 		include Persistable
-		ODBA_EXCLUDE_VARS = ['@proc']
-		def initialize(index_name, origin_klass, target_klass, mthd, resolve_target, resolve_origin  ='')
+		ODBA_EXCLUDE_VARS = ['@proc_target', '@proc_origin']
+		def initialize(index_name, origin_klass, target_klass, search_term_mthd, resolve_target, resolve_origin  ='')
 			@origin_klass = origin_klass
 			@target_klass = target_klass
 			@resolve_origin = resolve_origin
 			@resolve_target = resolve_target
 			@index_name = index_name
-			@mthd = mthd
+			@search_term_mthd = search_term_mthd
 			ODBA.storage.create_index(index_name)
 		end
 		def proc_instance_origin
@@ -20,9 +20,12 @@ module ODBA
 				if(@resolve_origin.to_s.empty?)
 					@proc_origin = Proc.new { |odba_item|  [odba_item] }
 				else
-					src = "Proc.new { |odba_item| 
-						puts odba_item.#{@resolve_origin}
-									[odba_item.#{@resolve_origin}]}"
+					src = <<-EOS
+						Proc.new { |odba_item| 
+							puts odba_item.#{@resolve_origin}
+							[odba_item.#{@resolve_origin}].flatten.compact
+						}
+					EOS
 					puts src
 					@proc_origin = eval(src)
 				end
@@ -34,79 +37,93 @@ module ODBA
 				if(@resolve_target.to_s.empty?)
 					@proc_target = Proc.new { |odba_item|  [odba_item] }
 				else
-					src = "Proc.new { |odba_item| 
-									[odba_item.#{@resolve_target}]}"
-									#					puts src
+					src = <<-EOS
+						Proc.new { |odba_item| 
+							[odba_item.#{@resolve_target}].flatten.compact
+						}
+					EOS
+									puts src
 					@proc_target = eval(src)
 				end
 			end
 			@proc_target
 		end
 		def resolve_targets(odba_obj)
-		 if(target_obj = proc_instance_target.call(odba_obj))
-			 [target_obj].flatten
-		 else
-			 []
-		 end
+			@proc_target = nil
+			puts "sending to pro_target"
+			puts odba_obj.class
+			proc_instance_target.call(odba_obj)
 		end
 		def origin_class?(klass)
 			(@origin_klass == klass)
 		end
 		def search_term(odba_obj)
-			odba_obj.send(@mthd)
+			if(odba_obj.respond_to?(@search_term_mthd))
+				puts "fooooooo"
+				odba_obj.send(@search_term_mthd)
+			else
+				odba_obj.to_s
+			end
 		end
 		def fill(targets)
-			@proc = nil
+			@proc_origin = nil
 			rows = []
-			targets.each { |target|
+			targets.flatten.each { |target|
 				target_id = target.odba_id
-				items = proc_instance_origin.call(target)
-				#puts "******************"
-				#puts items.inspect
-				#puts "*******************"
-				items.flatten!
-				#	puts "after flatten"
-				#puts items.inspect
-				items.each { |item|
+				origins = proc_instance_origin.call(target)
+				origins.each { |origin|
+=begin
 					#puts "********ITEM****"
-					puts item.class
+					puts origin.class
 					#	puts "**************"
-					#		item = item.odba_container
-					#	item = item.first
-					value = if(@mthd && item.respond_to?(@mthd))
-					#puts "sending #{item}.#{@mthd}"
-						item.send(@mthd)
+					#		origin = origin.odba_container
+					#	origin = origin.first
+					value = if(@search_term_mthd && origin.respond_to?(@search_term_mthd))
+					#puts "sending #{origin}.#{@mthd}"
+						origin.send(@search_term_mthd)
 					else
-						#	puts "sending #{item}.to_s"
-						item.to_s
+						#	puts "sending #{origin}.to_s"
+						origin.to_s
 					end
-					#	puts "item #{item}"
-					rows << [item.odba_id, value, target_id]
+					#	puts "origin #{origin}"
+					rows << [origin.odba_id, value, target_id]
+=end
+					do_update_index( origin.odba_id, 
+						search_term(origin), target_id)
+					puts "origin is a"
+					puts origin.class
+					#self.update_origin(origin)
 				}
 			}
-			rows
 		end
 		def update(object)
 			if(object.is_a?(@target_klass))
 				puts "****"
 				update_target(object)
 			elsif(object.is_a?(@origin_klass))
-				update_origin(object)
+				self.update_origin(object)
 			end
 		end
 		def update_target(object)
 			target_id = object.odba_id
-			ODBA.storage.delete_target_ids(target_id, @index_name)
+			ODBA.storage.delete_target_ids(@index_name, target_id)
 			fill([object])
 		end
 		def update_origin(object)
+			puts "in origin"
 			origin_id = object.odba_id
 			search_term = search_term(object)
+			puts search_term
 			#ODBA.storage.delete_origin_ids(origin_id, @index_name)
 			target_objs = resolve_targets(object)		
-			target_objs.each { |target_id|
-				ODBA.storage.update_index(@index_name, origin_id, search_term, target_id)
+			target_objs.each { |target_obj|
+				target_id = target_obj.odba_id
+				do_update_index(origin_id, search_term, target_id)
 			}
+		end
+		def do_update_index(origin_id, search_term, target_id)
+			ODBA.storage.update_index(@index_name, origin_id, 
+				search_term, target_id)
 		end
 	end
 end

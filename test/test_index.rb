@@ -23,52 +23,22 @@ module ODBA
 			index = Index.new("index", Mock, "baz", :foo_method, "foo")
 			
 			foo.__next(:odba_id) { || 3}
-			#	foo.__next(:foo_method) { || }	
 			foo.__next(:odba_id) { || 3}
 
-			ODBA.storage.__next(:next_id) { || 7 }
-			ODBA.cache_server.__next(:bulk_fetch) { |ids, caller| }
-			ODBA.cache_server.__next(:bulk_fetch) { |ids, caller| }
-			baz.__next(:odba_id) { || 4 }
-			#baz.__next(:foo_method) { ||}	
+			ODBA.storage.__next(:update_index) { |name, orid, term, tarid|  }
+			ODBA.storage.__next(:update_index) { |name, orid, term, tarid|  }
+			ODBA.storage.__next(:update_index) { |name, orid, term, tarid|  }
 			
 			bar.__next(:odba_id) { || 5 }
-			
-			result = index.fill(targets)
-			expected = [[3, foo.to_s, 3], [4, baz.to_s, 7],[5, bar.to_s, 7]]
-			assert_equal(expected, result) 
+			bar.__next(:odba_id) { || 5 }
+			baz.__next(:odba_id) { || 5 }
+			baz.__next(:odba_id) { || 5 }
+	
+			index.fill(targets)
 
 			foo.__verify
 			baz.__verify
 			ODBA.storage.__verify
-		end
-		def test_fill_array2
-			foo = Mock.new("foo")
-			bar = Mock.new("bar")
-			baz = Mock.new("baz")
-			targets = [foo, baz, bar]
-			index = Index.new("index", Mock, "baz", :foo_method, "foo")
-			
-			foo.__next(:odba_id) { || 3}
-			#	foo.__next(:foo_method) { || }	
-			foo.__next(:odba_id) { || 3}
-
-			baz.__next(:odba_id) { || 4 }
-			baz.__next(:odba_id) { || 4 }
-			#baz.__next(:foo_method) { ||}	
-			
-			bar.__next(:odba_id) { || 5 }
-			bar.__next(:odba_id) { || 5 }
-			ODBA.cache_server.__next(:bulk_fetch) { |ids, caller| }
-			ODBA.cache_server.__next(:bulk_fetch) { |ids, caller| }
-			ODBA.cache_server.__next(:bulk_fetch) { |ids, caller| }
-			
-			result = index.fill(targets)
-			expected = [[3, foo.to_s, 3], [4, baz.to_s, 4],[5, bar.to_s, 5]]
-			assert_equal(expected, result) 
-
-			foo.__verify
-			baz.__verify
 		end
 		def test_proc
 			proc_code = <<-EOS
@@ -93,10 +63,9 @@ module ODBA
 		end
 		def test_search_term
 			foo = Mock.new("foo")
-			index = Index.new("index_name", "bar", "baz", :foo_method, "foo")
-			foo.__next(:foo_method) { "foobar" }
+			index = Index.new("index_name", "bar", "baz", :foo_method, "foobar")
 			result = index.search_term(foo)
-			assert_equal(result, "foobar")
+			assert_equal(result, foo.to_s)
 			foo.__verify
 		end
 		def test_resolve_target_id
@@ -114,11 +83,11 @@ module ODBA
 			foo = Mock.new("foo")
 			index = Index.new("foo_index", Hash, Mock, :foo_method, :foo)
 			foo.__next(:odba_id) { 1 }
-			ODBA.storage.__next(:delete_target_ids) { |id, name| 
+			ODBA.storage.__next(:delete_target_ids) { |name, id| 
 				assert_equal(1, id)
 				assert_equal("foo_index", name)
 			}
-			
+			ODBA.storage.__next(:update_index) { |name, ogid, term, tarid | }	
 			foo.__next(:odba_id){ 1}
 			foo.__next(:odba_id){ 1}
 			ODBA.cache_server.__next(:bulk_fetch) { |ids, caller| }
@@ -126,11 +95,11 @@ module ODBA
 			assert_equal(nil, foo.__verify)
 		end
 		def test_update_origin
-			foo  = Mock.new("origin")
+			foo  = Mock.new("foo")
 			target = Mock.new("target")
 			index = Index.new("foo_index", Mock, Hash, :foo_method, :resolve_target)
-			foo.__next(:odba_id){2}
-			foo.__next(:foo_method) { "foobar" }
+			target.__next(:odba_id) { 1 }
+			foo.__next(:odba_id) {2}
 			foo.__next(:resolve_target){
 				target
 			}

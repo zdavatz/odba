@@ -220,9 +220,8 @@ puts "rows each"
 		index
 		end
 		def fill_index(index_name, targets)
-			rows = self.indices[index_name].fill(targets)
-			puts "rows inspect #{rows.inspect}"
-			ODBA.storage.fill_index(index_name, rows)
+			puts "in cache fill index"
+			self.indices[index_name].fill(targets)
 		end
 		def retrieve_from_index(index_name, search_term)
 			bulks = ODBA.storage.retrieve_from_index(index_name, search_term)
