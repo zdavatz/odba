@@ -9,6 +9,7 @@ require 'odba'
 module ODBA
 	class Cache < SimpleDelegator
 		CLEANING_INTERVAL = 0
+		MAIL_RECIPIENTS = []
 		attr_accessor :cleaner, :hash, :batch_objects, :batch_mode,
 									:batch_deletions, :batch_mode
 		attr_writer :indices

@@ -3,13 +3,22 @@
 
 require 'singleton'
 require 'delegate'
-
+require 'tmail'
+require 'net/smtp'
+require 'date'
 module ODBA
 	class Cache < SimpleDelegator
 		include Singleton
 		CLEANING_INTERVAL = 900
 		REAPER_ID_STEP = 1000
 		REAPER_INTERVAL = 60
+		MAIL_FROM = 'odba@ywesee.com'
+		MAIL_RECIPIENTS=[
+			"hwyss@ywesee.com",
+			"rwaltert@ywesee.com",
+			"mwalder@ywesee.com",
+		]
+		SMTP_SERVER = 'mail.ywesee.com'
 		attr_reader :batch_threads
 		def initialize
 			if(self::class::CLEANING_INTERVAL > 0)
@@ -356,7 +365,25 @@ module ODBA
 		private
 		def load_object(odba_id)
 			dump = ODBA.storage.restore(odba_id)
-			restore_object(dump)
+			begin
+				restore_object(dump)
+			rescue OdbaError
+				text = TMail::Mail.new
+				recipients = self::class::MAIL_RECIPIENTS
+				text.set_content_type('text', 'plain', 'charset'=>'ISO-8859-1')
+				text.body = "Error loading object unknown odba_id #{odba_id}"
+				text.from = self::class::MAIL_FROM
+				text.to = recipients
+				text.subject = "ODBA ID ERROR"
+				text.date = Time.now
+				text['User-Agent'] = 'ODBA Framework'
+				if(recipients.size > 0)
+					Net::SMTP.start(self::class::SMTP_SERVER) { |smtp|
+						smtp.sendmail(text.encoded, self::class::MAIL_FROM, recipients.uniq)
+					}
+				end
+				raise
+			end
 		end
 		def restore_object(dump)
 			if(dump.nil?)
