@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# -- oddb -- 13.05.2004 -- rwaltert@ywesee.com
+# Index -- odba -- 13.05.2004 -- rwaltert@ywesee.com
 
 
 module ODBA
@@ -115,7 +115,7 @@ module ODBA
 		end
 		def update_target(object)
 			target_id = object.odba_id
-			ODBA.storage.delete_target_ids(@index_name, target_id)
+			ODBA.storage.index_delete_target(@index_name, target_id)
 			fill([object])
 		end
 		def update_origin(object)
@@ -123,8 +123,8 @@ module ODBA
 			origin_id = object.odba_id
 			search_term = search_term(object)
 			puts search_term
-			#ODBA.storage.delete_origin_ids(origin_id, @index_name)
 			target_objs = resolve_targets(object)		
+			ODBA.storage.remove_index_origin(@index_name, origin_id)
 			target_objs.each { |target_obj|
 				target_id = target_obj.odba_id
 				do_update_index(origin_id, search_term, target_id)

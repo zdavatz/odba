@@ -84,7 +84,7 @@ module ODBA
 			foo = Mock.new("foo")
 			index = Index.new("foo_index", Hash, Mock, :foo_method, :foo)
 			foo.__next(:odba_id) { 1 }
-			ODBA.storage.__next(:delete_target_ids) { |name, id| 
+			ODBA.storage.__next(:index_delete_target) { |name, id| 
 				assert_equal(1, id)
 				assert_equal("foo_index", name)
 			}
@@ -104,6 +104,7 @@ module ODBA
 			foo.__next(:resolve_target){
 				target
 			}
+			ODBA.storage.__next(:remove_index_origin){|name, id|}
 			ODBA.storage.__next(:update_index){|index_name, orig_id,search, tar_id|
 			}
 			ODBA.cache_server.__next(:bulk_fetch){|ids, obj|}

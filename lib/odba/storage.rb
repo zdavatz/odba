@@ -41,13 +41,8 @@ module ODBA
 			sth.execute
 		end
 		def delete_index_element(index_name, odba_id)
-			puts "deleting index element"
 		sth = @dbi.prepare("delete from #{index_name} where origin_id = ?")
 			sth.execute(odba_id)
-		end
-		def delete_target_ids(index_name, target_id)
-			sth = @dbi.prepare("delete from #{index_name}  where target_id = ?")
-			sth.execute(target_id)
 		end
 		def delete_persistable(odba_id)
 			sth = @dbi.prepare("delete from object where odba_id = ?")
@@ -57,23 +52,48 @@ module ODBA
 			sth = @dbi.prepare("drop table #{name}")
 			sth.execute
 		end
-		def fill_index(index_name, rows)
-			sql = ""
-			rows.each { |row|
-				origin_id = row[0]
-				search_term = row[1]
-				target_id = row[2]
-				sth = @dbi.prepare("insert into #{index_name} (origin_id, search_term, target_id) values (?, ?, ?)")
-				sth.execute(origin_id, search_term, target_id)
-			}
-		end
 =begin
 		def update_index(index_name, origin_id, search_term)
 			sth = @dbi.prepare("update #{index_name} set search_term = ? where origin_id = ?")
 			sth.execute(search_term, origin_id)
 		end
 =end
-		def remove_dead_connections
+		def index_delete_origin(index_name, origin_id)
+			sth = @dbi.prepare("delete from #{index_name}  where origin_id = ?")
+			sth.execute(origin_id)
+		end
+		def index_delete_target(index_name, target_id)
+			sth = @dbi.prepare("delete from #{index_name}  where target_id = ?")
+			sth.execute(target_id)
+		end
+		def remove_dead_connections(min_id, max_id)
+			
+			sth = @dbi.prepare <<-EOQ
+			DELETE FROM object 
+			WHERE odba_id IN ( 
+				SELECT object.odba_id FROM object_connection 
+				RIGHT JOIN object ON 
+					(object.odba_id BETWEEN #{min_id} AND #{max_id})
+				AND ((object_connection.origin_id 
+					BETWEEN #{min_id} AND #{max_id}) 
+				OR (object_connection.target_id 
+					BETWEEN #{min_id} AND #{max_id})) 
+				AND ((object_connection.origin_id = object.odba_id) 
+				OR (object_connection.target_id = object.odba_id)) 
+				WHERE target_id IS null
+			)
+			AND odba_id BETWEEN #{min_id} AND #{max_id}
+			EOQ
+			sth.execute
+=begin
+				DELETE FROM object_connection 
+				WHERE target_id NOT IN 
+				( SELECT odba_id FROM object)
+				OR origin_id NOT IN 
+				( SELECT odba_id FROM object)
+				AND origin_id BETWEEN ? AND ?
+=end
+=begin
 			rows_target = @dbi.select_all("select target_id from object_connection left join object on object.odba_id = target_id where odba_id is null")
 			rows_origin = @dbi.select_all("select origin_id from object_connection left join object on object.odba_id = origin_id where odba_id is null")
 			total_rows = rows_target.concat(rows_origin)
@@ -82,8 +102,9 @@ module ODBA
 				sth = @dbi.prepare("delete from object_connection where target_id = ? or origin_id = ?");
 				sth.execute(id, id)
 			}
+=end
 		end
-		def remove_dead_objects
+		def remove_dead_objects(min_id, max_id)
 			sth = @dbi.prepare <<-EOQ
 				DELETE FROM object WHERE odba_id IN
 				(
@@ -93,9 +114,10 @@ module ODBA
 					ON (object_connection.target_id = object.odba_id 
 						OR object_connection.origin_id = object.odba_id) 
 					WHERE	target_id IS NULL
+					AND object.odba_id BETWEEN ? AND ?
 				)
 			EOQ
-			sth.execute
+			sth.execute(min_id, max_id)
 =begin
 			unless(rows.first.nil?)
 				sth = @dbi.prepare("delete from object where odba_id in (#{rows.join(',')})");
@@ -104,20 +126,10 @@ module ODBA
 =end
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
-=begin
-			rows = @dbi.select_all("select target_id from #{index_name} where origin_id = ?", origin_id)
-=end
-			#DELETE
-			sth_delete = @dbi.prepare("delete from #{index_name} where origin_id = ? and target_id = ?")
-			sth_delete.execute(origin_id, target_id)
-			#INSERT
-			#error string:
-			#Dexamethason HelvePharm 2, Injektionslösung
 			sth_insert = @dbi.prepare("insert into #{index_name} (origin_id, search_term, target_id) values (?, ?, ?)")
 			sth_insert.execute(origin_id, search_term, target_id)
 		end
 		def update(odba_id, dump, name, prefetchable)
-			puts "updating"
 			sth = @dbi.prepare("update object set content = ?, name = ?, prefetchable = ? where odba_id = ?")
 			sth.execute(dump, name, prefetchable, odba_id)
 			sth.rows
@@ -146,7 +158,6 @@ module ODBA
 			rows unless(rows.nil?)
 		end
 		def store(odba_id, dump, name, prefetchable)
-			puts "in store method"
 			@store_mutex.synchronize {	
 				if(update(odba_id, dump, name, prefetchable) == 0)
 					sth = @dbi.prepare("insert into object (odba_id, content, name, prefetchable) VALUES (?, ?, ?, ?)")
@@ -154,15 +165,22 @@ module ODBA
 				end
 			}
 		end
+		def max_id
+			ensure_next_id_set
+			@next_id
+		end
 		def next_id
+			ensure_next_id_set
+			@next_id += 1
+		end
+		private
+		def ensure_next_id_set
 			@id_mutex.synchronize {
 				if(@next_id.nil?)
 					@next_id = restore_max_id
 				end
 			}
-			@next_id += 1
 		end
-		private
 		def restore_max_id
 			row = @dbi.select_one("select MAX(odba_id) from object")
 			unless(row.first.nil?)

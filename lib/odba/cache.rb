@@ -9,6 +9,7 @@ module ODBA
 		attr_reader :indices
 		include Singleton
 		CLEANING_INTERVAL = 40
+		CLEANER_ID_STEP = 100
 		def initialize
 			#=begin
 			@cleaner = Thread.new {
@@ -16,7 +17,7 @@ module ODBA
 					sleep(self::class::CLEANING_INTERVAL)
 					begin
 						puts "cleaning up DB"
-						#clean
+						clean
 						#clean_object_connections
 					rescue StandardError => e
 						puts e
@@ -27,6 +28,8 @@ module ODBA
 			@cleaner.priority = -5
 			#=end
 			@hash = Hash.new
+			@cleaner_min_id = 0
+			@cleaner_max_id = 0
 			super(@hash)
 		end
 		def indices
@@ -51,7 +54,6 @@ module ODBA
 			end
 		end
 		def bulk_restore(rows, odba_caller = nil)
-			puts "in bulk_restore"
 			retrieved_objects= []
 			rows.each { |row|
 				obj_id, dump = row
@@ -59,15 +61,10 @@ module ODBA
 				#obj = restore_object(dump)
 				#puts " object class"
 				#puts obj.class
-				puts "********3"
-				puts obj_id
-				puts dump
 				if(cache_entry = @hash.fetch(obj_id.to_i, false))
-					puts "already loaded"
 					obj = cache_entry.odba_object
 					cache_entry.odba_add_reference(odba_caller)
 				else
-					puts "loading from DB"
 					obj = restore_object(dump)
 					cache_entry = CacheEntry.new(obj)
 					cache_entry.odba_add_reference(odba_caller)
@@ -93,16 +90,19 @@ module ODBA
 		end
 		def clean_object_connections
 			puts "clean object conne"
-			ODBA.storage.remove_dead_objects
-			ODBA.storage.remove_dead_connections
+			@cleaner_min_id += CLEANER_ID_STEP
+			@cleaner_max_id = @cleaner_min_id + CLEANER_ID_STEP
+			if(@cleaner_min_id > ODBA.storage.max_id)
+				@cleaner_min_id = 0
+				@cleaner_max_id = CLEANER_ID_STEP
+			end
+			ODBA.storage.remove_dead_objects(@cleaner_min_id, @cleaner_max_id)
+			ODBA.storage.remove_dead_connections(@cleaner_min_id, @cleaner_max_id)
 		end
 		def delete(object)
-			puts "in delete method"
-			puts @hash.size
 			rows = ODBA.storage.retrieve_connected_objects(object.odba_id)
 			unless (rows.empty?)
 			rows.each{ |row|
-puts "rows each"
 				id = row.first
 				connected_object = fetch(id, nil)
 				connected_object.odba_cut_connection(object)

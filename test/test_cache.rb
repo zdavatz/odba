@@ -15,10 +15,6 @@ module ODBA
 		attr_accessor :cleaner, :hash
 		attr_writer :indices
 		public :load_object
-		def initialize
-			@hash = Hash.new
-			super(@hash)
-		end
 	end
 	class TestCache < Test::Unit::TestCase
 		class ODBAContainer
@@ -340,9 +336,11 @@ module ODBA
 			receiver.__verify
 		end
 		def test_clean_object_connection
-			ODBA.storage.__next(:remove_dead_objects) { }
-			ODBA.storage.__next(:remove_dead_connections) { }
+			ODBA.storage.__next(:max_id){3}
+			ODBA.storage.__next(:remove_dead_objects) {|min, max| }
+			ODBA.storage.__next(:remove_dead_connections) { |min, max| }
 			@cache.clean_object_connections
+			ODBA.storage.__verify
 		end
 		def test_prefetch
 			foo = Mock.new("foo")
