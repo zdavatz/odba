@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# TestStorage -- 10.05.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
+# TestStorage -- odba -- 10.05.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
@@ -86,28 +86,20 @@ module ODBA
 			assert_equal(2, @storage.next_id)
 			assert_equal(3, @storage.next_id)
 		end
-		def test_store_insert
+		def test_store
 			dbi = Mock.new("dbi")
 			sth = Mock.new("sth")
-			row = Mock.new("row")
 			@storage.dbi = dbi
-			dbi.__next(:prepare) { |arg| sth} 
-			sth.__next(:execute){ |id, dump, name, prefetch| row }
-			sth.__next(:rows){ || 0}
-			dbi.__next(:prepare) { |arg| sth} 
-			sth.__next(:execute){ |id, dump, name, prefetch| row }
-			@storage.store(1,"foodump", "foo", true)
-			dbi.__verify
-			sth.__verify
-		end
-		def test_store_update
-			dbi = Mock.new
-			sth = Mock.new
-			row = Mock.new
-			@storage.dbi = dbi
-			dbi.__next(:prepare) { |arg| sth} 
-			sth.__next(:execute){ |id, dump, name, prefetch| row }
-			sth.__next(:rows){ || 1}
+			dbi.__next(:prepare) { |query| 
+				assert_equal('SELECT update_object(?, ?, ?, ?)', query)
+				sth
+			} 
+			sth.__next(:execute){ |id, dump, name, prefetch| 
+				assert_equal(1, id)	
+				assert_equal("foodump", dump)	
+				assert_equal("foo", name)	
+				assert_equal(true, prefetch)
+			}
 			@storage.store(1,"foodump", "foo", true)
 			dbi.__verify
 			sth.__verify
@@ -226,15 +218,14 @@ module ODBA
 				sth = Mock.new("sth")
 				@storage.dbi = dbi
 				rows = [[0]]
-				dbi.__next(:select_all){ |query, id, traget_id| 
-					assert_not_nil(query.index('select count(origin_id)'))
-					rows
-				}
 				dbi.__next(:prepare){ |query| 
-					assert_not_nil(query.index('insert into object_connection'))
+					assert_equal('SELECT ensure_object_connection(?, ?)', query)
 					sth
 				}
-				sth.__next(:execute){  }
+				sth.__next(:execute){ |origin, target|
+					assert_equal(1, origin)
+					assert_equal(3, target)
+				}
 				@storage.add_object_connection(1, 3)
 				dbi.__verify
 				sth.__verify

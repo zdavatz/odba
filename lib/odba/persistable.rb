@@ -5,10 +5,10 @@ module ODBA
 	module Persistable
 		attr_accessor :odba_name, :odba_prefetch
 		attr_reader :odba_target_ids
-		ODBA_PREFETCH = false
+		ODBA_CACHE_METHODS = []
 		ODBA_INDEXABLE = true
+		ODBA_PREFETCH = false
 		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids']
-		ODBA_CACHE_METHODS = [:length, :size]
 		def dup
 			twin = super
 			twin.instance_variables.each { |name|
@@ -149,8 +149,8 @@ module ODBA
 			end
 		end
 		def odba_store(name = nil)
-			puts "#{name} started transaction"
-			ODBA.transaction {
+			#puts "#{name} started transaction"
+			#ODBA.transaction {
 				begin
 					unless (name.nil?)
 						old_name = @odba_name
@@ -162,8 +162,8 @@ module ODBA
 					@odba_name = old_name
 					raise
 				end
-			}
-			puts "#{name} completed transaction"
+				#}
+			#puts "#{name} completed transaction"
 		end
 		def odba_take_snapshot
 			@odba_snapshot_level ||= 0
@@ -238,6 +238,7 @@ module ODBA
 end
 class Array
 	include ODBA::Persistable
+	ODBA_CACHE_METHODS = [:length, :size]
 	def include?(obj)
 		super || if(obj.is_a?(ODBA::Stub))
 			super(obj.receiver)
@@ -313,6 +314,7 @@ class Array
 end
 class Hash
 	include ODBA::Persistable
+	ODBA_CACHE_METHODS = [:length, :size]
 	def odba_cut_connection(remove_object)
 		super(remove_object)
 		delete_if{|key, val|
