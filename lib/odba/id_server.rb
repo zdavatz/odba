@@ -10,7 +10,7 @@ module ODBA
 		def initialize
 			@ids = {}
 		end
-		def method_missing(key, *args)
+		def next_id(key)
 			@ids[key] ||= 0
 			res = @ids[key] += 1
 			odba_store

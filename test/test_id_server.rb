@@ -23,9 +23,9 @@ module ODBA
 					assert_equal(@id_server, obj)
 				}
 			}
-			assert_equal(1, @id_server.foo)
-			assert_equal(1, @id_server.bar)
-			assert_equal(1, @id_server.baz)
+			assert_equal(1, @id_server.next_id(:foo))
+			assert_equal(1, @id_server.next_id(:bar))
+			assert_equal(1, @id_server.next_id(:baz))
 		end
 		def test_consecutive
 			3.times { 
@@ -33,15 +33,15 @@ module ODBA
 					assert_equal(@id_server, obj)
 				}
 			}
-			assert_equal(1, @id_server.foo)
-			assert_equal(2, @id_server.foo)
-			assert_equal(3, @id_server.foo)
+			assert_equal(1, @id_server.next_id(:foo))
+			assert_equal(2, @id_server.next_id(:foo))
+			assert_equal(3, @id_server.next_id(:foo))
 		end
 		def test_dumpable
 			ODBA.cache_server.__next(:store) { |obj|
 				assert_equal(@id_server, obj)
 			}
-			@id_server.foo
+			@id_server.next_id(:foo)
 			dump = nil
 			assert_nothing_raised { 
 				dump = @id_server.odba_isolated_dump 
