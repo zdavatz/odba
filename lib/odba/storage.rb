@@ -29,7 +29,7 @@ module ODBA
 			else
 				sql = <<-SQL
 					SELECT odba_id, content FROM object 
-					WHERE odba_id IN (#{bulk_fetch_ids.join(',')})"
+					WHERE odba_id IN (#{bulk_fetch_ids.join(',')})
 				SQL
 				@dbi.select_all(sql)
 			end
@@ -118,19 +118,22 @@ module ODBA
 			sth.execute(odba_id)
 		end
 		def ensure_object_connections(origin_id, target_ids)
-			sth = @dbi.prepare <<-SQL
+			sql = <<-SQL
 				SELECT target_id FROM object_connection 
 				WHERE origin_id = ?
 			SQL
 			update_ids = target_ids
-			if(rows = sth.execute(origin_id))
+			if(rows = @dbi.select_all(sql, origin_id))
 				old_ids = rows.collect { |row| row[0].to_i }
 				delete_ids = old_ids - target_ids
 				update_ids = target_ids - old_ids
-				@dbi.execute <<-SQL
-					DELETE FROM object_connection 
-					WHERE target_id IN (#{delete_ids.join(',')})
-				SQL
+				unless(delete_ids.empty?)
+					sql = <<-SQL
+						DELETE FROM object_connection 
+						WHERE target_id IN (#{delete_ids.join(',')})
+					SQL
+					@dbi.execute(sql)
+				end
 			end
 			sth = @dbi.prepare <<-SQL
 				INSERT INTO object_connection (origin_id, target_id)
