@@ -40,7 +40,7 @@ module ODBA
 					}
 					@batch_threads.push Thread.new { 
 						Thread.current.priority = -1
-						ODBA.storage.transaction { 
+						ODBA.transaction { 
 							deletions.each { |key|
 								object = nil
 								@batch_queue_mutex.synchronize {

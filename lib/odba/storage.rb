@@ -252,7 +252,8 @@ module ODBA
 			@dbi.select_all(sql, target_id)
 		end
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
-			search_term.gsub!(/\s+/,"&")
+			term = search_term.gsub(/\s+/, '&').gsub(/[()]/i, 
+				'\\ \\&').gsub(/\s/, '')
 	    sql = <<-EOQ
 				SELECT odba_id, content,
 				max(rank(search_term, to_tsquery(?, ?))) AS relevance
@@ -262,10 +263,10 @@ module ODBA
 				GROUP BY odba_id, content
 				ORDER BY relevance DESC
 			EOQ
-			@dbi.select_all(sql, dict, search_term, dict, search_term)
+			@dbi.select_all(sql, dict, term, dict, term)
 		rescue DBI::ProgrammingError => e
 			warn("ODBA::Storage.retrieve_from_fulltext_index rescued a DBI::ProgrammingError(#{e.message}). Query:")
-			warn("@dbi.select_all(#{sql}, #{dict}, #{search_term}, #{dict}, #{search_term})")
+			warn("@dbi.select_all(#{sql}, #{dict}, #{term}, #{dict}, #{term})")
 			warn("returning empty result")
 			[]
 		end

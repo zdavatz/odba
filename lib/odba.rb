@@ -15,7 +15,9 @@ require 'thread'
 module ODBA
 	def batch(&block)
 		result = nil
-		transaction {
+		@batch_mutex ||= Mutex.new
+		@batch_mutex.synchronize { 
+		#transaction {
 			begin
 				@batch_mode = true
 				result = cache_server.batch(&block)
@@ -56,8 +58,8 @@ module ODBA
 		#	block.call
 		#else
 			result = nil
-			@odba_mutex ||= Mutex.new
-			@odba_mutex.synchronize {
+			@transaction_mutex ||= Mutex.new
+			@transaction_mutex.synchronize {
 				ODBA.storage.transaction {
 					result = block.call
 				}

@@ -312,5 +312,25 @@ module ODBA
 			sth.__verify
 			dbi.__verify
 		end
+		def test_retrieve_from_fulltext_index
+			dbi = Mock.new("dbi")
+			@storage.dbi = dbi
+			dbi.__next(:select_all) { |sql, d1, t1, d2, t2| 
+				assert_equal('\(+\)-cloprostenolum&natricum', t1)		
+				[] 
+			}
+			@storage.retrieve_from_fulltext_index('index_name',
+				'(+)-cloprostenolum natricum', 'default_german')
+		end
+		def test_retrieve_from_fulltext_index__umlaut
+			dbi = Mock.new("dbi")
+			@storage.dbi = dbi
+			dbi.__next(:select_all) { |sql, d1, t1, d2, t2| 
+				assert_equal('dràgées&ähnlïch&kömprüssèn&ëtç', t1)		
+				[] 
+			}
+			@storage.retrieve_from_fulltext_index('index_name',
+				'dràgées ähnlïch kömprüssèn ëtç', 'default_german')
+		end
 	end
 end
