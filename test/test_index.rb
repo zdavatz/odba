@@ -68,13 +68,14 @@ module ODBA
 			assert_equal(result, foo.to_s)
 			foo.__verify
 		end
-		def test_resolve_target_id
+		def test_resolve_tagets
 			mock = Mock.new("mock")
 			bar = Mock.new("target")
 			index = Index.new("index", Mock, "baz", :foo_method, :target_method)
 			mock.__next(:target_method){
 				bar
 			}
+			ODBA.cache_server.__next(:bulk_fetch){|ids, obj|}
 			result = index.resolve_targets(mock)
 			assert_equal([bar], result)
 			assert_equal(nil, bar.__verify)
@@ -105,6 +106,7 @@ module ODBA
 			}
 			ODBA.storage.__next(:update_index){|index_name, orig_id,search, tar_id|
 			}
+			ODBA.cache_server.__next(:bulk_fetch){|ids, obj|}
 			index.update(foo)
 			assert_equal(nil, foo.__verify)
 			assert_equal(nil, ODBA.storage.__verify)

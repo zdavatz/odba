@@ -78,7 +78,7 @@ module ODBA
 			rows = Mock.new("row")
 			@storage.dbi = dbi
 			dbi.__next(:select_all){ |sql|
-				assert_equal("select content from object where prefetchable = true", sql)
+				assert_equal("select odba_id, content from object where prefetchable = true", sql)
 				rows
 			}
 			@storage.restore_prefetchable
@@ -97,12 +97,18 @@ module ODBA
 		def test_create_index
 			dbi = Mock.new
 			sth = Mock.new
+			sth2 = Mock.new
 			@storage.dbi = dbi
 			dbi.__next(:prepare){ |query| 
 				assert_not_nil(query.index('table sequences'))
 				sth
 			}
 			sth.__next(:execute){  }
+			dbi.__next(:prepare){ |query| 
+				assert_not_nil(query.index('index search_term_sequences on'))
+				sth2
+			}
+			sth2.__next(:execute){  }
 			@storage.create_index("sequences")
 			dbi.__verify
 			sth.__verify
@@ -220,7 +226,7 @@ module ODBA
 				assert_not_nil(sql.index("delete from foo"))	
 				sth_delete
 			}
-			sth_delete.__next(:execute) { |id| }
+			sth_delete.__next(:execute) { |id, tar| }
 
 			#insert query
 			dbi.__next(:prepare){ |sql| 
@@ -346,6 +352,14 @@ module ODBA
 			@storage.delete_target_ids("foo_index", 1)
 			sth.__verify
 			dbi.__verify
+		end
+		def test_drop_index
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			@storage.dbi = dbi
+			dbi.__next(:prepare){|sql| sth}
+			sth.__next(:execute){}
+			@storage.drop_index("foo_index")
 		end
 	end
 end

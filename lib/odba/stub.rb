@@ -11,6 +11,12 @@ module ODBA
 			@odba_container = odba_container
 			#			delegate_object_methods
 		end
+		def eql?(other)
+			other.is_a?(Persistable) && other.odba_id == @odba_id
+		end
+		def hash
+			@odba_id.to_i
+		end
 		def is_a?(klass)
 			if(klass == Stub  || klass == Persistable)
 				true
@@ -34,7 +40,7 @@ module ODBA
 			end
 		end
 		no_override = [
-			"is_a?", "__id__", "__send__", "inspect", "hash"
+			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?"
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
