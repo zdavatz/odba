@@ -13,30 +13,8 @@ module ODBA
 		attr_reader :batch_threads
 		def initialize
 			if(self::class::CLEANING_INTERVAL > 0)
-				@cleaner = Thread.new {
-					Thread.current.priority = -5
-					loop {
-						sleep(self::class::CLEANING_INTERVAL)
-						begin
-							clean unless(@batch_mode)
-						rescue StandardError => e
-							puts e
-							puts e.backtrace
-						end
-					}
-				}
-				@grim_reaper = Thread.new {
-					Thread.current.priority = -6
-					loop {
-						sleep(self::class::REAPER_INTERVAL)
-						begin
-							reap_object_connections unless(@batch_mode)
-						rescue StandardError => e
-							puts e
-							puts e.backtrace
-						end
-					}
-				}
+				start_cleaner
+				start_reaper
 			end
 			@hash = Hash.new
 			@reaper_min_id = 0
@@ -274,6 +252,34 @@ module ODBA
 		def retrieve_from_index(index_name, search_term, meta=nil)
 			rows = self.indices.fetch(index_name).retrieve_data(search_term, meta)
 			bulk_restore(rows)
+		end
+		def start_cleaner
+			@cleaner = Thread.new {
+				Thread.current.priority = -5
+				loop {
+					sleep(self::class::CLEANING_INTERVAL)
+					begin
+						clean unless(@batch_mode)
+					rescue StandardError => e
+						puts e
+						puts e.backtrace
+					end
+				}
+			}
+		end
+		def start_reaper
+			@grim_reaper = Thread.new {
+				Thread.current.priority = -6
+				loop {
+					sleep(self::class::REAPER_INTERVAL)
+					begin
+						reap_object_connections unless(@batch_mode)
+					rescue StandardError => e
+						puts e
+						puts e.backtrace
+					end
+				}
+			}
 		end
 		def store(object)
 			if(@batch_mode)
