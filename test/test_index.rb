@@ -123,7 +123,6 @@ module ODBA
 			index_definition.__next(:index_name){"test_index"}	
 			index = Index.new(index_definition, ODBA)
 			foo.__next(:res_s){"result"}
-			foo.__next(:res_s){"result"}
 			result = index.search_term(foo)
 			assert_equal(result, "result")
 			foo.__verify

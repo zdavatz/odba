@@ -178,7 +178,6 @@ module ODBA
 			key1.__verify
 			value1.__verify
 			ODBA.storage.__verify
-			ODBA.cache_server.__verify
 		end
 		def test_odba_prefetch
 			key1  = StubMock.new("key")

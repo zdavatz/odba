@@ -225,9 +225,7 @@ end
 class Array
 	include ODBA::Persistable
 	def include?(obj)
-		super || if(obj.is_a?(ODBA::Stub))
-			super(obj.receiver)
-		end
+		super || (obj.is_a?(ODBA::Stub) && super(obj.receiver))
 	end
 	def odba_cut_connection(remove_object)
 		super(remove_object)

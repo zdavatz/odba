@@ -6,6 +6,7 @@ $: << File.expand_path('../lib/', File.dirname(__FILE__))
 require 'odba'
 require 'test/unit'
 require 'odba/scalar_cache'
+require 'mock'
 
 module ODBA
 	class TestScalarCache < Test::Unit::TestCase
@@ -14,6 +15,7 @@ module ODBA
 		end
 		def setup
 			@scalar_cache = ScalarCache.new
+			ODBA.cache_server = Mock.new("cache_server")
 		end
 =begin
 		def test_foobar
