@@ -11,6 +11,78 @@ module ODBA
 		def initialize
 			@id_mutex = Mutex.new
 		end
+		def generate_german_dictionary
+			language = "german"	
+			@dbi.execute("INSERT INTO 
+      pg_ts_cfg (ts_name, prs_name, locale)
+			VALUES ('default_german', 'default', 'de_DE@euro')")
+			sth = @dbi.prepare("INSERT INTO pg_ts_dict(SELECT 'german_ispell',dict_init,?,dict_lexize FROM pg_ts_dict WHERE dict_name = 'ispell_template')")
+			aff = "AffFile=\"/var/www/oddb.org/ext/fulltext/swiss/swiss.aff\","
+			dict = "DictFile=\"/var/www/oddb.org/ext/fulltext/swiss/swiss.med\","
+			stop = "StopFile=\"/var/www/oddb.org/ext/fulltext/swiss/swiss.stop\""
+			path = dict << aff << stop
+			puts "path:"
+			puts path
+			sth.execute(path)
+			create_dictionary_map(language)
+			sql = " INSERT INTO pg_ts_dict (dict_name,dict_init,dict_initoption, dict_lexize, dict_comment) VALUES('german_stem','snb_en_init(text)','/var/www/oddb.org/ext/fulltext/swiss/swiss.stop','snb_lexize(internal,internal,integer)','german stem')"
+			@dbi.execute(sql)
+		end
+		def create_dictionary_map(language)
+			sql = "INSERT INTO pg_ts_cfgmap (ts_name, tok_alias, dict_name)VALUES ('default_#{language}', 'lhword','{#{language}_ispell,#{language}_stem}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap (ts_name, tok_alias, dict_name) VALUES ('default_#{language}', 'lpart_hword','{#{language}_ispell,#{language}_stem}')"
+			@dbi.execute(sql)
+			sql ="INSERT INTO pg_ts_cfgmap (ts_name, tok_alias, dict_name) VALUES ('default_#{language}', 'lword', '{#{language}_ispell,#{language}_stem}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'url', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'host', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'sfloat', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'uri', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'int', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'float', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'email', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'word', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'hword', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'nlword', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'nlpart_hword', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'part_hword', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'nlhword', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'file', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'uint', '{simple}')"
+			@dbi.execute(sql)
+			sql = "INSERT INTO pg_ts_cfgmap VALUES ('default_#{language}', 'version', '{simple}')"
+			@dbi.execute(sql)
+		end
+		def generate_french_dictionary
+			language = "french"
+			@dbi.execute("INSERT INTO 
+      pg_ts_cfg (ts_name, prs_name, locale)
+			VALUES ('default_french', 'default', 'fr_FR@euro')")
+			sth = @dbi.prepare("INSERT INTO pg_ts_dict(SELECT 'french_ispell',dict_init,?,dict_lexize FROM pg_ts_dict WHERE dict_name = 'ispell_template')")
+			aff = "AffFile=\"/var/www/oddb.org/ext/fulltext/french/french.aff\","
+			dict = "DictFile=\"/var/www/oddb.org/ext/fulltext/french/french.med\","
+			stop = "StopFile=\"/var/www/oddb.org/ext/fulltext/french/french.stop\""
+			path = dict << aff << stop
+			sth.execute(path)
+			create_dictionary_map(language)
+			sql = " INSERT INTO pg_ts_dict (dict_name,dict_init,dict_initoption,dict_lexize,dict_comment) VALUES('french_stem','snb_en_init(text)','/var/www/oddb.org/ext/fulltext/french/french.stop','snb_lexize(internal,internal,integer)','french stem')"
+			@dbi.execute(sql)
+		end
 		def add_object_connection(origin_id, target_id)
 			#SELECT
 			rows = @dbi.select_all("select count(origin_id) from object_connection where origin_id = ? and target_id = ?", origin_id, target_id)
@@ -136,17 +208,18 @@ module ODBA
 		def retrieve_connected_objects(target_id)
 			@dbi.select_all("select origin_id from object_connection where target_id = ?", target_id)
 		end
-		def retrieve_from_fulltext_index(index_name, search_term)
+		def retrieve_from_fulltext_index(index_name, search_term, dict)
 			search_term.gsub!(/ /,"&")
-	    rows = @dbi.select_all <<-EOQ
+	    sql = <<-EOQ
 			SELECT odba_id, content,
-			max(rank(search_term, to_tsquery('default_german', '#{search_term}'))) AS relevance
+			max(rank(search_term, to_tsquery(?, ?))) AS relevance
 			FROM object INNER JOIN #{index_name} 
 			on odba_id = #{index_name}.target_id 
-			WHERE search_term @@ to_tsquery('default_german', '#{search_term}') 
+			WHERE search_term @@ to_tsquery(?, ?) 
 			GROUP BY odba_id, content
 			ORDER BY relevance DESC"
 			EOQ
+			@dbi.select_all(sql, dict, search_term, dict, search_term)
 		end
 		def retrieve_from_index(index_name, search_term)
 			search_term = search_term+"%"
@@ -177,9 +250,9 @@ module ODBA
 		def transaction(&block)
 			@dbi.transaction(&block)
 		end
-		def update_fulltext_index(index_name, origin_id, search_term, target_id)
-			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector('default_german', ? ), ?)")
-			sth_insert.execute(origin_id, search_term, target_id)
+		def update_fulltext_index(index_name, origin_id, search_term, target_id, dict)
+			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector(?, ? ), ?)")
+			sth_insert.execute(origin_id, dict, search_term, target_id)
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
 			puts "updating index  with:"

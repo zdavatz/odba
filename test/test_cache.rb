@@ -378,6 +378,7 @@ module ODBA
 			index_def_mock.__next(:resolve_target){ "bar"}
 			index_def_mock.__next(:index_name){ "foo"}
 			index_def_mock.__next(:resolve_search_term){ "foo"}
+			index_def_mock.__next(:dictionary){"german"}	
 			index_def_mock.__next(:index_name){ "foo"}
 			ODBA.storage.__next(:transaction){|block| block.call}
 			ODBA.storage.__next(:create_fulltext_index) { |index_name|  }

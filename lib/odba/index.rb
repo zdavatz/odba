@@ -13,6 +13,7 @@ module ODBA
 			@resolve_target = index_definition.resolve_target
 			@index_name = index_definition.index_name
 			@resolve_search_term = index_definition.resolve_search_term
+			@dictionary = index_definition.dictionary
 		end
 		def do_update_index(origin_id, search_term, target_id)
 			puts "updating with values #{origin_id} #{search_term} #{target_id}"
@@ -160,7 +161,7 @@ module ODBA
 			ODBA.storage.create_fulltext_index(index_definition.index_name)
 		end
 		def retrieve_data(search_term, meta=nil)
-			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, search_term)
+			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, search_term, @dictionary)
 			if(meta.respond_to?(:set_relevance))
 				rows.each { |row|
 					meta.set_relevance(row.at(0), row.at(2))
@@ -170,7 +171,7 @@ module ODBA
 		end
 		def do_update_index(origin_id, search_term, target_id)
 				puts "updating fulltext index"
-				ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id) 
+				ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id, @dictionary) 
 		end
 	end
 end

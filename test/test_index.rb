@@ -30,6 +30,7 @@ module ODBA
 			index_definition.__next(:resolve_target){"target"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index_definition.__next(:resolve_search_term){"res_s"}	
+			index_definition.__next(:dictionary){"german"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index = Index.new(index_definition, ODBA)
 			
@@ -84,6 +85,7 @@ module ODBA
 			index_definition.__next(:resolve_target){"target"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index_definition.__next(:resolve_search_term){"res_s"}	
+			index_definition.__next(:dictionary){"german"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index = Index.new(index_definition, ODBA)
 			result = index.proc_instance_origin
@@ -100,6 +102,7 @@ module ODBA
 			index_definition.__next(:resolve_target){"target"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index_definition.__next(:resolve_search_term){"res_s"}	
+			index_definition.__next(:dictionary){"german"}	
 			index_definition.__next(:index_name){"test_index"}	
 		
 			index = Index.new(index_definition, ODBA)
@@ -116,6 +119,7 @@ module ODBA
 			index_definition.__next(:resolve_target){"target"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index_definition.__next(:resolve_search_term){"res_s"}	
+			index_definition.__next(:dictionary){"german"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index = Index.new(index_definition, ODBA)
 			foo.__next(:res_s){"result"}
@@ -132,6 +136,7 @@ module ODBA
 			index_definition.__next(:resolve_target){"target"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index_definition.__next(:resolve_search_term){"res_s"}	
+			index_definition.__next(:dictionary){"german"}	
 			index_definition.__next(:index_name){"test_index"}	
 			mock = Mock.new("mock")
 			bar = Mock.new("target")
@@ -152,6 +157,7 @@ module ODBA
 			index_definition.__next(:resolve_target){"target"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index_definition.__next(:resolve_search_term){"res_s"}	
+			index_definition.__next(:dictionary){"german"}	
 			index_definition.__next(:index_name){"test_index"}	
 			foo = Mock.new("foo")
 			index = Index.new(index_definition, ODBA)
@@ -172,6 +178,7 @@ module ODBA
 			index_definition.__next(:resolve_target){"target"}	
 			index_definition.__next(:index_name){"test_index"}	
 			index_definition.__next(:resolve_search_term){"res_s"}	
+			index_definition.__next(:dictionary){"german"}	
 			index_definition.__next(:index_name){"test_index"}	
 			foo  = Mock.new("foo")
 			target = Mock.new("target")
