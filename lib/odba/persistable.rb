@@ -254,8 +254,9 @@ class Array
 				#self[idx] = item.receiver
 			end
 		}
-		ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
-		#ODBA.chache_server.bulk_fetch_execute
+		unless(bulk_fetch_ids.empty?)
+			ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
+		end
 		each_with_index { |item, idx|
 			if(item.is_a? ODBA::Stub)
 				item.odba_replace
@@ -332,7 +333,9 @@ class Hash
 				bulk_fetch_ids.push(key.odba_id)
 			end
 		}
-		ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
+		unless(bulk_fetch_ids.empty?)
+			ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self) 
+		end
 		self.each { |key, value|
 			if(value.is_a?(ODBA::Stub))
 				value.odba_replace
