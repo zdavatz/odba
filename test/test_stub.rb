@@ -19,8 +19,8 @@ module ODBA
 	class TestStub < Test::Unit::TestCase
 		def setup
 			#Stub.delegate_object_methods
-			@odba_container = Mock.new
-			ODBA.cache_server = Mock.new
+			@odba_container = Mock.new('Container')
+			ODBA.cache_server = Mock.new('CacheServer')
 			@stub = Stub.new(9, @odba_container)
 		end
 		def test_method_missing
@@ -90,6 +90,13 @@ module ODBA
 			}
 			receiver.__verify
 			assert_equal(false, @stub.respond_to?(:odba_replace))
+		end
+		def test_to_yaml
+			expected = <<-EOS
+--- !ruby/object:ODBA::Stub 
+odba_id: 9
+			EOS
+			assert_equal(expected.strip, @stub.to_yaml)
 		end
 	end
 end

@@ -2,7 +2,7 @@
 # -- odba-- 29.04.2004 -- mwalder@ywesee.com
 
 $: << File.dirname(__FILE__)
-$: << File.expand_path("../src", File.dirname(__FILE__))
+$: << File.expand_path("../lib", File.dirname(__FILE__))
 
 require 'test/unit'
 require 'mock'
