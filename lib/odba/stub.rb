@@ -9,7 +9,7 @@ module ODBA
 		def initialize(odba_id, odba_container, receiver=nil)
 			@odba_id = odba_id
 			@odba_container = odba_container
-			#=begin
+=begin
 			@carry_bag = {}
 			if(receiver)
 				receiver.odba_carry_methods.each { |symbol|
@@ -19,7 +19,7 @@ module ODBA
 					end
 				}
 			end
-			#=end
+=end
 			#			delegate_object_methods
 		end
 		def eql?(other)
@@ -37,10 +37,13 @@ module ODBA
 			end
 		end
 		def method_missing(meth_symbol, *args, &block)
-				@carry_bag[meth_symbol] or begin
+			#ODBA.scalar_cache.fetch(@odba_id, meth_symbol) or begin
 				odba_replace
+				#puts "i am replacing a:"
+				#puts @receiver.class
+				#puts meth_symbol
 				@receiver.send(meth_symbol, *args, &block)
-				end
+				#	end
 		end
 		def odba_replace(name=nil)
 			if(@receiver.nil?)

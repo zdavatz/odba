@@ -48,7 +48,8 @@ module ODBA
 		def bulk_restore(rows, odba_caller = nil)
 			retrieved_objects= []
 			rows.each { |row|
-				obj_id, dump = row
+				obj_id = row.at(0)
+				dump = row.at(1)
 				#dump = row.first
 				#obj = restore_object(dump)
 				#puts " object class"
@@ -65,8 +66,8 @@ module ODBA
 						@hash.store(obj.odba_name, cache_entry)
 					end
 				end
-				puts "bulk_restore"
-				puts obj.class
+				#puts "bulk_restore"
+				#puts obj.class
 				retrieved_objects.push(obj)
 			}
 			#puts "found:"
@@ -161,8 +162,8 @@ module ODBA
 		def fetch(odba_id, odba_caller)
 			cache_entry = @hash.fetch(odba_id) {
 				obj = load_object(odba_id)
-				#	puts "fetch"
-				#		puts obj.class
+					puts "fetch"
+				  puts obj.class
 				#puts obj.to_s
 				cache_entry = CacheEntry.new(obj)
 				if(name = obj.odba_name)
@@ -211,9 +212,9 @@ module ODBA
 			rows = ODBA.storage.restore_prefetchable
 			bulk_restore(rows)
 		end
-		def retrieve_from_index(index_name, search_term)
-			bulks = self.indices.fetch(index_name).retrieve_data(search_term)
-			bulk_restore(bulks)
+		def retrieve_from_index(index_name, search_term, meta=nil)
+			rows = self.indices.fetch(index_name).retrieve_data(search_term, meta)
+			bulk_restore(rows)
 		end
 		#it is a test method
 		def search_indication(index_name, search)

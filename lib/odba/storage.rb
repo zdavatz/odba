@@ -138,7 +138,15 @@ module ODBA
 		end
 		def retrieve_from_fulltext_index(index_name, search_term)
 			search_term.gsub!(/ /,"&")
-	    rows = @dbi.select_all("SELECT distinct odba_id, content FROM object INNER JOIN #{index_name} on odba_id = #{index_name}.target_id WHERE search_term @@ to_tsquery('default_german', '#{search_term}');")
+	    rows = @dbi.select_all <<-EOQ
+			SELECT odba_id, content,
+			max(rank(search_term, to_tsquery('default_german', '#{search_term}'))) AS relevance
+			FROM object INNER JOIN #{index_name} 
+			on odba_id = #{index_name}.target_id 
+			WHERE search_term @@ to_tsquery('default_german', '#{search_term}') 
+			GROUP BY odba_id, content
+			ORDER BY relevance DESC"
+			EOQ
 		end
 		def retrieve_from_index(index_name, search_term)
 			search_term = search_term+"%"
