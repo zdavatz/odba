@@ -392,7 +392,7 @@ module ODBA
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.marshaller.__next(:dump) { |dump| }
 			ODBA.marshaller.__next(:dump) { |dump| }
-			@cache.create_index("foo", "bar", "proc_code", "baz")
+			@cache.create_index("foo", Mock, Mock, "meth", "res_target")
 			assert_instance_of(Index, @cache.indices['foo'])
 			verify_store
 		end
@@ -493,24 +493,15 @@ module ODBA
 		end
 =end
 		def test_update_indices
-			foo = Mock.new("foo")
+			index = Mock.new("index")
 			bar = Mock.new("bar")
 			@cache.indices = {
-				"foo" => foo
+				"foo" => index
 			}
-			foo.__next(:origin_class?) { |klass| true }
-			foo.__next(:search_term) { |obj| "foobar" }
-			foo.__next(:resolve_target_id) { |obj| "foobar" }
-			bar.__next(:odba_id) { 1 }
-			ODBA.storage.__next(:update_index) { |name, id, search, target_id|
-				assert_equal(name, "foo")
-				assert_equal(id, 1)
-				assert_equal(search, "foobar")
-			}
+			index.__next(:update){|obj|}
 			@cache.update_indices(bar)
-			ODBA.storage.__verify
-			foo.__verify
-			bar.__verify
+			assert_equal(nil, index.__verify)
+			assert_equal(nil, bar.__verify)	
 		end
 		def test_delete_index_element
 			foo = Mock.new("foo")

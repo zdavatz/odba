@@ -9,6 +9,7 @@ module ODBA
 		include Singleton
 		CLEANING_INTERVAL = 40
 		def initialize
+			#=begin
 			@cleaner = Thread.new {
 				loop {
 					sleep(self::class::CLEANING_INTERVAL)
@@ -23,6 +24,7 @@ module ODBA
 				}
 			}
 			@cleaner.priority = -5
+			#=end
 			@hash = Hash.new
 			super(@hash)
 		end
@@ -206,9 +208,9 @@ puts "rows each"
 			cache_entry.odba_add_reference(caller)
 			cache_entry.odba_object
 		end
-		def create_index(index_name, origin_klass, mthd, resolve_target, resolve_origin = '')
-		index = Index.new(origin_klass, mthd, resolve_target, resolve_origin)
-		ODBA.storage.create_index(index_name)
+		def create_index(index_name, origin_klass, target_klass, mthd, resolve_target, resolve_origin = '')
+		index = Index.new(index_name, origin_klass, target_klass, mthd, resolve_target, resolve_origin)
+		#ODBA.storage.create_index(index_name)
 		self.indices.store(index_name, index)
 		puts "store self.indices"
 		#store(self.indices, '__cache_server_indices__')
@@ -230,8 +232,8 @@ puts "rows each"
 			klass = odba_object.class
 			puts "klass #{klass}"
 			indices.each { |index_name, index|
-				puts "index name #{index_name}"
-				puts "index #{index}"
+				index.update(odba_object)
+=begin
 				if(index.origin_class?(klass))
 					puts "**********"
 					#update index
@@ -243,6 +245,7 @@ puts "rows each"
 							odba_object.odba_id, search_term, target_id)
 					end
 				end
+=end
 			}
 		end
 		def delete_index(index_name)

@@ -28,6 +28,10 @@ module ODBA
 		 attr_accessor	:non_replaceable, :replaceable, :replaceable2, :array, :odba_persistent
 		 attr_accessor	:odba_snapshot_level
 		end
+		class Hash
+			include ODBA::Persistable
+			attr_accessor :odba_persistent
+		end
 		class PersistableMock < Mock
 			def is_a?(arg)
 				true
@@ -195,10 +199,22 @@ module ODBA
 			ODBA.cache_server.__next(:store)	{	|obj| 2}
 			
 			@odba.odba_store_unsaved
-			#assert_equal(1, @odba.odba_snapshot_level)
-			#assert_equal(1, level1.odba_snapshot_level)
-			#assert_equal(1, level2.odba_snapshot_level)
-			ODBA.cache_server.__verify
+			assert_equal(nil, ODBA.cache_server.__verify)
+		end
+		def test_odba_store_unsaved_hash
+			level1 = ODBAContainer.new
+			hash_element = ODBAContainer.new
+			hash = Hash.new
+			non_rep_hash = Hash.new
+			level1.replaceable = hash
+			level1.non_replaceable = non_rep_hash
+			non_rep_hash.odba_persistent = true
+			
+			ODBA.cache_server.__next(:store)	{	|obj| 2}
+			ODBA.cache_server.__next(:store)	{	|obj| 2}
+			
+			level1.odba_store_unsaved
+			assert_equal(nil, ODBA.cache_server.__verify)
 		end
 		def test_dup
 			stub = StubMock.new
@@ -230,6 +246,10 @@ module ODBA
 			assert_equal(@replaceable, odba.replaceable)
 		end
 =end
+		def test_odba_unsaved_true
+			@odba.instance_variable_set("@odba_persistent", false)
+			assert_equal(true, @odba.odba_unsaved?)
+		end
 		def test_odba_isolated_dump
 			replaceable = StubMock.new
 			replaceable2 = StubMock.new
@@ -415,6 +435,14 @@ module ODBA
 			assert_equal(true, @array[1].is_a?(Stub))
 			assert_equal(1, @array[0].odba_id)
 			assert_equal(2, @array[1].odba_id)
+		end
+		def test_odba_unsaved_array_true
+			val = StubMock.new("val")
+			@array.instance_variable_set("@odba_persistent", true)
+			@array.push(val)
+			val.__next(:is_a?) { |klass| true }
+			val.__next(:odba_unsaved?) { true }
+			assert_equal(true, @array.odba_unsaved?)
 		end
 	end
 end

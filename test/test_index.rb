@@ -11,15 +11,16 @@ require 'mock'
 module ODBA
 	class TestIndex < Test::Unit::TestCase
 		def setup
+			ODBA.storage = Mock.new("storage")
 			ODBA.cache_server = Mock.new("cacher_server")
+			ODBA.storage.__next(:create_index) { |name| }
 		end
 		def test_fill_array
 			foo = Mock.new("foo")
 			bar = Mock.new("bar")
 			baz = Mock.new("baz")
-			ODBA.storage = Mock.new("storage")
 			targets = [foo, [baz, bar]]
-			index = Index.new(Mock, :foo_method, "foo")
+			index = Index.new("index", Mock, "baz", :foo_method, "foo")
 			
 			foo.__next(:odba_id) { || 3}
 			#	foo.__next(:foo_method) { || }	
@@ -45,9 +46,8 @@ module ODBA
 			foo = Mock.new("foo")
 			bar = Mock.new("bar")
 			baz = Mock.new("baz")
-			ODBA.storage = Mock.new("storage")
 			targets = [foo, baz, bar]
-			index = Index.new(Mock, :foo_method, "foo")
+			index = Index.new("index", Mock, "baz", :foo_method, "foo")
 			
 			foo.__next(:odba_id) { || 3}
 			#	foo.__next(:foo_method) { || }	
@@ -78,22 +78,22 @@ module ODBA
 			EOS
 			target = Mock.new
 			bar = Mock.new
-			index = Index.new("foo", proc_code, "foo")
-			result = index.proc_instance
+			index = Index.new("foo", "baz", "bar", proc_code, "foo")
+			result = index.proc_instance_origin
 			assert_instance_of(Proc, result)
 			target.__verify
 			bar.__verify
 		end
 		def test_origin_class
 			foo = Mock.new("foo")
-			index = Index.new(Mock, :foo_method, "foo")
+			index = Index.new("index_name", Mock, "baz", :foo_method, "foo")
 			result = index.origin_class?(Mock)
 			assert_equal(true, result)
 			foo.__verify
 		end
 		def test_search_term
 			foo = Mock.new("foo")
-			index = Index.new(Mock, :foo_method, "foo")
+			index = Index.new("index_name", "bar", "baz", :foo_method, "foo")
 			foo.__next(:foo_method) { "foobar" }
 			result = index.search_term(foo)
 			assert_equal(result, "foobar")
@@ -101,12 +101,45 @@ module ODBA
 		end
 		def test_resolve_target_id
 			mock = Mock.new("mock")
-			bar = Mock.new("bar")
-			mock.__next(:foo){ bar}
-			bar.__next(:odba_id){ 4}
-			index = Index.new(Mock, :foo_method, :foo)
-			result = index.resolve_target_id(mock)
-			assert_equal(4, result)
+			bar = Mock.new("target")
+			index = Index.new("index", Mock, "baz", :foo_method, :target_method)
+			mock.__next(:target_method){
+				bar
+			}
+			result = index.resolve_targets(mock)
+			assert_equal([bar], result)
+			assert_equal(nil, bar.__verify)
+		end
+		def test_update_target
+			foo = Mock.new("foo")
+			index = Index.new("foo_index", Hash, Mock, :foo_method, :foo)
+			foo.__next(:odba_id) { 1 }
+			ODBA.storage.__next(:delete_target_ids) { |id, name| 
+				assert_equal(1, id)
+				assert_equal("foo_index", name)
+			}
+			
+			foo.__next(:odba_id){ 1}
+			foo.__next(:odba_id){ 1}
+			ODBA.cache_server.__next(:bulk_fetch) { |ids, caller| }
+			index.update(foo)
+			assert_equal(nil, foo.__verify)
+		end
+		def test_update_origin
+			foo  = Mock.new("origin")
+			target = Mock.new("target")
+			index = Index.new("foo_index", Mock, Hash, :foo_method, :resolve_target)
+			foo.__next(:odba_id){2}
+			foo.__next(:foo_method) { "foobar" }
+			foo.__next(:resolve_target){
+				target
+			}
+			ODBA.storage.__next(:update_index){|index_name, orig_id,search, tar_id|
+			}
+			index.update(foo)
+			assert_equal(nil, foo.__verify)
+			assert_equal(nil, ODBA.storage.__verify)
+			assert_equal(nil, target.__verify)
 		end
 	end
 end

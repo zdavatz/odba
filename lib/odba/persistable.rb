@@ -294,7 +294,7 @@ end
 class Hash
 	include ODBA::Persistable
 	def odba_prefetch?
-		any? { |item| 
+		any? { |item|
 			item.respond_to?(:odba_prefetch?) \
 				&& item.odba_prefetch?
 		}
