@@ -53,7 +53,7 @@ module ODBA
 					@odba_container.odba_replace_stubs(self, @receiver)
 				rescue OdbaError => e
 					#require 'debug'
-					#puts "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
+					warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
 				end
 			end
 		end
@@ -63,7 +63,8 @@ module ODBA
 		end
 		#added odba_id because it is now definded in object
 		no_override = [
-			"odba_id", "is_a?", "__id__", "__send__", "inspect", "hash", "eql?", "nil?",
+			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", 
+			"nil?", "respond_to?", "odba_id",
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
@@ -74,11 +75,15 @@ module ODBA
 				end
 			EOS
 		}
-=begin
-		def respond_to?(*args)
-			replace
-			@receiver.respond_to?(*args)
+		def respond_to?(meth)
+			if([:marshal_dump, :_dump].include?(meth))
+				super
+			else
+				odba_replace
+				@receiver.respond_to?(meth)
+			end
 		end
+=begin
 		def to_s
 			replace
 			@receiver.to_s
