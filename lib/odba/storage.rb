@@ -100,6 +100,8 @@ module ODBA
 			sth_delete = @dbi.prepare("delete from #{index_name} where origin_id = ?")
 			sth_delete.execute(origin_id)
 			#INSERT
+			#error string:
+			#Dexamethason HelvePharm 2, Injektionslösung
 			sth_insert = @dbi.prepare("insert into #{index_name} (origin_id, search_term, target_id) values (?, ?, ?)")
 			sth_insert.execute(origin_id, search_term, target_id)
 		end
