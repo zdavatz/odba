@@ -263,6 +263,11 @@ module ODBA
 				ORDER BY relevance DESC
 			EOQ
 			@dbi.select_all(sql, dict, search_term, dict, search_term)
+		rescue DBI::ProgrammingError => e
+			warn("ODBA::Storage.retrieve_from_fulltext_index rescued a DBI::ProgrammingError(#{e.message}). Query:")
+			warn("@dbi.select_all(#{sql}, #{dict}, #{search_term}, #{dict}, #{search_term})")
+			warn("returning empty result")
+			[]
 		end
 		def retrieve_from_index(index_name, search_term)
 			search_term = search_term + "%"
