@@ -17,15 +17,12 @@ module ODBA
 				@accessed_by.push(object)	
 			end
 		end
+		def odba_id
+			@odba_object.odba_id
+		end
 		def odba_object
 			@last_access  = Time.now
 			@odba_object
-		end
-		def ready_to_destroy?
-			(!@odba_object.odba_prefetch? \
-				&& ((Time.now - @last_access) > \
-				self::class::DESTROY_TIME) && \
-				@accessed_by.empty?)
 		end
 		def odba_old?
 			Time.now - @last_access > self::class::RETIRE_TIME
@@ -43,6 +40,12 @@ module ODBA
 				end
 			}
 			@accessed_by = keep
+		end
+		def ready_to_destroy?
+			(!@odba_object.odba_prefetch? \
+				&& ((Time.now - @last_access) > \
+				self::class::DESTROY_TIME) && \
+				@accessed_by.empty?)
 		end
 	end
 end

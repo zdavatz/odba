@@ -7,6 +7,7 @@ $: << File.expand_path("../lib", File.dirname(__FILE__))
 require 'test/unit'
 require 'mock'
 require 'odba'
+
 module ODBA
 	class CacheEntry
 		attr_accessor :accessed_by
@@ -14,11 +15,11 @@ module ODBA
 		DESTROY_TIME = 0.9 
 	end
 	class TestCacheEntry < Test::Unit::TestCase
-	class TestMockCacheEntry < Mock
-		def is_a?(arg)
-			true
+		class TestMockCacheEntry < Mock
+			def is_a?(arg)
+				true
+			end
 		end
-	end
 		def setup
 			@mock = Mock.new
 			@cache_entry = ODBA::CacheEntry.new(@mock)
@@ -64,6 +65,10 @@ module ODBA
 			mock = Mock.new
 			@cache_entry.odba_add_reference(mock)
 			assert_equal(mock, @cache_entry.accessed_by[0])
+		end
+		def test_odba_id
+			@mock.__next(:odba_id) { 123 }
+			assert_equal(123, @cache_entry.odba_id)
 		end
 	end
 end
