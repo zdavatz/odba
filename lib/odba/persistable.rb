@@ -69,7 +69,6 @@ module ODBA
 			twin = self.dup
 			twin.odba_replace_persistables
 			twin.odba_replace_excluded!
-			@odba_target_ids = twin.odba_target_ids
 			ODBA.marshaller.dump(twin)
 		end
 		def odba_isolated_store
@@ -107,17 +106,14 @@ module ODBA
 				&& (!odba_serializables.include?(name))
 		end
 		def odba_replace_persistables
-			@odba_target_ids = []
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				if(odba_replaceable?(var, name))
 					odba_id = var.odba_id
-					@odba_target_ids.push(odba_id)
 					stub = ODBA::Stub.new(odba_id, self, var)
 					instance_variable_set(name, stub)
 				end
 			}
-			@odba_target_ids.uniq!
 		end
 		def odba_replace_stubs(stub, substitution, name = nil)
 			if(name)
@@ -188,6 +184,14 @@ module ODBA
 				current_level = next_level #.uniq
 			end
 		end
+		def odba_target_ids
+			odba_potentials.collect { |name|
+				var = instance_variable_get(name)
+				if(odba_replaceable?(var, name))
+					var.odba_id
+				end
+			}.compact.uniq
+		end
 		def odba_unsaved_neighbors(snapshot_level = nil)
 			unsaved = []
 			odba_potentials.each { |name|
@@ -251,8 +255,8 @@ class Array
 		!empty? && super(var, name)
 	end
 def odba_replace_persistables
-	super
 	clear
+	super
 end
 	def odba_restore(collection=[])
 		bulk_fetch_ids = []
@@ -299,6 +303,15 @@ end
 			old_flatten!
 		end
 	end
+	def odba_target_ids
+		ids = super
+		self.each {|value|
+			if(value.is_a?(ODBA::Persistable))
+				ids.push(value.odba_id)
+			end
+		}
+		ids.uniq
+	end
 end
 class Hash
 	include ODBA::Persistable
@@ -322,8 +335,8 @@ class Hash
 		!empty? && super(var, name)
 	end
 	def odba_replace_persistables
-		super
 		clear
+		super
 	end
 def odba_restore(collection=[])
 	bulk_fetch_ids = []
@@ -370,5 +383,17 @@ def odba_restore(collection=[])
 			}
 		}
 		unsaved
+	end
+	def odba_target_ids
+		ids = super
+		self.each {|key, value|
+			if(value.is_a?(ODBA::Persistable))
+				ids.push(value.odba_id)
+			end
+			if(key.is_a?(ODBA::Persistable))
+				ids.push(key.odba_id)
+			end
+		}
+		ids.uniq
 	end
 end

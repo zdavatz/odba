@@ -326,14 +326,19 @@ module ODBA
 			odba_id = object.odba_id
 			update_scalar_cache(odba_id, object.odba_cache_values)
 			dump = object.odba_isolated_dump
+			puts "starting to store collection elements"
 			store_collection_elements(object)
+			puts "collection elements stored"
 			name = object.odba_name
 			prefetchable = object.odba_prefetch?
 			ODBA.storage.store(odba_id, dump, name, prefetchable)
+			puts "object stored"
 			# call update_indices both from store_direct and from store_batched
 			# to ensure immediate and long-term index consistency
 			update_indices(object)
+			puts "indices updated"
 			store_object_connections(object)
+			puts "connections stored" 
 			store_cache_entry(odba_id, object, name)
 		end
 		def store_batched(object)
@@ -377,10 +382,11 @@ module ODBA
 					value_dump = ODBA.marshaller.dump(value.odba_isolated_stub)
 					ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
 			}
-	end
+		end
 		def store_object_connections(object)
 			name = object.odba_name
 			target_ids = object.odba_target_ids
+			puts "#{target_ids.size} target_ids"
 			origin_id = object.odba_id
 			unless(name.nil?)
 				target_ids.push(origin_id)
@@ -411,25 +417,31 @@ module ODBA
 			dump = ODBA.storage.restore(odba_id)
 			begin
 				restore_object(dump)
-			rescue OdbaError
-				text = TMail::Mail.new
-				recipients = self::class::MAIL_RECIPIENTS
-				text.set_content_type('text', 'plain', 'charset'=>'ISO-8859-1')
-				text.body = <<-EOM
+			rescue OdbaError => odba_error
+				if(@last_timeout.nil? || (Time.now - @last_timeout) > 300)
+					text = TMail::Mail.new
+					recipients = self::class::MAIL_RECIPIENTS
+					text.set_content_type('text', 'plain', 'charset'=>'ISO-8859-1')
+					text.body = <<-EOM
 Error loading object unknown odba_id #{odba_id}"
 #{caller.join("\n")}
-EOM
-				text.from = self::class::MAIL_FROM
-				text.to = recipients
-				text.subject = "ODBA ID ERROR"
-				text.date = Time.now
-				text['User-Agent'] = 'ODBA Framework'
-				if(recipients.size > 0)
-					Net::SMTP.start(self::class::SMTP_SERVER) { |smtp|
-						smtp.sendmail(text.encoded, self::class::MAIL_FROM, recipients.uniq)
-					}
+					EOM
+					text.from = self::class::MAIL_FROM
+					text.to = recipients
+					text.subject = "ODBA ID ERROR"
+					text.date = Time.now
+					text['User-Agent'] = 'ODBA Framework'
+					if(recipients.size > 0)
+						begin
+							Net::SMTP.start(self::class::SMTP_SERVER) { |smtp|
+								smtp.sendmail(text.encoded, self::class::MAIL_FROM, recipients.uniq)
+							}
+						rescue Timeout::Error
+							@last_timeout = Time.now
+						end
+					end
 				end
-				raise
+				raise odba_error
 			end
 		end
 		def restore_object(dump, odba_caller = nil)
