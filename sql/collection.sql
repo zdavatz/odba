@@ -4,4 +4,3 @@ CREATE TABLE collection (
 		value text,
 		PRIMARY KEY(odba_id, key)
 );
-CREATE INDEX collection_odba_id_key_index ON collection (odba_id, key);
