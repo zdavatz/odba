@@ -140,5 +140,32 @@ module ODBA
 				}
 			}
 		end
+		def test_hash__fetch
+			stub = Stub.new(9, [], {})
+			ODBA.cache_server.__next(:fetch_collection_element) { |odba_id, key| 
+				assert_equal(9, odba_id)
+				assert_equal('bar', key)
+				'foo'
+			}
+			assert_nothing_raised { 
+				assert_equal('foo', stub['bar'])
+			}
+		end
+		def test_hash__fetch__2
+			stub = Stub.new(9, [], {})
+			ODBA.cache_server.__next(:fetch_collection_element) { |odba_id, key| 
+				assert_equal(9, odba_id)
+				assert_equal('bar', key)
+				nil
+			}
+			ODBA.cache_server.__next(:fetch) { |odba_id, caller|
+				assert_equal(9, odba_id)
+				assert_equal([], caller)
+				{'bar' => 'foo'}
+			}
+			assert_nothing_raised { 
+				assert_equal('foo', stub['bar'])
+			}
+		end
 	end
 end

@@ -20,7 +20,6 @@ module ODBA
 		end
 		def is_a?(klass)
 			if([Stub, Persistable, @odba_class].include?(klass))
-			#if(klass == Stub  || klass == Persistable)
 				true
 			else
 				odba_replace
@@ -50,18 +49,20 @@ module ODBA
 			if(@receiver.nil?)
 				begin
 					@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
-					@odba_container.odba_replace_stubs(self, @receiver)
+					if(@odba_container)
+						@odba_container.odba_replace_stubs(self, @receiver)
+					end
 				rescue OdbaError => e
 					#require 'debug'
 					warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
 				end
 			end
 		end
-		# A stub always references a Persistable that has already been saved.
+		# A stub always references a Persistable that has 
+		# already been saved.
 		def odba_unsaved?(snapshot_level=nil)
 			false
 		end
-		#added odba_id because it is now definded in object
 		no_override = [
 			"is_a?", "__id__", "__send__", "inspect", "hash", "eql?", 
 			"nil?", "respond_to?", "odba_id",
@@ -83,12 +84,12 @@ module ODBA
 				@receiver.respond_to?(meth)
 			end
 		end
-=begin
-		def to_s
-			replace
-			@receiver.to_s
+		def [](*args, &block)
+			elm = if(@odba_class == Hash)
+				ODBA.cache_server.fetch_collection_element(@odba_id, args.first)
+			end
+			elm || method_missing(:[], *args, &block)
 		end
-=end
 	end
 end
 class Array

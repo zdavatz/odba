@@ -139,25 +139,6 @@ module ODBA
 			baz.__verify
 			ODBA.marshaller = old_marshal
 		end
-=begin
-		this case it covered by test_bulk_fetch!
-		def test_bulk_restore
-			old_marshal = ODBA.marshaller
-			ODBA.marshaller = Marshal
-			storage = CountingStub.new
-			obj1 = CountingStub.new
-			obj1.__define(:odba_id, 2)
-			obj2 = CountingStub.new
-			obj2.__define(:odba_id, 3)
-			dump_1 = Marshal.dump(obj1)
-			dump_2 = Marshal.dump(obj2)
-			rows = [[1, dump_1],[2, dump_2]]
-			retrieved = @cache.bulk_restore(rows, nil)
-			assert_equal(1, retrieved.size)
-			foo.__verify
-			ODBA.marshaller = old_marshal
-		end
-=end
 		def test_bulk_restore_in_hashadd_caller
 			obj = Object.new
 			cache_entry = Mock.new('cache_entry')
@@ -172,24 +153,6 @@ module ODBA
 			rows = [[1, '']]
 			retrieved = @cache.bulk_restore(rows, 'Reference')
 		end
-=begin
-		#already tested in bulk_fetch
-		def test_bulk_restore_other_in_hash
-			foo = Mock.new("foo")
-			@cache.hash.store(1, foo)
-			rows = [[2, "foodump"]]
-			ODBA.marshaller.__next(:load) { |dump|
-				assert_equal("foodump", dump)
-				foo
-			}
-			foo.__next(:odba_restore) { }
-			foo.__next(:odba_id){ 1 }
-			foo.__next(:odba_name) { nil }
-			@cache.bulk_restore(rows, nil)
-			foo.__verify
-			ODBA.marshaller.__verify
-		end
-=end
 		def test_clean
 			obj1 = Mock.new
 			obj2 = Mock.new
@@ -206,30 +169,6 @@ module ODBA
 			obj1.__verify
 			obj2.__verify
 		end
-=begin
-		#bacht mode is deprecated...
-		def test_clean__in_batch_mode
-			obj1 = Mock.new
-			obj2 = Mock.new
-			@cache.hash.store(2, obj1)
-			@cache.hash.store(3, obj2)
-			@cache.batch_objects = {3 => obj2}
-			@cache.batch_mode = true
-			assert_equal(2, @cache.hash.size)
-			obj1.__next(:ready_to_destroy?) { false }
-			obj1.__next(:odba_old?) { true }
-			obj1.__next(:odba_id) { 2 }
-			obj1.__next(:odba_retire) { }
-			obj2.__next(:ready_to_destroy?) { false }
-			obj2.__next(:odba_old?) { true }
-			obj2.__next(:odba_id) { 3 }
-			@cache.clean
-			assert_equal(2, @cache.hash.size)
-			@cache.batch_mode = false
-			obj1.__verify
-			obj2.__verify
-		end
-=end
 		def test_delete_old
 			value = Mock.new("value")
 			obj = Mock.new('object')
@@ -268,26 +207,11 @@ module ODBA
 				receiver.__next(:odba_name) {}
 			end
 		end
-=begin
-		#is testest in previus test
-		def test_fetch
-			caller = Mock.new
-			caller2 = Mock.new
-			receiver = Mock.new
-			#prepare_fetch(5, receiver)
-			first_fetch = @cache.fetch(5, caller)
-			assert_equal(receiver, first_fetch)
-			second_fetch = @cache.fetch(5, caller2)
-			assert_equal(receiver, second_fetch)
-			receiver.__verify
-		end
-=end
-=begin
 		def test_fetch_has_name
-			caller = Mock.new
-			caller2 = Mock.new
-			caller3 = Mock.new
-			receiver = Mock.new
+			caller = Mock.new('Caller')
+			caller2 = Mock.new('Caller2')
+			caller3 = Mock.new('Caller3')
+			receiver = Mock.new('Receiver')
 			ODBA.storage.__next(:restore){ |odba_id|
 				assert_equal(23, odba_id)
 				odba_id
@@ -301,8 +225,9 @@ module ODBA
 			}
 			receiver.__next(:odba_id) {23}
 			receiver.__next(:odba_restore) {}
+			receiver.__next(:odba_id) {23}
 			receiver.__next(:odba_name) { 'name' }
-			#receiver.__next(:odba_id) {23}
+			receiver.__next(:odba_name) { 'name' }
 			first_fetch = @cache.fetch(23, caller)
 			assert_equal(receiver, first_fetch)
 			assert_equal(2, @cache.hash.size)
@@ -313,7 +238,6 @@ module ODBA
 			assert_equal(receiver, named_fetch)
 			receiver.__verify
 		end
-=end
 		def test_fetch_error
 			receiver = Mock.new
 			ODBA.storage.__next(:restore) { |odba_id|
@@ -447,8 +371,8 @@ module ODBA
 			assert_instance_of(FulltextIndex, index)
 			@cache.instance_variable_set('@indices', {})
 		end
-	def prepare_fetch_collection(obj)
-	end
+		def prepare_fetch_collection(obj)
+		end
 		def prepare_store(store_array, &block)
 			store_array.each{ |mock|
 				mock.__next(:odba_id){ || }
@@ -590,80 +514,23 @@ module ODBA
 			@cache.drop_indices
 			index.__verify
 		end
-=begin
-		#these test are deprecated, because the batchmode
-		#doesn't exist anymore
-		def test_batch
-			object = Mock.new('Object')
-			@cache.batch { 
-				assert_equal(true, @cache.batch_mode)
-				object.__next(:odba_id) { 12 }
-				object.__next(:odba_indexable?) { false }
-				object.__next(:odba_name) { }
-				@cache.store(object)
-				assert_equal({12 => object}, @cache.batch_objects)
-				object.__verify
-				object.__next(:odba_id) { 12 }
-				object.__next(:odba_indexable?) { false }
-				object.__next(:odba_name) { }
-				@cache.store(object)
-				assert_equal({12 => object}, @cache.batch_objects)
-				object.__next(:odba_id) { 12 }
-				object.__next(:odba_cache_values) { [] }
-				object.__next(:odba_isolated_dump) { 'dump' }
-				object.__next(:odba_name) { }
-				object.__next(:odba_prefetch?) { false }
-				object.__next(:odba_indexable?) { false }
-				object.__next(:odba_name) { }
-				object.__next(:odba_target_ids) { [1] }
-				object.__next(:odba_id) { 12 }
-				ODBA.storage.__next(:transaction) { |block|
-					block.call
-				}
-				ODBA.storage.__next(:store) { |*args|
-					assert_equal([12, 'dump', nil, false], args)
-				}
-				ODBA.storage.__next(:add_object_connection) { |origin, target|
-					assert_equal(12, origin)
-					assert_equal(1, target)
-				}
+		def test_fetch_collection_element
+			key_dump = Marshal.dump('foo')
+			ODBA.storage.__next(:collection_fetch) { |odba_id, key|
+				assert_equal(12, odba_id)
+				assert_equal(key_dump, key)
+				'val_dump'
 			}
-			sleep(1) # wait for cache to store asynchronously
-			object.__verify
-			assert_equal(false, @cache.batch_mode)
-		end
-		def test_batch__delete
-			object = Mock.new('Object')
-			@cache.batch { 
-				assert_equal(true, @cache.batch_mode)
-				object.__next(:odba_id) { 12 }
-				object.__next(:odba_indexable?) { false }
-				object.__next(:odba_name) { }
-				@cache.store(object)
-				assert_equal({12 => object}, @cache.batch_objects)
-				object.__verify
-				object.__next(:odba_id) { 12 }
-				object.__next(:odba_name) { }
-				object.__next(:odba_id) { 12 }
-				ODBA.storage.__next(:retrieve_connected_objects) { |odba_id|
-					assert_equal(12, odba_id)
-					[] 
-				}
-				@cache.delete(object)
-				object.__verify
-				assert_equal({}, @cache.batch_objects)
-				object.__next(:odba_id) { 12 }
-				ODBA.storage.__next(:transaction) { |block|
-					block.call
-				}
-				ODBA.storage.__next(:delete_persistable) { |odba_id| 
-					assert_equal(12, odba_id)	
-				}
+			ODBA.marshaller.__next(:dump) { |key|
+				assert_equal('foo', key)
+				key_dump
 			}
-			sleep(1) # wait for cache to store asynchronously
-			object.__verify
-			assert_equal(false, @cache.batch_mode)
+			ODBA.marshaller.__next(:load) { |dump|
+				assert_equal('val_dump', dump)
+				'val'
+			}
+			res = @cache.fetch_collection_element(12, 'foo')
+			assert_equal('val', res)
 		end
-=end
 	end
 end

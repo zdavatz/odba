@@ -143,16 +143,25 @@ module ODBA
 				sth.execute(origin_id, id)
 			}
 		end
+		def collection_fetch(odba_id, key_dump)
+			sql = <<-SQL
+				SELECT value FROM collection 
+				WHERE odba_id = ? AND key = ?
+			SQL
+			row = @dbi.select_one(sql, odba_id, key_dump)
+			row.first unless row.nil?
+		end
 		def collection_remove(odba_id, key_dump)
-			sth = @dbi.prepare("DELETE FROM collection where odba_id = ? 
-								AND key = ?")
+			sth = @dbi.prepare <<-SQL
+				DELETE FROM collection 
+				WHERE odba_id = ? AND key = ?
+			SQL
 			sth.execute(odba_id, key_dump)
 		end
 		def collection_store(odba_id, key_dump, value_dump)
 			sth = @dbi.prepare <<-SQL 
-				INSERT INTO 
-					collection (odba_id, key, value)
-					VALUES (?, ?, ?)
+				INSERT INTO collection (odba_id, key, value)
+				VALUES (?, ?, ?)
 			SQL
 			sth.execute(odba_id, key_dump, value_dump)
 		end

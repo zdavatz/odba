@@ -247,6 +247,14 @@ module ODBA
 			}
 			collection
 		end
+		def fetch_collection_element(odba_id, key)
+			key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
+			## for backward-compatibility and robustness we only attempt
+			## to load if there was a dump stored in the collection table
+			if(dump = ODBA.storage.collection_fetch(odba_id, key_dump))
+				ODBA.marshaller.load(dump)
+			end
+		end
 		def fetch_named(name, caller, &block)
 			cache_entry = @hash[name]
 			obj = nil

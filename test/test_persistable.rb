@@ -374,7 +374,6 @@ module ODBA
 			@array = Array.new
 			ODBA.storage = Mock.new("storage")
 			ODBA.marshaller = Mock.new("marshaller")
-			#@array.extend(ODBA::PersistableArray)
 			ODBA.cache_server = Mock.new("cache_server")
 		end
 		def test_odba_cut_connection
@@ -385,7 +384,6 @@ module ODBA
 			array = Array.new
 			array.push(receiver)
 			assert_equal(0, array.odba_cut_connection(remove_obj).size)
-			
 		end
 		def test_odba_unsaved_neighbors_array
 			rep1 = ODBAContainer.new
@@ -427,29 +425,6 @@ module ODBA
 			stub2.__verify
 			stub3.__verify
 		end
-=begin
-		def test_odba_create_index
-			ODBA.storage.__next(:create_index) { |index_name| 
-				assert_equal("test_index", index_name)
-			}
-			ODBA.storage.__next(:store_index) { \
-				|index_name, origin_id, search_term, target_id|
-				assert_equal("test_index", index_name)
-				assert_equal(12, origin_id)
-				assert_equal("ponstan", search_term)
-				assert_equal(2, target_id)
-			}
-			ODBA.create_index("test_index"){
-				[ hash = {
-					 "origin_id" => 12,
-					 "search_term" => "ponstan",
-					 "target_id"	=> 2,
-					}
-				]
-			}
-			ODBA.storage.__verify
-		end
-=end
 		def test_odba_replace_persistables_array
 			replaceable = StubMock.new("replaceable")
 			replaceable2 = StubMock.new("replaceable2")
