@@ -108,11 +108,11 @@ module ODBA
 					end
 				}
 			}
-			puts "cleaned: #{cleaned} objects"
-			puts "total loaded: #{@hash.size} objects"
+			#puts "cleaned: #{cleaned} objects"
+			#puts "total loaded: #{@hash.size} objects"
 			count = ObjectSpace.each_object { |obj|  }
-			puts "ObjectSpace: #{count} objects"
-			puts "uncached objects: #{count - @hash.size}"
+			#puts "ObjectSpace: #{count} objects"
+			#puts "uncached objects: #{count - @hash.size}"
 		end
 		def reap_object_connections
 			@reaper_min_id += REAPER_ID_STEP
