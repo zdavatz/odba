@@ -38,6 +38,15 @@ module ODBA
 			}
 		}
 	end
+	def index_factory(index_definition, origin_module)	
+		if(index_definition.fulltext)
+			puts "creating fulltext index"
+			FulltextIndex.new(index_definition, origin_module)
+		else
+			Index.new(index_definition, origin_module)
+		end
+	end
+	module_function :index_factory
 	module_function :cache_server
 	module_function :cache_server=
 	module_function :marshaller

@@ -18,7 +18,7 @@ module ODBA
 					begin
 						puts "cleaning up DB"
 						clean
-						clean_object_connections
+						#		clean_object_connections
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
@@ -92,9 +92,11 @@ module ODBA
 			ODBA.storage.remove_dead_objects(@cleaner_min_id, @cleaner_max_id)
 			ODBA.storage.remove_dead_connections(@cleaner_min_id, @cleaner_max_id)
 		end
-		def create_index(index_name, origin_klass, target_klass, mthd, resolve_target, resolve_origin = '')
+		def create_index(index_definition, origin_module)
+			index_name = index_definition.index_name
 			ODBA.transaction{
-				index = Index.new(index_name, origin_klass, target_klass, mthd, resolve_target, resolve_origin)
+				index = ODBA.index_factory(index_definition, origin_module)
+				puts "******created index***"
 				self.indices.store(index_name, index)
 				puts "store self.indices"
 				self.indices.odba_store_unsaved
@@ -202,9 +204,6 @@ module ODBA
 		end
 		def indices
 			@indices ||= fetch_named('__cache_server_indices__',self){
-				#indices_hash = Hash.new
-				#indices_hash.odba_name = '__cache_server_indices__'
-				#indices_hash
 				{}
 			}
 		end
@@ -213,9 +212,13 @@ module ODBA
 			bulk_restore(rows)
 		end
 		def retrieve_from_index(index_name, search_term)
-			bulks = ODBA.storage.retrieve_from_index(index_name, search_term)
+			bulks = self.indices.fetch(index_name).retrieve_data(search_term)
 			bulk_restore(bulks)
-
+		end
+		#it is a test method
+		def search_indication(index_name, search)
+			rows = ODBA.storage.search_indication(index_name, search)
+			bulk_restore(rows)
 		end
 		def store(object)
 				odba_id = object.odba_id

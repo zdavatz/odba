@@ -368,8 +368,18 @@ module ODBA
 			foo.__verify
 		end
 		def test_create_index
+			index_def_mock = Mock.new("index_def")
+			index_def_mock.__next(:index_name){ "foo"}
+			index_def_mock.__next(:fulltext){ true}
+			index_def_mock.__next(:origin_klass){ "ODBA"}
+			index_def_mock.__next(:target_klass){ "ODBA"}
+			index_def_mock.__next(:resolve_origin){ "foo"}
+			index_def_mock.__next(:resolve_target){ "bar"}
+			index_def_mock.__next(:index_name){ "foo"}
+			index_def_mock.__next(:search_term_mthd){ "foo"}
+			index_def_mock.__next(:index_name){ "foo"}
 			ODBA.storage.__next(:transaction){|block| block.call}
-			ODBA.storage.__next(:create_index) { |index_name|  }
+			ODBA.storage.__next(:create_fulltext_index) { |index_name|  }
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.storage.__next(:next_id) {  }
@@ -381,11 +391,10 @@ module ODBA
 			ODBA.storage.__next(:next_id) {  }
 			ODBA.storage.__next(:store) { |name, index, mp, pref| } 
 			ODBA.storage.__next(:next_id) {  }
-			#ODBA.storage.__next(:next_id) {  }
 			ODBA.marshaller.__next(:dump) { |dump| }
 			ODBA.marshaller.__next(:dump) { |dump| }
-			@cache.create_index("foo", Mock, Mock, "meth", "res_target")
-			assert_instance_of(Index, @cache.indices['foo'])
+			@cache.create_index(index_def_mock, ODBA)
+			assert_instance_of(FulltextIndex, @cache.indices['foo'])
 			verify_store
 		end
 		def prepare_store(store_array, &block)
