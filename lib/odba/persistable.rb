@@ -39,7 +39,6 @@ module ODBA
 			}
 		end
 		def odba_delete
-			#			ODBA.db_lock.synchronize {
 			ODBA.transaction {
 				ODBA.cache_server.delete(self)
 			}
