@@ -6,12 +6,14 @@ module ODBA
 		attr_accessor :odba_name, :odba_prefetch
 		attr_reader :odba_target_ids
 		ODBA_CACHE_METHODS = []
+		ODBA_EXCLUDE_VARS = []
 		ODBA_INDEXABLE = true
 		ODBA_PREFETCH = false
 		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids']
+		ODBA_SERIALIZABLE = []
 		def dup
 			twin = super
-			twin.instance_variables.each { |name|
+			odba_potentials.each { |name|
 				var = twin.instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
 					stub = ODBA::Stub.new(var.odba_id, twin, var)
@@ -31,7 +33,7 @@ module ODBA
 			}.compact
 		end
 		def odba_cut_connection(remove_object)
-			instance_variables.each { |name|
+			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				if(var.eql?(remove_object))
 					instance_variable_set(name, nil)
@@ -65,8 +67,11 @@ module ODBA
 		def odba_indexable?
 			@odba_indexable || self::class::ODBA_INDEXABLE
 		end
+		def odba_potentials
+			instance_variables - odba_serializables
+		end
 		def odba_replace_persistable(obj)
-			instance_variables.each { |name|
+			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				# must not be synchronized because of the following if
 				# statement (if an object has already been replaced by
@@ -81,14 +86,11 @@ module ODBA
 		end
 		def odba_replaceable?(var, name)
 			var.is_a?(ODBA::Persistable) && (!var.is_a?(ODBA::Stub)) \
-				&& (!ODBA_PREDEFINE_SERIALIZABLE.include?(name) \
-				&& (!defined?(self::class::ODBA_SERIALIZABLE) \
-				|| !self::class::ODBA_SERIALIZABLE.include?(name))
-			)
+				&& (!odba_serializables.include?(name))
 		end
 		def odba_replace_persistables
 			@odba_target_ids = []
-			instance_variables.each { |name|
+			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				if(odba_replaceable?(var, name))
 					odba_id = var.odba_id
@@ -102,7 +104,7 @@ module ODBA
 			if(name)
 				instance_variable_set(name, substitution)
 			else
-				instance_variables.each { |name|
+				odba_potentials.each { |name|
 					var = instance_variable_get(name)
 					if(stub.eql?(var))
 						instance_variable_set(name, substitution)
@@ -111,6 +113,10 @@ module ODBA
 			end
 		end
 		def odba_restore
+		end
+		def odba_serializables
+			self::class::ODBA_PREDEFINE_SERIALIZABLE \
+				+ self::class::ODBA_SERIALIZABLE
 		end
 		def odba_store_unsaved
 			@odba_persistent = false
@@ -167,15 +173,8 @@ module ODBA
 		end
 		def odba_unsaved_neighbors(snapshot_level = nil)
 			unsaved = []
-			exclude = ODBA_PREDEFINE_SERIALIZABLE
-			if(defined?(self::class::ODBA_EXCLUDE_VARS))
-				exclude += self::class::ODBA_EXCLUDE_VARS
-			end
-			if(defined?(self::class::ODBA_SERIALIZABLE))
-				exclude += self::class::ODBA_SERIALIZABLE
-			end
-			instance_variables.each { |name|
-				unless(exclude.include?(name))
+			odba_potentials.each { |name|
+				unless(self::class::ODBA_EXCLUDE_VARS.include?(name))
 					item = instance_variable_get(name)
 					#odba_extend_enumerable(item)
 					if(item.is_a?(ODBA::Persistable) \
@@ -197,15 +196,8 @@ module ODBA
 		end
 		protected
 		def odba_replace_excluded!
-			if(defined?(self::class::ODBA_EXCLUDE_VARS))
-				exclude_vars = self::class::ODBA_EXCLUDE_VARS
-			else
-				return 
-			end
-			instance_variables.each { |name|
-				if(exclude_vars.include?(name))
-					instance_variable_set(name, nil)
-				end
+			self::class::ODBA_EXCLUDE_VARS.each { |name|
+				instance_variable_set(name, nil)
 			}
 		end
 	end
@@ -224,7 +216,7 @@ class Array
 	end
 	def odba_cut_connection(remove_object)
 		super(remove_object)
-		delete_if{|val| val.eql?(remove_object)}
+		delete_if { |val| val.eql?(remove_object) }
 	end
 	def odba_prefetch?
 		any? { |item| 
@@ -295,7 +287,7 @@ class Hash
 	ODBA_CACHE_METHODS = [:length, :size, :empty?]
 	def odba_cut_connection(remove_object)
 		super(remove_object)
-		delete_if{|key, val|
+		delete_if { |key, val|
 			key.eql?(remove_object) || val.eql?(remove_object)
 		}
 	end

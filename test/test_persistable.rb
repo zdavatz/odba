@@ -48,7 +48,7 @@ module ODBA
 			ODBA.storage.__verify
 			ODBA.marshaller.__verify
 			ODBA.cache_server.__verify
-			ODBA.scalar_cache.__verify
+		#ODBA.scalar_cache.__verify
 			ODBA.storage = nil
 			ODBA.marshaller = nil
 			ODBA.cache_server = nil

@@ -3,8 +3,8 @@
 
 module ODBA
 	class CacheEntry
-		RETIRE_TIME = 10 
-		DESTROY_TIME =  20 
+		RETIRE_TIME = 300
+		DESTROY_TIME =  1500
 		attr_accessor :last_access
 		attr_reader :accessed_by
 		def initialize(obj)

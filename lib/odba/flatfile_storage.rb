@@ -5,9 +5,10 @@ require 'fileutils'
 
 module ODBA
 	class DumpWrapper
-		attr_reader :arguments
-		def initialize(*args)
-			@arguments = args
+		attr_reader :arguments, :dump
+		def initialize(odba_id, dump, name, prefetchable)
+			@arguments = [odba_id, dump, name, prefetchable]
+			@dump = dump
 		end
 	end
 	class FlatFileStorage
@@ -26,6 +27,8 @@ module ODBA
 		def add_object_connection(origin, target)
 			@connection.puts([origin, target].join(DELIMITER))
 		end
+		def dbi=(dbi)
+		end
 		def close
 			store_dump_wrappers
 			@object.close
@@ -34,6 +37,9 @@ module ODBA
 		def flush
 			@object.flush
 			@connection.flush
+		end
+		def max_id
+			@odba_id
 		end
 		def next_id
 			@odba_id += 1

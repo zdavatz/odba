@@ -8,7 +8,7 @@ require 'odba'
 
 module ODBA
 	class Cache < SimpleDelegator
-		attr_accessor :cleaner, :hash
+		attr_accessor :cleaner, :hash, :batch_objects, :batch_mode, :batch_ids
 		attr_writer :indices
 		public :load_object
 	end
@@ -30,6 +30,7 @@ module ODBA
 		end
 		def teardown
 			ODBA.storage.__verify
+			ODBA.storage = nil
 			ODBA.cache_server = nil
 		end
 		def test_fetch_named_ok
@@ -185,6 +186,24 @@ module ODBA
 			obj1.__next(:odba_retire) { }
 			obj2.__next(:ready_to_destroy?) { false }
 			obj2.__next(:odba_old?) { false }
+			@cache.clean
+			assert_equal(2, @cache.hash.size)
+			obj1.__verify
+			obj2.__verify
+		end
+		def test_clean__in_batch_mode
+			obj1 = Mock.new
+			obj2 = Mock.new
+			@cache.hash.store(2, obj1)
+			@cache.hash.store(3, obj2)
+			@cache.batch_ids = [3]
+			@cache.batch_mode = true
+			assert_equal(2, @cache.hash.size)
+			obj1.__next(:ready_to_destroy?) { false }
+			obj1.__next(:odba_old?) { true }
+			obj1.__next(:odba_retire) { }
+			obj2.__next(:ready_to_destroy?) { false }
+			obj2.__next(:odba_old?) { true }
 			@cache.clean
 			assert_equal(2, @cache.hash.size)
 			obj1.__verify
@@ -408,6 +427,7 @@ module ODBA
 				expected = [
 					[1, :length, 1],
 					[1, :size, 1],
+					[1, :empty?, false]
 				]
 				assert_equal(expected, arr)
 			}
@@ -476,6 +496,7 @@ module ODBA
 			ODBA.storage.__next(:delete_persistable) { |id_arg| 
 				assert_equal(id, id_arg)
 			}
+			mock.__next(:odba_id) { id }
 			mock.__next(:origin_class?) { true }
 			mock.__next(:odba_id) { id }
 			ODBA.storage.__next(:delete_index_element) { }
@@ -572,6 +593,66 @@ module ODBA
 			@cache.drop_indices
 			index.__verify
 			ODBA.storage.__verify
+		end
+		def test_batch
+			object = Mock.new('Object')
+			@cache.batch { 
+				object.__next(:odba_id) { 12 }
+				object.__next(:odba_name) { }
+				@cache.store(object)
+				assert_equal([object], @cache.batch_objects)
+				assert_equal([12], @cache.batch_ids)
+				object.__verify
+				object.__next(:odba_id) { 12 }
+				object.__next(:odba_name) { }
+				@cache.store(object)
+				assert_equal([object, object], @cache.batch_objects)
+				assert_equal([12, 12], @cache.batch_ids)
+				object.__next(:odba_id) { 12 }
+				object.__next(:odba_cache_values) { [] }
+				object.__next(:odba_isolated_dump) { 'dump' }
+				object.__next(:odba_name) { }
+				object.__next(:odba_prefetch?) { false }
+				object.__next(:odba_indexable?) { false }
+				object.__next(:odba_name) { }
+				object.__next(:odba_target_ids) { [1] }
+				object.__next(:odba_id) { 12 }
+				ODBA.storage.__next(:store) { |*args|
+					assert_equal([12, 'dump', nil, false], args)
+				}
+				ODBA.storage.__next(:add_object_connection) { |origin, target|
+					assert_equal(12, origin)
+					assert_equal(1, target)
+				}
+			}
+			object.__verify
+		end
+		def test_batch__delete
+			object = Mock.new('Object')
+			@cache.batch { 
+				object.__next(:odba_id) { 12 }
+				object.__next(:odba_name) { }
+				@cache.store(object)
+				assert_equal([object], @cache.batch_objects)
+				assert_equal([12], @cache.batch_ids)
+				object.__verify
+				object.__next(:odba_id) { 12 }
+				object.__next(:odba_name) { }
+				object.__next(:odba_id) { 12 }
+				@cache.delete(object)
+				object.__verify
+				assert_equal([], @cache.batch_objects)
+				assert_equal([], @cache.batch_ids)
+				object.__next(:odba_id) { 12 }
+				ODBA.storage.__next(:retrieve_connected_objects) { |odba_id|
+					assert_equal(12, odba_id)
+					[] 
+				}
+				ODBA.storage.__next(:delete_persistable) { |odba_id| 
+					assert_equal(12, odba_id)	
+				}
+			}
+			object.__verify
 		end
 	end
 end

@@ -4,10 +4,10 @@
 
 module ODBA
 	class ScalarCache
-		include Persistable
-		ODBA_INDEXABLE = false
-		ODBA_PREFETCH = true
-		ODBA_SERIALIZABLE = ['@hash']
+		#include Persistable
+		#ODBA_INDEXABLE = false
+		#ODBA_PREFETCH = true
+		#ODBA_SERIALIZABLE = ['@hash']
 		def initialize
 			@hash = Hash.new
 		end

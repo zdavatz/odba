@@ -41,7 +41,8 @@ module ODBA
 					@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
 					@odba_container.odba_replace_stubs(self, @receiver)
 				rescue OdbaError => e
-					puts self.inspect
+					#require 'debug'
+					#puts "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
 				end
 			end
 		end
