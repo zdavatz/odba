@@ -18,7 +18,7 @@ module ODBA
 					begin
 						puts "cleaning up DB"
 						clean
-						clean_object_connections
+						#	clean_object_connections
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
@@ -124,7 +124,7 @@ module ODBA
 					}
 				end
 =end
-				puts "saving connected_object"
+#puts "saving connected_object"
 				puts "object is a : #{connected_object.class}"
 				#store(connected_object, connected_object.odba_name)
 				connected_object.odba_store
@@ -178,7 +178,7 @@ module ODBA
 				obj = load_object(odba_id)
 				puts "fetch"
 				puts obj.class
-				#puts obj.to_s
+				puts obj.to_s
 				cache_entry = CacheEntry.new(obj)
 				if(name = obj.odba_name)
 					@hash.store(name, cache_entry)

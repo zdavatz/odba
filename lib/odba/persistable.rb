@@ -76,7 +76,7 @@ module ODBA
 		def odba_replace_persistables
 			@odba_target_ids = []
 			puts "odba_replace_persistables"
-			puts self.class
+			#puts self.class
 			instance_variables.each { |name|
 				var = instance_variable_get(name)
 				#odba_extend_enumerable(var)
@@ -135,12 +135,12 @@ module ODBA
 		def odba_snapshot(snapshot_level)
 			if(snapshot_level > @odba_snapshot_level.to_i)
 				@odba_snapshot_level = snapshot_level
-				odba_isolated_store
+				#odba_isolated_store
 			end
 		end
 		def odba_isolated_store
 			@odba_persistent = true
-			ODBA.cache_server.store(self)
+			#ODBA.cache_server.store(self)
 		end
 		def odba_store(name = nil)
 			begin
@@ -148,10 +148,10 @@ module ODBA
 					old_name = @odba_name
 					@odba_name = name
 				end
-				puts "#{name} odba store call"
-				puts self.class
+				#	puts "#{name} odba store call"
+				#puts self.class
 				#ODBA.cache_server.store(self)
-				odba_store_unsaved
+				#odba_store_unsaved
 			rescue DBI::ProgrammingError => e
 				@odba_name = old_name
 				raise
@@ -298,7 +298,7 @@ class Array
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |val|
-			puts "checking array elements"
+			#puts "checking array elements"
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved?
 		} )
 	end
@@ -370,7 +370,7 @@ class Hash
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
-			puts "checking hash elements"
+			  #puts "checking hash elements"
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved? \
 				|| key.is_a?(ODBA::Persistable) && key.odba_unsaved?
 		})
