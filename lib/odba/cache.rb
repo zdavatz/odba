@@ -14,7 +14,6 @@ module ODBA
 		CLEANING_INTERVAL = 900
 		REAPER_ID_STEP = 1000
 		REAPER_INTERVAL = 60
-		attr_reader :batch_threads
 		def initialize
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
@@ -23,50 +22,7 @@ module ODBA
 			@hash = Hash.new
 			@reaper_min_id = 0
 			@reaper_max_id = 0
-			@batch_deletions = {}
-			@batch_objects = {}
-			@batch_mutex = Mutex.new
-			@batch_queue_mutex = Mutex.new
-			@batch_threads = []
 			super(@hash)
-		end
-		def batch(&block)
-			result = nil
-			@batch_mutex.synchronize {
-				begin
-					@batch_mode = true
-					result = block.call
-					deletions = []
-					objects = []
-					@batch_queue_mutex.synchronize { 
-						deletions = @batch_deletions.keys
-						objects = @batch_objects.keys
-					}
-					@batch_threads.push Thread.new { 
-						Thread.current.priority = -1
-						ODBA.transaction { 
-							deletions.each { |key|
-								object = nil
-								@batch_queue_mutex.synchronize {
-									object = @batch_deletions.delete(key)
-								}
-								delete_direct(object) unless(object.nil?)
-							}
-							objects.each { |key|
-								object = nil
-								@batch_queue_mutex.synchronize { 
-									object = @batch_objects.delete(key)
-								}
-								store_direct(object) unless(object.nil?)
-							}
-						}
-						@batch_threads.delete(Thread.current)
-					}
-				ensure
-					@batch_mode = false
-				end
-			}
-			result
 		end
 		def bulk_fetch(bulk_fetch_ids, odba_caller)
 			dumps = []
@@ -98,15 +54,12 @@ module ODBA
 		end
 		def clean
 			delete_old
-			cleaned = 0
+			#cleaned = 0
 			@hash.each { |key, value|
-				@batch_queue_mutex.synchronize { 
-					if(value.odba_old? \
-						&& !(@batch_mode && @batch_objects.has_key?(value.odba_id)))
-						cleaned += 1
-						value.odba_retire
-					end
-				}
+				if(value.odba_old?)
+					#cleaned += 1
+					value.odba_retire
+				end
 			}
 			#puts "cleaned: #{cleaned} objects"
 			#puts "total loaded: #{@hash.size} objects"
@@ -151,27 +104,7 @@ module ODBA
 			}
 			@hash.delete(odba_id)
 			@hash.delete(object.odba_name)
-			if(@batch_mode)
-				delete_batched(object)
-			else
-				delete_direct(object)
-			end
-		end
-		def delete_batched(object)
-			odba_id = object.odba_id
-			@batch_queue_mutex.synchronize {
-				@batch_objects.delete(odba_id)
-				@batch_deletions.store(odba_id, object)
-			}
-			# call delete_index_element both from delete_direct and from 
-			# delete_batched to ensure index consistency
-			delete_index_element(object)
-		end
-		def delete_direct(object)
-			odba_id = object.odba_id
 			ODBA.storage.delete_persistable(odba_id)
-			# call delete_index_element both from delete_direct and from 
-			# delete_batched to ensure index consistency
 			delete_index_element(object)
 			object
 		end
@@ -301,7 +234,7 @@ module ODBA
 				loop {
 					sleep(self::class::CLEANING_INTERVAL)
 					begin
-						clean unless(@batch_mode)
+						clean 
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
@@ -315,7 +248,7 @@ module ODBA
 				loop {
 					sleep(self::class::REAPER_INTERVAL)
 					begin
-						reap_object_connections unless(@batch_mode)
+						reap_object_connections 
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
@@ -324,13 +257,6 @@ module ODBA
 			}
 		end
 		def store(object)
-			if(@batch_mode)
-				store_batched(object)
-			else
-				store_direct(object)
-			end
-		end
-		def store_direct(object)
 			odba_id = object.odba_id
 			update_scalar_cache(odba_id, object.odba_cache_values)
 			dump = object.odba_isolated_dump
@@ -341,25 +267,11 @@ module ODBA
 			prefetchable = object.odba_prefetch?
 			ODBA.storage.store(odba_id, dump, name, prefetchable)
 			#puts "object stored"
-			# call update_indices both from store_direct and from store_batched
-			# to ensure immediate and long-term index consistency
 			update_indices(object)
 			#puts "indices updated"
 			store_object_connections(object)
 			#puts "connections stored" 
 			store_cache_entry(odba_id, object, name)
-		end
-		def store_batched(object)
-			odba_id = object.odba_id
-			@batch_queue_mutex.synchronize { 
-				unless(@batch_deletions.include?(odba_id))
-					@batch_objects.store(odba_id, object)
-				end
-			}
-			# call update_indices both from store_direct and from store_batched
-			# to ensure immediate and long-term index consistency
-			update_indices(object)
-			store_cache_entry(odba_id, object, object.odba_name)
 		end
 		def store_cache_entry(odba_id, object, name=nil)
 			cache_entry = @hash[odba_id]

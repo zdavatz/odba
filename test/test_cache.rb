@@ -18,8 +18,7 @@ module ODBA
 		CLEANING_INTERVAL = 0
 		MAIL_RECIPIENTS = []
 		MAIL_FROM = "test@testfirst.local"
-		attr_accessor :cleaner, :hash, :batch_objects, :batch_mode,
-									:batch_deletions, :batch_mode, :cache_entry_factory
+		attr_accessor :cleaner, :hash, :cache_entry_factory
 		attr_writer :indices
 		public :load_object
 	end
@@ -57,9 +56,6 @@ module ODBA
 			ODBA.cache_server = @cache = ODBA::Cache.instance
 			@cache.hash = {}
 			@cache.indices = {}
-			@cache.batch_objects = {}
-			@cache.batch_deletions = {}
-			@cache.batch_mode = false
 		end
 		def teardown
 			ODBA.storage.__verify
@@ -69,9 +65,6 @@ module ODBA
 			ODBA.scalar_cache = nil
 			@cache.hash.clear
 			@cache.indices.clear
-			@cache.batch_objects.clear
-			@cache.batch_deletions.clear
-			@cache.batch_mode = false
 		end
 		def test_fetch_named_ok
 			old_marshaller = ODBA.marshaller
@@ -450,7 +443,6 @@ module ODBA
 			ODBA.storage.__next(:delete_persistable) { |id_arg| 
 				assert_equal(id, id_arg)
 			}
-			mock.__next(:odba_id) { id }
 			mock.__next(:origin_class?) { true }
 			mock.__next(:odba_id) { id }
 			ODBA.storage.__next(:delete_index_element) { }

@@ -14,7 +14,6 @@ require 'thread'
 
 module ODBA
 	def batch(&block)
-		#cache_server.batch(&block)
 		transaction(&block)
 	end
 	def cache_server
