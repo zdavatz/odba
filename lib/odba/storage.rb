@@ -9,36 +9,21 @@ module ODBA
 	class Storage
 		include Singleton
 		attr_accessor :dbi
+		BULK_FETCH_STEP = 5000
 		def initialize
 			@id_mutex = Mutex.new
 		end
 		def add_object_connection(origin_id, target_id)
 			sth = @dbi.prepare("SELECT ensure_object_connection(?, ?)")
 			sth.execute(origin_id, target_id)	
-=begin
-			#SELECT
-			sql = <<-SQL
-				SELECT COUNT(origin_id) FROM object_connection 
-				WHERE origin_id = ? AND target_id = ?
-			SQL
-			rows = @dbi.select_all(sql, origin_id, target_id)
-			if(rows.first.first == 0)
-				#INSERT
-				sth = @dbi.prepare <<-SQL
-					INSERT INTO object_connection(origin_id, target_id) 
-					VALUES (?,?)
-				SQL
-				sth.execute(origin_id, target_id)	
-			end
-=end
 		end
 		def bulk_restore(bulk_fetch_ids)
 			if(bulk_fetch_ids.empty?)
 				[]
-			elsif(bulk_fetch_ids.size > 10000)
+			elsif(bulk_fetch_ids.size > BULK_FETCH_STEP)
 				rows = []
-				0.step(bulk_fetch_ids.size, 10000) { |base|
-					rows.concat(bulk_restore(bulk_fetch_ids[base, 10000].compact))
+				0.step(bulk_fetch_ids.size, BULK_FETCH_STEP) { |base|
+					rows.concat(bulk_restore(bulk_fetch_ids[base, BULK_FETCH_STEP].compact))
 				}
 				rows
 			else
