@@ -90,13 +90,7 @@ module ODBA
 					obj = cache_entry.odba_object
 					cache_entry.odba_add_reference(odba_caller)
 				else
-					obj = restore_object(dump)
-					cache_entry = CacheEntry.new(obj)
-					cache_entry.odba_add_reference(odba_caller)
-					@hash.store(obj.odba_id, cache_entry)
-					unless(obj.odba_name.nil?)
-						@hash.store(obj.odba_name, cache_entry)
-					end
+					obj = restore_object(dump, odba_caller)
 				end
 				retrieved_objects.push(obj)
 			}
@@ -218,44 +212,72 @@ module ODBA
 				}
 		end
 		def fetch(odba_id, odba_caller)
-			cache_entry = @hash.fetch(odba_id) {
+			obj = nil
+			if(cache_entry = @hash[odba_id])
+				cache_entry.odba_add_reference(odba_caller)
+				cache_entry.odba_object
+				obj = cache_entry.odba_object
+			else
 				obj = load_object(odba_id)
-				#update_scalar_cache(odba_id, obj.odba_cache_values)
-				cache_entry = CacheEntry.new(obj)
-				if(name = obj.odba_name)
-					@hash.store(name, cache_entry)
-				end
-				@hash.store(odba_id, cache_entry)
+			end
+			obj
+		end
+		def fetch_collection(obj)
+			collection = []
+			bulk_fetch_ids = [] 
+			rows = ODBA.storage.restore_collection(obj.odba_id)
+			rows.each { |row|
+				key = ODBA.marshaller.load(row[0])
+				value = ODBA.marshaller.load(row[1])
+				bulk_fetch_ids.push(key.odba_id)
+				bulk_fetch_ids.push(value.odba_id)
+				collection.push([key, value])
 			}
-			cache_entry.odba_add_reference(odba_caller)
-			cache_entry.odba_object
+			bulk_fetch_ids.compact!
+			bulk_fetch(bulk_fetch_ids, obj)
+			collection.each { |pair| 
+				pair.collect! { |item| 
+					if(item.is_a?(Stub))
+						#correct order to get the real object
+						item.odba_container = obj
+						item.odba_instance
+					else
+						item 
+					end
+				}
+			}
+			collection
 		end
 		def fetch_named(name, caller, &block)
 			cache_entry = @hash[name]
+			obj = nil
 			if(cache_entry.nil?)
 				dump = ODBA.storage.restore_named(name)
-				obj = nil
 				if(dump.nil?)
 					obj = block.call
 					obj.odba_name = name
 					obj.odba_store(name)
 				else
-					obj = ODBA.marshaller.load(dump)
-					obj.odba_restore
+					puts "restoring"
+					puts name
+					obj = restore_object(dump, caller)
 				end	
-				cache_entry = CacheEntry.new(obj)
+				#cache_entry = CacheEntry.new(obj)
 				#update_scalar_cache(obj.odba_id, obj.odba_cache_values)
-				@hash.store(obj.odba_id, cache_entry)
-				@hash.store(name, cache_entry)
+				#@hash.store(obj.odba_id, cache_entry)
+				#@hash.store(name, cache_entry)
+			else
+				#add to reference only in this case  
+				cache_entry.odba_add_reference(caller)
+				obj = cache_entry.odba_object
 			end
-			cache_entry.odba_add_reference(caller)
-			cache_entry.odba_object
+			obj
 		end
 		def fill_index(index_name, targets)
 			self.indices[index_name].fill(targets)
 		end
 		def indices
-			@indices ||= fetch_named('__cache_server_indices__',self) {
+			@indices ||= fetch_named('__cache_server_indices__', self) {
 				{}
 			}
 		end
@@ -307,6 +329,7 @@ module ODBA
 			odba_id = object.odba_id
 			update_scalar_cache(odba_id, object.odba_cache_values)
 			dump = object.odba_isolated_dump
+			store_collection_elements(object)
 			name = object.odba_name
 			prefetchable = object.odba_prefetch?
 			ODBA.storage.store(odba_id, dump, name, prefetchable)
@@ -339,6 +362,27 @@ module ODBA
 			end
 			cache_entry.odba_object
 		end
+		def store_collection_elements(object)
+			odba_id = object.odba_id
+			collection = object.odba_collection
+			old_collection = []
+			if(cache_entry = @hash.fetch(odba_id, nil))
+				old_collection = cache_entry.collection
+				(old_collection - collection).each { |key, value|
+					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
+					ODBA.storage.collection_remove(odba_id, key_dump)
+				}
+				#ok here??
+				cache_entry.collection = collection
+			end
+			(collection - old_collection).each { |key, value|
+					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
+					#odba_isolated_stub for index classes????!?!?
+					#may not return stub?!
+					value_dump = ODBA.marshaller.dump(value.odba_isolated_stub)
+					ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
+			}
+	end
 		def store_object_connections(object)
 			name = object.odba_name
 			target_ids = object.odba_target_ids
@@ -393,13 +437,23 @@ EOM
 				raise
 			end
 		end
-		def restore_object(dump)
+		def restore_object(dump, odba_caller = nil)
 			if(dump.nil?)
 				raise OdbaError, "Unknown odba_id"
 			end
 			obj = ODBA.marshaller.load(dump)
-			obj.odba_restore
-			obj
+			collection = fetch_collection(obj)
+			obj.odba_restore(collection)
+			cache_entry = CacheEntry.new(obj)
+			cache_entry.odba_add_reference(odba_caller)
+			@hash.store(obj.odba_id, cache_entry)
+			unless(obj.odba_name.nil?)
+				@hash.store(obj.odba_name, cache_entry)
+			end
+			#only add collection elements that exist in the collection
+			#table
+			cache_entry.collection = collection
+			cache_entry.odba_object
 		end
 	end
 end

@@ -311,6 +311,18 @@ module ODBA
 			@cache.store(save_obj)
 			save_obj.__verify
 		end
+		def test_store_enumerable_elements
+			cache_entry = Mock.new('cache_entry')
+			@cache.hash = {
+				1 => cache_entry
+			}
+			obj = Mock.new('enumerable')
+			
+			obj.__next(:odba_id){1}
+			obj.__next(:odba_collection){}
+			
+			@cache.store_enumerable_elements(obj)
+		end
 		def test_store_object_connections
 			save = Mock.new("to_store")
 			save.__next(:odba_name){ nil}
@@ -432,6 +444,7 @@ module ODBA
 				mock.__next(:odba_id){ || }
 				mock.__next(:odba_cache_values){ []}
 				mock.__next(:odba_isolated_dump){ || }
+				mock.__next(:odba_collection){||}
 				mock.__next(:odba_name){ || }
 				mock.__next(:odba_prefetch?){ || }
 				mock.__next(:odba_indexable?){}

@@ -6,13 +6,14 @@ module ODBA
 		CLEAN_PREFETCHABLE = false
 		RETIRE_TIME = 300
 		DESTROY_TIME =  900
-		attr_accessor :last_access
+		attr_accessor :last_access, :collection
 		attr_reader :accessed_by
 		def initialize(obj)
 			@last_access = Time.now
 			@odba_object = obj
+			@collection = []
 			@accessed_by = []
-		end
+		end	
 		def odba_add_reference(object)
 			unless(object.nil?)
 				@accessed_by.push(object)	

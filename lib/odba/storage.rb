@@ -143,6 +143,19 @@ module ODBA
 				sth.execute(origin_id, id)
 			}
 		end
+		def collection_remove(odba_id, key_dump)
+			sth = @dbi.prepare("DELETE FROM collection where odba_id = ? 
+								AND key = ?")
+			sth.execute(odba_id, key_dump)
+		end
+		def collection_store(odba_id, key_dump, value_dump)
+			sth = @dbi.prepare <<-SQL 
+				INSERT INTO 
+					collection (odba_id, key, value)
+					VALUES (?, ?, ?)
+			SQL
+			sth.execute(odba_id, key_dump, value_dump)
+		end
 		def generate_dictionary(language, locale, dict_dir)
 			@dbi.execute <<-SQL
 				INSERT INTO pg_ts_cfg (ts_name, prs_name, locale)
@@ -333,6 +346,12 @@ module ODBA
 				WHERE search_term LIKE ?
 			EOQ
 			rows = @dbi.select_all(sql, search_term.downcase)	 
+		end
+		def restore_collection(odba_id)
+			rows = @dbi.select_all <<-EOQ
+				SELECT key, value FROM collection WHERE odba_id = #{odba_id}
+			EOQ
+			rows unless(rows.nil?)
 		end
 		def restore_named(name)
 			row = @dbi.select_one("SELECT content FROM object WHERE name = ?", 
