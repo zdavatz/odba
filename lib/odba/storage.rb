@@ -263,6 +263,8 @@ module ODBA
 			sth_insert.execute(origin_id, search_term, target_id)
 		end
 		def update(odba_id, dump, name, prefetchable)
+			puts "UPDATING" 
+			puts odba_id
 			sth = @dbi.prepare("update object set content = ?, name = ?, prefetchable = ? where odba_id = ?")
 			sth.execute(dump, name, prefetchable, odba_id)
 			sth.rows

@@ -95,6 +95,9 @@ module ODBA
 				var = instance_variable_get(name)
 				#odba_extend_enumerable(var)
 				if(odba_replaceable?(var, name))
+					#	puts "STUBING:"
+					#	puts name
+					#	puts var.odba_id
 					@odba_target_ids.push(var.odba_id)
 					stub = ODBA::Stub.new(var.odba_id, self, var)
 					instance_variable_set(name, stub)
@@ -125,8 +128,12 @@ module ODBA
 				current_level.each { |item|
 					#puts "in current level"
 					if(item.odba_unsaved?)
+						#	puts "storing neighbor:"
+						#	puts item.odba_id
 						#puts "befor odba unsaved neighbors"
 						next_level += item.odba_unsaved_neighbors
+						#puts "next objects to store"
+						#	puts next_level.inspect
 						#puts " befor isolated store"
 						item.odba_isolated_store
 						#puts "after odba_isolated_store"
@@ -151,6 +158,7 @@ module ODBA
 					end
 					odba_store_unsaved
 				rescue DBI::ProgrammingError => e
+					#	puts "DBI PROGRAMMING ERROR"
 					@odba_name = old_name
 					raise
 				end
@@ -192,8 +200,13 @@ module ODBA
 				unless(exclude.include?(name))
 					item = instance_variable_get(name)
 					#odba_extend_enumerable(item)
+					#	puts "******___******"
+					#	puts "checking if #{name} is unsaved"
+					type = item.is_a?(ODBA::Persistable)
+					#	puts "#{name} is #{type}"
 					if(item.is_a?(ODBA::Persistable) \
 						&& item.odba_unsaved?(snapshot_level))
+						#	puts "item #{item.odba_id} is unsaved"
 						unsaved.push(item)
 					end
 				end
@@ -203,6 +216,7 @@ module ODBA
 		def odba_unsaved?(snapshot_level = nil)
 			if(snapshot_level.nil?)
 				!@odba_persistent
+				#true
 			else
 				@odba_snapshot_level.to_i < snapshot_level
 			end

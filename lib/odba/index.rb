@@ -16,7 +16,7 @@ module ODBA
 			@dictionary = index_definition.dictionary
 		end
 		def do_update_index(origin_id, search_term, target_id)
-			puts "updating with values #{origin_id} #{search_term} #{target_id}"
+			#	puts "updating with values #{origin_id} #{search_term} #{target_id}"
 			ODBA.storage.update_index(@index_name, origin_id, 
 				search_term, target_id)
 		end
@@ -25,13 +25,13 @@ module ODBA
 			rows = []
 			targets.flatten.each { |target|
 				target_id = target.odba_id
-				puts "calllign origin"
+				#	puts "calllign origin"
 				origins = proc_instance_origin.call(target)
 				origins.each { |origin|
 					do_update_index( origin.odba_id, 
 						self.search_term(origin), target_id)
-					puts "origin is a"
-					puts origin.class
+						#	puts "origin is a"
+						#	puts origin.class
 					#self.update_origin(origin)
 				}
 			}
@@ -44,21 +44,21 @@ module ODBA
 				if(@resolve_origin.to_s.empty?)
 					@proc_origin = Proc.new { |odba_item|  [odba_item] }
 				else
-					puts "create proc"
+					#	puts "create proc"
 					src = <<-EOS
 						Proc.new { |odba_item| 
 							#		puts odba_item.#{@resolve_origin}
 							res = [odba_item.#{@resolve_origin}]
-							puts res.size
+							#	puts res.size
 							res.flatten!
-							puts res.size
-							puts "compacting"
+							#	puts res.size
+							#	puts "compacting"
 							res.compact!
-							puts res.size
+							#		puts res.size
 							res
 						}
 					EOS
-					puts src
+					#puts src
 					@proc_origin = eval(src)
 				end
 			end
@@ -77,7 +77,7 @@ module ODBA
 							res
 						}
 					EOS
-									puts src
+					#	puts src
 					@proc_target = eval(src)
 				end
 			end
@@ -91,8 +91,8 @@ module ODBA
 				else
 					src = <<-EOS
 						Proc.new { |origin| 
-							puts "resolve search term #{@resolve_search_term}"
-							puts origin.#{@resolve_search_term}
+							#	puts "resolve search term #{@resolve_search_term}"
+							#	puts origin.#{@resolve_search_term}
 							origin.#{@resolve_search_term}
 						}
 					EOS
@@ -103,25 +103,26 @@ module ODBA
 		end
 		def resolve_targets(odba_obj)
 			@proc_target = nil
-			puts "sending to pro_target"
-			puts odba_obj.class
+			#	puts "sending to pro_target"
+			#	puts odba_obj.class
 			proc_instance_target.call(odba_obj)
 		end
 		def search_term(odba_obj)
 			proc_resolve_search_term.call(odba_obj)
 =begin
 			if(odba_obj.respond_to?(@resolve_search_term))
-				puts "responding"
+				#	puts "responding"
 				search_trm = odba_obj.send(@resolve_search_term)
-				puts search_trm
+				#	puts search_trm
 				search_trm
 			else
-				puts "doing to s"
+				#	puts "doing to s"
 				odba_obj.to_s
 			end
 =end			
 		end
 		def update(object)
+			#	puts "doing a index update"
 			if(object.is_a?(@target_klass))
 				update_target(object)
 			elsif(object.is_a?(@origin_klass))
@@ -129,10 +130,10 @@ module ODBA
 			end
 		end
 		def update_origin(object)
-			puts "in origin"
+			#	puts "in origin"
 			origin_id = object.odba_id
 			search_term = search_term(object)
-			puts search_term
+			#	puts search_term
 			target_objs = resolve_targets(object)		
 			ODBA.storage.delete_index_element(@index_name, origin_id)
 			target_objs.each { |target_obj|
@@ -170,7 +171,7 @@ module ODBA
 			rows
 		end
 		def do_update_index(origin_id, search_term, target_id)
-				puts "updating fulltext index"
+			#	puts "updating fulltext index"
 				ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id, @dictionary) 
 		end
 	end
