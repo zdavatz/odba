@@ -55,10 +55,6 @@ module ODBA
 			retrieved_objects= []
 			rows.each { |row|
 				obj_id, dump = row
-				#dump = row.first
-				#obj = restore_object(dump)
-				#puts " object class"
-				#puts obj.class
 				puts "********3"
 				puts obj_id
 				puts dump
