@@ -178,7 +178,7 @@ module ODBA
 					# the following is possible because we have already decided to
 					# delete this cache_entry
 					obj = value.odba_object
-					update_scalar_cache(obj.odba_id, obj.odba_cache_entries)
+					update_scalar_cache(obj.odba_id, obj.odba_cache_values)
 					@hash.delete(key)
 				end
 			}

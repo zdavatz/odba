@@ -217,7 +217,7 @@ module ODBA
 			value.__next(:ready_to_destroy?) { true }
 			value.__next(:odba_object) { obj }
 			obj.__next(:odba_id) { 12 }
-			obj.__next(:odba_cache_entries) { {} }
+			obj.__next(:odba_cache_values) { {} }
 			@cache.delete_old
 			value.__verify
 			obj.__verify
