@@ -360,6 +360,16 @@ module ODBA
 			#@array.extend(ODBA::PersistableArray)
 			ODBA.cache_server = Mock.new("cache_server")
 		end
+		def test_odba_cut_connection
+			remove_obj = Mock.new("receiver")
+			remove_obj.extend(ODBA::Persistable)
+			remove_obj.odba_id = 2
+			receiver = ODBA::Stub.new(2,self, remove_obj)
+			array = Array.new
+			array.push(receiver)
+			assert_equal(0, array.odba_cut_connection(remove_obj).size)
+			
+		end
 		def test_odba_unsaved_neighbors_array
 			rep1 = ODBAContainer.new
 			rep2 = ODBAContainer.new

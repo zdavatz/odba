@@ -192,6 +192,7 @@ module ODBA
 				unless(exclude.include?(name))
 					item = instance_variable_get(name)
 					#odba_extend_enumerable(item)
+					puts "item******** #{item}"
 					if(item.is_a?(ODBA::Persistable) \
 						&& item.odba_unsaved?(snapshot_level))
 						unsaved.push(item)
@@ -229,7 +230,7 @@ class Array
 	end
 	def odba_cut_connection(remove_object)
 		super(remove_object)
-		delete_if{|val| val == remove_object}
+		delete_if{|val| val.eql?(remove_object)}
 	end
 	def odba_prefetch?
 		any? { |item| 
@@ -300,7 +301,7 @@ class Hash
 	def odba_cut_connection(remove_object)
 		super(remove_object)
 		delete_if{|key, val|
-			key == remove_object || val == remove_object
+			key.eql?(remove_object) || val.eql?(remove_object)
 		}
 	end
 	def odba_prefetch?

@@ -8,7 +8,7 @@ module ODBA
 	class Cache < SimpleDelegator
 		attr_reader :indices
 		include Singleton
-		CLEANING_INTERVAL = 30
+		CLEANING_INTERVAL = 900
 		CLEANER_ID_STEP = 100
 		def initialize
 			#=begin

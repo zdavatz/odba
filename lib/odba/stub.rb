@@ -9,7 +9,7 @@ module ODBA
 		def initialize(odba_id, odba_container, receiver)
 			@odba_id = odba_id
 			@odba_container = odba_container
-			@odba_class = receiver.class 
+			@odba_class = receiver.class unless receiver.nil? 
 =begin
 			@carry_bag = {}
 			if(receiver)
