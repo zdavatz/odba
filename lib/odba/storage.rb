@@ -10,7 +10,6 @@ module ODBA
 		attr_accessor :dbi
 		def initialize
 			@id_mutex = Mutex.new
-			@store_mutex = Mutex.new
 		end
 		def add_object_connection(origin_id, target_id)
 			#SELECT
@@ -52,12 +51,6 @@ module ODBA
 			sth = @dbi.prepare("drop table #{name}")
 			sth.execute
 		end
-=begin
-		def update_index(index_name, origin_id, search_term)
-			sth = @dbi.prepare("update #{index_name} set search_term = ? where origin_id = ?")
-			sth.execute(search_term, origin_id)
-		end
-=end
 		def index_delete_origin(index_name, origin_id)
 			sth = @dbi.prepare("delete from #{index_name}  where origin_id = ?")
 			sth.execute(origin_id)
@@ -65,6 +58,14 @@ module ODBA
 		def index_delete_target(index_name, target_id)
 			sth = @dbi.prepare("delete from #{index_name}  where target_id = ?")
 			sth.execute(target_id)
+		end
+		def max_id
+			ensure_next_id_set
+			@next_id
+		end
+		def next_id
+			ensure_next_id_set
+			@next_id += 1
 		end
 		def remove_dead_connections(min_id, max_id)
 			sth = @dbi.prepare <<-EOQ
@@ -122,26 +123,17 @@ module ODBA
 			end
 =end
 		end
-		def update_index(index_name, origin_id, search_term, target_id)
-			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, ?, ?)")
-			sth_insert.execute(origin_id, search_term, target_id)
-		end
-		def update(odba_id, dump, name, prefetchable)
-			sth = @dbi.prepare("update object set content = ?, name = ?, prefetchable = ? where odba_id = ?")
-			sth.execute(dump, name, prefetchable, odba_id)
-			sth.rows
-		end
 		def restore(odba_id)
 			#	puts "storage loading #{odba_id}"
 			row = @dbi.select_one("SELECT content FROM object WHERE odba_id = ?", odba_id)
 			row.first unless row.nil?
 		end	
+		def retrieve_connected_objects(target_id)
+			@dbi.select_all("select origin_id from object_connection where target_id = ?", target_id)
+		end
 		def retrieve_from_index(index_name, search_term)
 			search_term = search_term+"%"
 			rows = @dbi.select_all("select distinct odba_id, content from object inner join #{index_name} on odba_id = #{index_name}.target_id where search_term ilike ?", search_term)	 
-		end
-		def retrieve_connected_objects(target_id)
-			@dbi.select_all("select origin_id from object_connection where target_id = ?", target_id)
 		end
 		def restore_named(name)
 			#			puts "storage loading #{name}"
@@ -155,20 +147,33 @@ module ODBA
 			rows unless(rows.nil?)
 		end
 		def store(odba_id, dump, name, prefetchable)
-			@store_mutex.synchronize {	
-				if(update(odba_id, dump, name, prefetchable) == 0)
-					sth = @dbi.prepare("insert into object (odba_id, content, name, prefetchable) VALUES (?, ?, ?, ?)")
-					sth.execute(odba_id, dump, name, prefetchable)
+			if(update(odba_id, dump, name, prefetchable) == 0)
+				sth = @dbi.prepare("insert into object (odba_id, content, name, prefetchable) VALUES (?, ?, ?, ?)")
+				sth.execute(odba_id, dump, name, prefetchable)
+			end
+		end
+		def transaction(&block)
+			if(@transaction)
+				block.call
+			else
+				begin
+					@transaction = true
+					@dbi.transaction { 
+						block.call
+					}
+				ensure
+					@transaction = false
 				end
-			}
+			end
 		end
-		def max_id
-			ensure_next_id_set
-			@next_id
+		def update_index(index_name, origin_id, search_term, target_id)
+			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, ?, ?)")
+			sth_insert.execute(origin_id, search_term, target_id)
 		end
-		def next_id
-			ensure_next_id_set
-			@next_id += 1
+		def update(odba_id, dump, name, prefetchable)
+			sth = @dbi.prepare("update object set content = ?, name = ?, prefetchable = ? where odba_id = ?")
+			sth.execute(dump, name, prefetchable, odba_id)
+			sth.rows
 		end
 		private
 		def ensure_next_id_set

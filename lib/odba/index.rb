@@ -15,64 +15,10 @@ module ODBA
 			@search_term_mthd = search_term_mthd
 			ODBA.storage.create_index(index_name)
 		end
-		def proc_instance_origin
-			if(@proc_origin.nil?)
-				if(@resolve_origin.to_s.empty?)
-					@proc_origin = Proc.new { |odba_item|  [odba_item] }
-				else
-					src = <<-EOS
-						Proc.new { |odba_item| 
-							puts odba_item.#{@resolve_origin}
-							res = [odba_item.#{@resolve_origin}]
-							res.flatten!
-							res.compact!
-							res
-						}
-					EOS
-					puts src
-					@proc_origin = eval(src)
-				end
-			end
-			@proc_origin
-		end
-		def proc_instance_target
-			if(@proc_target.nil?)
-				if(@resolve_target.to_s.empty?)
-					@proc_target = Proc.new { |odba_item|  [odba_item] }
-				else
-					src = <<-EOS
-						Proc.new { |odba_item| 
-							res = [odba_item.#{@resolve_target}]
-							res.flatten!
-							res.compact!
-							res
-						}
-					EOS
-									puts src
-					@proc_target = eval(src)
-				end
-			end
-			@proc_target
-		end
-		def resolve_targets(odba_obj)
-			@proc_target = nil
-			puts "sending to pro_target"
-			puts odba_obj.class
-			proc_instance_target.call(odba_obj)
-		end
-		def origin_class?(klass)
-			(@origin_klass == klass)
-		end
-		def search_term(odba_obj)
-			if(odba_obj.respond_to?(@search_term_mthd))
-				puts "responding"
-				search_trm = odba_obj.send(@search_term_mthd)
-				puts search_trm
-				search_trm
-			else
-				puts "doing to s"
-				odba_obj.to_s
-			end
+		def do_update_index(origin_id, search_term, target_id)
+			puts "updating with values #{origin_id} #{search_term} #{target_id}"
+			ODBA.storage.update_index(@index_name, origin_id, 
+				search_term, target_id)
 		end
 		def fill(targets)
 			@proc_origin = nil
@@ -105,18 +51,71 @@ module ODBA
 				}
 			}
 		end
+		def origin_class?(klass)
+			(@origin_klass == klass)
+		end
+		def proc_instance_origin
+			if(@proc_origin.nil?)
+				if(@resolve_origin.to_s.empty?)
+					@proc_origin = Proc.new { |odba_item|  [odba_item] }
+				else
+					src = <<-EOS
+						Proc.new { |odba_item| 
+							#		puts odba_item.#{@resolve_origin}
+							res = [odba_item.#{@resolve_origin}]
+							res.flatten!
+							res.compact!
+							res
+						}
+					EOS
+					puts src
+					@proc_origin = eval(src)
+				end
+			end
+			@proc_origin
+		end
+		def proc_instance_target
+			if(@proc_target.nil?)
+				if(@resolve_target.to_s.empty?)
+					@proc_target = Proc.new { |odba_item|  [odba_item] }
+				else
+					src =	 <<-EOS
+						Proc.new { |odba_item| 
+							res = [odba_item.#{@resolve_target}]
+							res.flatten!
+							res.compact!
+							res
+						}
+					EOS
+									puts src
+					@proc_target = eval(src)
+				end
+			end
+			@proc_target
+		end
+		def resolve_targets(odba_obj)
+			@proc_target = nil
+			puts "sending to pro_target"
+			puts odba_obj.class
+			proc_instance_target.call(odba_obj)
+		end
+		def search_term(odba_obj)
+			if(odba_obj.respond_to?(@search_term_mthd))
+				puts "responding"
+				search_trm = odba_obj.send(@search_term_mthd)
+				puts search_trm
+				search_trm
+			else
+				puts "doing to s"
+				odba_obj.to_s
+			end
+		end
 		def update(object)
 			if(object.is_a?(@target_klass))
-				puts "****"
 				update_target(object)
 			elsif(object.is_a?(@origin_klass))
 				self.update_origin(object)
 			end
-		end
-		def update_target(object)
-			target_id = object.odba_id
-			ODBA.storage.index_delete_target(@index_name, target_id)
-			fill([object])
 		end
 		def update_origin(object)
 			puts "in origin"
@@ -124,16 +123,16 @@ module ODBA
 			search_term = search_term(object)
 			puts search_term
 			target_objs = resolve_targets(object)		
-			ODBA.storage.remove_index_origin(@index_name, origin_id)
+			ODBA.storage.delete_index_element(@index_name, origin_id)
 			target_objs.each { |target_obj|
 				target_id = target_obj.odba_id
 				do_update_index(origin_id, search_term, target_id)
 			}
 		end
-		def do_update_index(origin_id, search_term, target_id)
-			puts "updating with values #{origin_id} #{search_term} #{target_id}"
-			ODBA.storage.update_index(@index_name, origin_id, 
-				search_term, target_id)
+		def update_target(object)
+			target_id = object.odba_id
+			ODBA.storage.index_delete_target(@index_name, target_id)
+			fill([object])
 		end
 	end
 end

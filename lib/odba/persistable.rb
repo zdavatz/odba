@@ -19,39 +19,38 @@ module ODBA
 			}
 			twin
 		end
-=begin
-		def odba_extend_enumerable(item)
-			if(item.is_a?(Hash))
-				item.extend(PersistableHash)
-			elsif(item.is_a?(Array))
-				item.extend(PersistableArray)
-			end
-		end
-=end
-		def odba_id
-			@odba_id ||= ODBA.storage.next_id
-		end
 		def odba_carry_methods
 			self::class::ODBA_CARRY_METHODS
 		end
+		def odba_cut_connection(remove_object)
+			instance_variables.each { |name|
+				var = instance_variable_get(name)
+				if(var.equal?(remove_object))
+					instance_variable_set(name, nil)
+				end
+			}
+		end
 		def odba_delete
-			ODBA.cache_server.delete(self)
+			#			ODBA.db_lock.synchronize {
+			ODBA.transaction {
+				ODBA.cache_server.delete(self)
+			}
+		end
+		def odba_id
+			@odba_id ||= ODBA.storage.next_id
 		end
 		def odba_isolated_dump
-			Thread.critical = true
-			begin
-				# ensure a valid odba_id
-				self.odba_id
-				twin = self.dup
-				#odba_extend_enumerable(twin)
-				twin.odba_replace_persistables
-				twin.odba_replace_excluded!
-				@odba_target_ids = twin.odba_target_ids
-				dump = ODBA.marshaller.dump(twin)
-			ensure
-				Thread.critical = false
-			end
-			dump
+			@odba_persistent = true
+			ODBA.cache_server.store(self)
+		end		
+		def odba_isolated_dump
+			# ensure a valid odba_id
+			self.odba_id
+			twin = self.dup
+			twin.odba_replace_persistables
+			twin.odba_replace_excluded!
+			@odba_target_ids = twin.odba_target_ids
+			ODBA.marshaller.dump(twin)
 		end
 		def odba_prefetch?
 			@odba_prefetch || self::class::ODBA_PREFETCH
@@ -59,10 +58,14 @@ module ODBA
 		def odba_replace_persistable(obj)
 			instance_variables.each { |name|
 				var = instance_variable_get(name)
+				# must not be synchronized because of the following if
+				# statement (if an object has already been replaced by
+				# a	stub, it will have the correct id and it
+				# will be ignored) 
 				if(var.is_a?(Persistable) \
-					&& var.odba_id == obj.odba_id)
+					&& var.odba_id == obj.odba_id) 
 					stub = ODBA::Stub.new(obj.odba_id, self, obj)
-					instance_variable_set(name, stub)
+					instance_variable_set(name, stub) 
 				end
 			}
 		end
@@ -103,33 +106,22 @@ module ODBA
 		end
 		def odba_restore
 		end
-		def odba_cut_connection(remove_object)
-			instance_variables.each { |name|
-				var = instance_variable_get(name)
-				if(var.equal?(remove_object))
-					instance_variable_set(name, nil)
-				end
-			}
-		end
 		def odba_store_unsaved
 			@odba_persistent = false
 			current_level = [self]
-			tree_level = 0
 			while(!current_level.empty?)
-				puts "tree_level: #{tree_level}"
-				puts "checking #{current_level.size} objects"
-				tree_level += 1
-				obj_count = 0
 				next_level = []
 				current_level.each { |item|
+					puts "in current level"
 					if(item.odba_unsaved?)
-						obj_count += 1
+						puts "befor odba unsaved neighbors"
 						next_level += item.odba_unsaved_neighbors
+						puts " befor isolated store"
 						item.odba_isolated_store
+						puts "after odba_isolated_store"
 					end
 				}
 				current_level = next_level #.uniq
-				#puts "saved #{obj_count} objects"
 			end
 		end
 		def odba_snapshot(snapshot_level)
@@ -138,24 +130,19 @@ module ODBA
 				odba_isolated_store
 			end
 		end
-		def odba_isolated_store
-			@odba_persistent = true
-			ODBA.cache_server.store(self)
-		end
 		def odba_store(name = nil)
-			begin
-				unless (name.nil?)
-					old_name = @odba_name
-					@odba_name = name
+			ODBA.transaction {
+				begin
+					unless (name.nil?)
+						old_name = @odba_name
+						@odba_name = name
+					end
+					odba_store_unsaved
+				rescue DBI::ProgrammingError => e
+					@odba_name = old_name
+					raise
 				end
-				puts "#{name} odba store call"
-				puts self.class
-				#ODBA.cache_server.store(self)
-				odba_store_unsaved
-			rescue DBI::ProgrammingError => e
-				@odba_name = old_name
-				raise
-			end
+			}
 		end
 		def odba_take_snapshot
 			@odba_snapshot_level ||= 0
@@ -221,19 +208,6 @@ module ODBA
 			}
 		end
 	end
-=begin
-	def store_all
-		#GC.disable
-		ObjectSpace.each_object(Persistable) { |pers|
-			pers.odba_replace_persistables
-		}
-		ObjectSpace.each_object(Persistable) { |pers|
-			pers.odba_store
-		}
-		#GC.enable
-	end
-=end
-	#module_function :store_all
 end
 class Array
 	include ODBA::Persistable
@@ -242,10 +216,28 @@ class Array
 			super(obj.receiver)
 		end
 	end
+	def odba_cut_connection(remove_object)
+		super(remove_object)
+		delete_if{|val| val == remove_object}
+	end
 	def odba_prefetch?
 		any? { |item| 
 			item.respond_to?(:odba_prefetch?) \
 				&& item.odba_prefetch? 
+		}
+	end
+	def odba_replaceable?(var, name)
+		!empty? && super(var, name)
+	end
+	def odba_replace_persistables
+		super
+		each_with_index { |item, idx|
+			#odba_extend_enumerable(item)
+			if(item.is_a?(ODBA::Persistable))
+				@odba_target_ids.push(item.odba_id)
+				stub = ODBA::Stub.new(item.odba_id, self, item)
+				self[idx] = stub
+			end
 		}
 	end
 	def odba_restore
@@ -264,24 +256,6 @@ class Array
 			if(item.is_a? ODBA::Stub)
 				item.odba_replace
 				self[idx] = item.receiver
-			end
-		}
-	end
-	def odba_cut_connection(remove_object)
-		super(remove_object)
-		delete_if{|val| val == remove_object}
-	end
-	def odba_replaceable?(var, name)
-		!empty? && super(var, name)
-	end
-	def odba_replace_persistables
-		super
-		each_with_index { |item, idx|
-			#odba_extend_enumerable(item)
-			if(item.is_a?(ODBA::Persistable))
-				@odba_target_ids.push(item.odba_id)
-				stub = ODBA::Stub.new(item.odba_id, self, item)
-				self[idx] = stub
 			end
 		}
 	end

@@ -11,23 +11,6 @@ require 'odba/odba_error'
 require 'odba/index'
 
 module ODBA
-	def make_atc_index
-		src = <<-EOS
-		Proc.new { |atc_class|
-			atc_class.sequences
-		}
-		EOS
-		create_index('atc_index', AtcClass, src, :name)
-	end
-	def make_fachinfo_index
-		a_proc = Proc.new { |atc_class| 
-			atc_class.registrations.inject([]) { |inj, reg|
-				if(fi = reg.fachinfo)
-					inj += reg.fachinfo.descriptions.values
-				end
-			}
-		}
-	end
 	def cache_server
 		@cache_server ||= ODBA::Cache.instance
 	end
@@ -46,11 +29,21 @@ module ODBA
 	def storage=(storage)	
 		@storage = storage
 	end
+	def transaction(&block)
+		@odba_mutex ||= Mutex.new
+		@odba_mutex.synchronize{
+			ODBA.storage.transaction {
+				block.call
+			}
+		}
+	end
 	module_function :cache_server
 	module_function :cache_server=
 	module_function :marshaller
 	module_function :marshaller=
 	module_function :storage
 	module_function :storage=
+	module_function :transaction
+	
 end
 

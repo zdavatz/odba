@@ -330,5 +330,20 @@ module ODBA
 			sth.__verify
 			dbi.__verify
 		end
+		def test_transaction
+			dbi = Mock.new("dbi")
+			@storage.dbi = dbi
+			foo = 0
+			bar = 0 
+			dbi.__next(:transaction){ |block| block.call}
+			@storage.transaction{ 
+				foo = 3
+				@storage.transaction{
+					bar = 4
+				}
+			}
+			assert_equal(3, foo)
+			assert_equal(4, bar)
+		end
 	end
 end

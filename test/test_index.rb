@@ -104,7 +104,7 @@ module ODBA
 			foo.__next(:resolve_target){
 				target
 			}
-			ODBA.storage.__next(:remove_index_origin){|name, id|}
+			ODBA.storage.__next(:delete_index_element){|name, id|}
 			ODBA.storage.__next(:update_index){|index_name, orig_id,search, tar_id|
 			}
 			ODBA.cache_server.__next(:bulk_fetch){|ids, obj|}
