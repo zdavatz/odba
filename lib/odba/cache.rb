@@ -3,7 +3,6 @@
 
 require 'singleton'
 require 'delegate'
-require 'thread'
 
 module ODBA
 	class Cache < SimpleDelegator
