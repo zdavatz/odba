@@ -82,7 +82,11 @@ module ODBA
 				else
 					src = <<-EOS
 						Proc.new { |origin| 
-							origin.#{@resolve_search_term}
+							begin
+								origin.#{@resolve_search_term}
+							rescue NameError
+								nil
+							end
 						}
 					EOS
 					@proc_resolve_search_term = eval(src)
