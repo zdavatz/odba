@@ -215,12 +215,6 @@ module ODBA
 			sth_delete = Mock.new("sth_delete")
 			sth_insert = Mock.new("sth_insert")
 			@storage.dbi = dbi
-			#select query
-			dbi.__next(:select_all){ |sql, id| 
-				assert_not_nil(sql.index("from foo where origin_id ="))	
-				rows
-			}
-
 			#delete query
 			dbi.__next(:prepare){ |sql| 
 				assert_not_nil(sql.index("delete from foo"))	
@@ -235,7 +229,7 @@ module ODBA
 			}
 			sth_insert.__next(:execute) { |id, term, target_id| }
 
-			@storage.update_index("foo", 2, "foobar")
+			@storage.update_index("foo", 2,"baz", "foobar")
 			dbi.__verify
 			sth_insert.__verify
 			sth_delete.__verify
@@ -271,27 +265,75 @@ module ODBA
 			@storage.update_index("foo", 1, "foobar")
 		end
 =end
-	def test_add_object_connection
+		def test_add_object_connection
+				dbi = Mock.new("dbi")
+				sth = Mock.new("sth")
+				@storage.dbi = dbi
+				rows = [[0]]
+				dbi.__next(:select_all){ |query, id, traget_id| 
+					assert_not_nil(query.index('select count(origin_id)'))
+					rows
+				}
+				dbi.__next(:prepare){ |query| 
+					assert_not_nil(query.index('insert into object_connection'))
+					sth
+				}
+				sth.__next(:execute){  }
+				@storage.add_object_connection(1, 3)
+				dbi.__verify
+				sth.__verify
+		end
+		def test_retrieve_connected_objects
 			dbi = Mock.new("dbi")
-			sth = Mock.new("sth")
 			@storage.dbi = dbi
-			dbi.__next(:prepare){ |query| 
-				assert_not_nil(query.index('insert into object_connection'))
-				sth
+			dbi.__next(:select_all){|sql, target_id| 
+				assert_not_nil(sql.index('select origin_id from object_connection'))
+				assert_equal(target_id, 1)
+			}	
+			@storage.retrieve_connected_objects(1)
+		end
+		def test_remove_dead_connection
+			dbi = Mock.new("dbi")
+			sth1 = Mock.new("sth1")
+			sth2 = Mock.new("sth2")
+			@storage.dbi = dbi
+			dbi.__next(:select_all){|sql|
+				[[1]]
 			}
-			sth.__next(:execute){  }
-			@storage.add_object_connection(1, 3)
+			dbi.__next(:select_all){|sql|
+				[[3]]
+			}
+			dbi.__next(:prepare){|sql|
+				sth1
+			}
+			sth1.__next(:execute){|id1, id2|
+				assert_equal(1, id1)
+				assert_equal(1, id2)
+			}
+			dbi.__next(:prepare){|sql|
+				sth2
+			}
+			sth2.__next(:execute){|id1, id2|
+				assert_equal(3, id1)
+				assert_equal(3, id2)
+			}
+			@storage.remove_dead_connections
+			sth1.__verify
+			sth2.__verify
 			dbi.__verify
-			sth.__verify
+		end
+		def test_remove_dead_objects
+			dbi = Mock.new("dbi")
+			sth1 = Mock.new("sth1")
+			@storage.dbi = dbi
+			dbi.__next(:prepare) { |sql|
+				assert_not_nil(sql.index('DELETE FROM object WHERE'))
+				sth1
+			}
+			sth1.__next(:execute) {}
+			@storage.remove_dead_objects
+			sth1.__verify
+			dbi.__verify
+		end
 	end
-	def test_retrieve_connected_objects
-		dbi = Mock.new("dbi")
-		@storage.dbi = dbi
-		dbi.__next(:select_all){|sql, target_id| 
-		 	assert_not_nil(sql.index('select origin_id from object_connection'))
-			assert_equal(target_id, 1)
-		}
-		@storage.retrieve_connected_objects(1)
-	end
-end
 end

@@ -13,7 +13,9 @@ module ODBA
 				loop {
 					sleep(self::class::CLEANING_INTERVAL)
 					begin
+						puts "cleaning up DB"
 						clean
+						clean_object_connections
 					rescue StandardError => e
 						puts e
 						puts e.backtrace
@@ -76,6 +78,10 @@ module ODBA
 				end
 			}
 		end
+		def clean_object_connections
+			ODBA.storage.remove_dead_objects
+			ODBA.storage.remove_dead_connections
+		end
 		def delete(object)
 			puts "in delete method"
 			puts @hash.size
@@ -104,7 +110,8 @@ puts "rows each"
 =end
 				puts "saving connected_object"
 				puts "object is a : #{connected_object.class}"
-				store(connected_object, connected_object.odba_name)
+				#store(connected_object, connected_object.odba_name)
+				connected_object.odba_store
 			}
 			end
 			@hash.delete(object.odba_id)
@@ -121,19 +128,14 @@ puts "rows each"
 				end
 			}
 		end
-		def add_object_connection(origin_id, target_id)
-			ODBA.storage.add_object_connection(origin_id, target_id)
-		end
-		def store(object, name = nil)
-			puts "before dump" 
-			dump = object.odba_isolated_dump
-			puts "after dump"
+		def store(object)
 			odba_id = object.odba_id
+			dump = object.odba_isolated_dump
+			name = object.odba_name
 			prefetchable = object.odba_prefetch?
-			puts "before Store"
 			ODBA.storage.store(odba_id, dump, name, prefetchable)
 			update_indices(object)
-			puts "#{name} stored"
+			store_object_connections(object)
 			cache_entry = @hash[odba_id]
 			if(cache_entry.nil?)
 				cache_entry = CacheEntry.new(object)
@@ -143,6 +145,17 @@ puts "rows each"
 				end
 			end
 			cache_entry.odba_object
+		end
+		def store_object_connections(object)
+			name = object.odba_name
+			target_ids = object.odba_target_ids
+			origin_id = object.odba_id
+			target_ids.each { |target_id|
+				ODBA.storage.add_object_connection(origin_id, target_id)
+			}
+			unless(name.nil?)
+				ODBA.storage.add_object_connection(origin_id, origin_id)
+			end
 		end
 		def fetch(odba_id, odba_caller)
 			cache_entry = @hash.fetch(odba_id) {
@@ -179,7 +192,8 @@ puts "rows each"
 					obj = block.call
 					puts "ater block call"
 					obj.odba_name = name
-					store(obj, name) #obj.odba_store(name)
+					#			store(obj, name) 
+					obj.odba_store(name)
 				else
 					obj = ODBA.marshaller.load(dump)
 					obj.odba_restore
@@ -192,12 +206,16 @@ puts "rows each"
 			cache_entry.odba_add_reference(caller)
 			cache_entry.odba_object
 		end
-		def create_index(index_name, origin_klass, mthd, a_proc = '')
-		index = Index.new(origin_klass, mthd, a_proc)
+		def create_index(index_name, origin_klass, mthd, resolve_target, resolve_origin = '')
+		index = Index.new(origin_klass, mthd, resolve_target, resolve_origin)
 		ODBA.storage.create_index(index_name)
 		self.indices.store(index_name, index)
-		store(self.indices, '__cache_server_indices__')
-		store(index)
+		puts "store self.indices"
+		#store(self.indices, '__cache_server_indices__')
+		#index.odba_store
+		self.indices.odba_store('__cache_server_indices__')
+		puts "store index"
+		index
 		end
 		def fill_index(index_name, targets)
 			rows = self.indices[index_name].fill(targets)
@@ -212,20 +230,26 @@ puts "rows each"
 			klass = odba_object.class
 			puts "klass #{klass}"
 			indices.each { |index_name, index|
+				puts "index name #{index_name}"
+				puts "index #{index}"
 				if(index.origin_class?(klass))
 					puts "**********"
 					#update index
 					search_term = index.search_term(odba_object)
 					puts "search_term"
 					puts search_term
-					ODBA.storage.update_index(index_name, odba_object.odba_id, search_term)
+					if(target_id = index.resolve_target_id(odba_object))
+						ODBA.storage.update_index(index_name, 
+							odba_object.odba_id, search_term, target_id)
+					end
 				end
 			}
 		end
 		def delete_index(index_name)
 			index = indices[index_name]
 			indices.delete(index_name)
-			store(self.indices, '__cache_server_indices__')
+			#store(self.indices, '__cache_server_indices__')
+			self.indices.odba_store
 			delete(index)
 			ODBA.storage.drop_index_table(index_name)
 		end

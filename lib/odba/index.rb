@@ -6,24 +6,30 @@ module ODBA
 	class Index
 		include Persistable
 		ODBA_EXCLUDE_VARS = ['@proc']
-		def initialize(origin_klass, mthd, proc_src = '')
+		def initialize(origin_klass, mthd, resolve_target, resolve_origin  ='')
 			@origin_klass = origin_klass
-			@proc_src = proc_src
+			@resolve_origin = resolve_origin
+			@resolve_target = resolve_target
 			@mthd = mthd
 		end
 		def proc_instance
 			if(@proc.nil?)
-				if(@proc_src.to_s.empty?)
+				if(@resolve_origin.to_s.empty?)
 					@proc = Proc.new { |odba_item|  [odba_item] }
 				else
 					src = "Proc.new { |odba_item| 
-						puts odba_item.#{@proc_src}
-									[odba_item.#{@proc_src}]}"
+						puts odba_item.#{@resolve_origin}
+									[odba_item.#{@resolve_origin}]}"
 					puts src
 					@proc = eval(src)
 				end
 			end
 			@proc
+		end
+		def resolve_target_id(odba_obj)
+		 if(target_obj = odba_obj.send(@resolve_target))
+			 target_obj.odba_id
+		 end
 		end
 		def origin_class?(klass)
 			(@origin_klass == klass)

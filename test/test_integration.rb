@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # -- oddb -- 28.04.2004 -- mwalder@ywesee.com
-
+=begin
 $: << File.expand_path('../lib/odba/', File.dirname(__FILE__))
 
 require 'test/unit'
@@ -184,3 +184,4 @@ module ODBA
 		end
 	end
 end
+=end

@@ -62,16 +62,46 @@ module ODBA
 			sth.execute(search_term, origin_id)
 		end
 =end
-		def update_index(index_name, origin_id, search_term)
+		def remove_dead_connections
+			rows_target = @dbi.select_all("select target_id from object_connection left join object on object.odba_id = target_id where odba_id is null")
+			rows_origin = @dbi.select_all("select origin_id from object_connection left join object on object.odba_id = origin_id where odba_id is null")
+			total_rows = rows_target.concat(rows_origin)
+			total_rows.each { |row|
+				id = row.first
+				sth = @dbi.prepare("delete from object_connection where target_id = ? or origin_id = ?");
+				sth.execute(id, id)
+			}
+		end
+		def remove_dead_objects
+			sth = @dbi.prepare <<-EOQ
+				DELETE FROM object WHERE odba_id IN
+				(
+					SELECT object.odba_id
+					FROM object_connection 
+					RIGHT JOIN object 
+					ON (object_connection.target_id = object.odba_id 
+						OR object_connection.origin_id = object.odba_id) 
+					WHERE	target_id IS NULL
+				)
+			EOQ
+			sth.execute
+=begin
+			unless(rows.first.nil?)
+				sth = @dbi.prepare("delete from object where odba_id in (#{rows.join(',')})");
+				sth.execute
+			end
+=end
+		end
+		def update_index(index_name, origin_id, search_term, target_id)
+=begin
 			rows = @dbi.select_all("select target_id from #{index_name} where origin_id = ?", origin_id)
+=end
 			#DELETE
 			sth_delete = @dbi.prepare("delete from #{index_name} where origin_id = ?")
 			sth_delete.execute(origin_id)
 			#INSERT
-			rows.each { |target_id|
-				sth_insert = @dbi.prepare("insert into #{index_name} (origin_id, search_term, target_id) values (?, ?, ?)")
-				sth_insert.execute(origin_id, search_term, target_id)
-			}
+			sth_insert = @dbi.prepare("insert into #{index_name} (origin_id, search_term, target_id) values (?, ?, ?)")
+			sth_insert.execute(origin_id, search_term, target_id)
 		end
 		def update(odba_id, dump, name, prefetchable)
 			puts "updating"

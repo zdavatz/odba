@@ -13,15 +13,16 @@ module ODBA
 		RETIRE_TIME = 0.9
 		DESTROY_TIME = 0.9 
 	end
-	class TestMock < Mock
+	class TestCacheEntry < Test::Unit::TestCase
+	class TestMockCacheEntry < Mock
 		def is_a?(arg)
 			true
 		end
 	end
-	class TestCacheEntry < Test::Unit::TestCase
 		def setup
 			@mock = Mock.new
 			@cache_entry = ODBA::CacheEntry.new(@mock)
+			ODBA.cache_server = Mock.new("cache_server")
 		end
 		def test_retire_check
 			assert_equal(false, @cache_entry.odba_old?)
@@ -39,10 +40,11 @@ module ODBA
 			assert_equal(false, @cache_entry.ready_to_destroy?)
 		end
 		def test_retire
-			obj_1 = TestMock.new
-			obj_2 = TestMock.new
-			hash = TestMock.new
+			obj_1 = TestMockCacheEntry.new
+			obj_2 = TestMockCacheEntry.new
+			hash = TestMockCacheEntry.new
 			obj_1.__next(:is_a?) { |arg| false}
+			ODBA.cache_server.__next(:include?){|id| false}
 			obj_1.__next(:is_a?) { |arg| true}
 			obj_1.__next(:odba_replace_persistable) {}
 			obj_2.__next(:is_a?) { |arg| false}

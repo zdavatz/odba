@@ -158,8 +158,6 @@ module ODBA
 			assert_equal(repvalue2, @hash[repkey2])
 		end
 		def test_odba_replace_persistables_hash
-			#			ODBA.cache_server = Mock.new
-			#@hash = Hash.new
 			key1 = StubMock.new
 			value1 = StubMock.new
 			@hash.store(key1, value1)
@@ -171,16 +169,6 @@ module ODBA
 			value1.__next(:is_a?) { |arg| true }
 			value1.__next(:odba_id) { || 2}
 			value1.__next(:odba_id) { || 2}
-
-			ODBA.storage.__next(:next_id) { 3 }
-			ODBA.cache_server.__next(:add_object_connection) { |id, self_id| 
-				assert_equal(3, id)
-				assert_equal(2, self_id)
-			}
-			ODBA.cache_server.__next(:add_object_connection) { |id, self_id| 
-				assert_equal(3, id)
-				assert_equal(1, self_id)
-			}
 
 			@hash.odba_replace_persistables
 			@hash.each { |key, value|
