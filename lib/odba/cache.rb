@@ -10,7 +10,7 @@ module ODBA
 	class Cache
 		include Singleton
 		CLEANER_PRIORITY = 0
-		CLEANING_INTERVAL = 900
+		CLEANING_INTERVAL = 300
 		REAPER_ID_STEP = 1000
 		REAPER_INTERVAL = 900
 		def initialize
@@ -20,6 +20,7 @@ module ODBA
 			end
 			@fetched = Hash.new
 			@prefetched = Hash.new
+			@clean_prefetched = false
 			@reaper_min_id = 0
 			@reaper_max_id = 0
 		end
@@ -59,14 +60,27 @@ module ODBA
 			delete_old
 			#cleaned = 0
 			#start = Time.now
-			@fetched.each { |key, value|
+			@fetched.each_value { |value|
 				if(value.odba_old?)
 					#cleaned += 1
 					value.odba_retire
 				end
 			}
+			if(@clean_prefetched)
+				@prefetched.each_value { |value|
+					if(value.odba_old?)
+						#cleaned += 1
+						value.odba_retire
+					end
+				}
+			end
 			#puts "cleaned: #{cleaned} objects in #{Time.now - start} seconds"
 			#$stdout.flush
+		end
+		def clean_prefetched(flag=true)
+			if(@clean_prefetched = flag)
+				clean
+			end
 		end
 		def clear
 			@fetched.clear
@@ -118,16 +132,14 @@ module ODBA
 		def delete_old
 			#deleted = 0
 			#start = Time.now
-			@fetched.each { |key, value|
-				if(value.ready_to_destroy?)
-					#deleted += 1
-					## the following is possible because we have already decided 
-					## to delete this cache_entry
-					#obj = value.odba_object
-					#update_scalar_cache(obj.odba_id, obj.odba_cache_values)
-					@fetched.delete(key)
-				end
+			@fetched.delete_if { |key, value|
+				value.ready_to_destroy?
 			}
+			if(@clean_prefetched)
+				@prefetched.delete_if { |key, value|
+					value.ready_to_destroy?
+				}
+			end
 			#puts "deleted: #{deleted} objects in #{Time.now - start} seconds"
 			#$stdout.flush
 		end
