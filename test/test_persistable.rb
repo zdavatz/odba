@@ -12,12 +12,12 @@ module ODBA
 		attr_writer :odba_id
 		public :odba_replace_excluded!
 	end
-	class StubMock < Mock
-		def is_a?(arg)
-			true
-		end
-	end
 	class TestPersistable < Test::Unit::TestCase
+		class StubMock < Mock
+			def is_a?(arg)
+				true
+			end
+		end
 		class ODBAExcluding
 			include ODBA::Persistable
 			ODBA_EXCLUDE_VARS = ["@excluded"]
@@ -41,18 +41,18 @@ module ODBA
 			ODBA.storage = Mock.new("storage")
 			ODBA.marshaller = Mock.new("marshaller")
 			ODBA.cache_server = Mock.new("cache_server")
-			ODBA.scalar_cache = Mock.new("scalar_cache")
+			#ODBA.scalar_cache = Mock.new("scalar_cache")
 			@odba  = ODBAContainer.new
 		end
 		def teardown
 			ODBA.storage.__verify
 			ODBA.marshaller.__verify
 			ODBA.cache_server.__verify
-		#ODBA.scalar_cache.__verify
+			#ODBA.scalar_cache.__verify
 			ODBA.storage = nil
 			ODBA.marshaller = nil
 			ODBA.cache_server = nil
-			ODBA.scalar_cache = nil
+			#ODBA.scalar_cache = nil
 		end
 		def test_odba_id
 			ODBA.storage.__next(:next_id) { ||
@@ -70,12 +70,10 @@ module ODBA
 		def test_odba_delete
 			odba_container = ODBAContainer.new
 			odba_container.odba_id = 2
-			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:delete) { |object|
 				assert_equal(odba_container, object)
 			}
-			ODBA.scalar_cache.__next(:odba_isolated_store) { }
 			odba_container.odba_delete
 		end
 		def test_odba_replace_excluded
@@ -324,7 +322,6 @@ module ODBA
 		end
 		def test_odba_dump_has_id
 			@odba.odba_id = nil
-			ODBA.scalar_cache.__next(:odba_isolated_store) { }
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.storage.__next(:next_id) { 1 }
 			ODBA.cache_server.__next(:store) { |obj|
@@ -334,7 +331,6 @@ module ODBA
 		end
 		def test_odba_store_error_raised
 			@odba.odba_name = "foo"
-			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:store) { |dump|
 				raise DBI::ProgrammingError
@@ -346,7 +342,6 @@ module ODBA
 		end
 		def test_odba_store_no_error_raised
 			@odba.odba_name = "foo"
-			ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:store) { |obj| 
 				assert_equal(@odba, obj)

@@ -15,8 +15,14 @@ module ODBA
 			@dictionary = index_definition.dictionary
 		end
 		def do_update_index(origin_id, search_term, target_id)
-			ODBA.storage.update_index(@index_name, origin_id, 
-				search_term, target_id)
+			if(search_term.is_a?(Array))
+				search_term.compact.each { |term|
+					do_update_index(origin_id, term, target_id)
+				}
+			elsif(search_term && !search_term.empty?)
+				ODBA.storage.update_index(@index_name, origin_id, 
+					search_term, target_id)
+			end
 		end
 		def fill(targets)
 			@proc_origin = nil
@@ -71,7 +77,6 @@ module ODBA
 		end
 		def proc_resolve_search_term
 			if(@proc_resolve_search_term.nil?)
-				
 				if(@resolve_search_term.to_s.empty?)
 					@proc_resolve_search_term = Proc.new { |origin| origin.to_s }
 				else

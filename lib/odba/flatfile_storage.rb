@@ -19,24 +19,22 @@ module ODBA
 			@opath = File.expand_path('object.csv', @datadir)
 			@cpath = File.expand_path('object_connection.csv', @datadir)
 			FileUtils.mkdir_p(@datadir)
-			@object = File.open(@opath, 'w')
-			@connection = File.open(@cpath, 'w')
+			File.open(@opath, 'w') { |fh| fh << '' }
+			File.open(@cpath, 'w') { |fh| fh << '' }
 			@odba_id = 0
 			@dump_wrappers = {}
 		end
 		def add_object_connection(origin, target)
-			@connection.puts([origin, target].join(DELIMITER))
+			File.open(@cpath, 'a') { |fh|
+				fh.puts([origin, target].join(DELIMITER))
+			}
 		end
 		def dbi=(dbi)
 		end
 		def close
 			store_dump_wrappers
-			@object.close
-			@connection.close
 		end
 		def flush
-			@object.flush
-			@connection.flush
 		end
 		def max_id
 			@odba_id
@@ -46,9 +44,11 @@ module ODBA
 			@odba_id
 		end
 		def object_store(odba_id, dump, name, prefetchable)
-			@object.puts [
-				odba_id, dump, name || NULL, prefetchable
-			].join(DELIMITER)
+			File.open(@opath, 'a') { |fh|
+				fh.puts [
+					odba_id, dump, name || NULL, prefetchable
+				].join(DELIMITER)
+			}
 		end
 		def restore_named(name)
 			if(@dump_wrappers.has_key?(name))

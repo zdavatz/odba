@@ -235,19 +235,26 @@ module ODBA
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
 			search_term.gsub!(/\s+/,"&")
 	    sql = <<-EOQ
-			SELECT odba_id, content,
-			max(rank(search_term, to_tsquery(?, ?))) AS relevance
-			FROM object INNER JOIN #{index_name} 
-			on odba_id = #{index_name}.target_id 
-			WHERE search_term @@ to_tsquery(?, ?) 
-			GROUP BY odba_id, content
-			ORDER BY relevance DESC"
+				SELECT odba_id, content,
+				max(rank(search_term, to_tsquery(?, ?))) AS relevance
+				FROM object INNER JOIN #{index_name} 
+				ON odba_id = #{index_name}.target_id 
+				WHERE search_term @@ to_tsquery(?, ?) 
+				GROUP BY odba_id, content
+				ORDER BY relevance DESC
 			EOQ
 			@dbi.select_all(sql, dict, search_term, dict, search_term)
 		end
 		def retrieve_from_index(index_name, search_term)
-			search_term = search_term+"%"
-			rows = @dbi.select_all("select distinct odba_id, content from object inner join #{index_name} on odba_id = #{index_name}.target_id where lower(search_term) like ?", search_term.downcase)	 
+			search_term = search_term + "%"
+			sql = <<-EOQ
+				SELECT DISTINCT odba_id, content 
+				FROM object 
+				INNER JOIN #{index_name} 
+				ON odba_id=#{index_name}.target_id 
+				WHERE search_term LIKE ?
+			EOQ
+			rows = @dbi.select_all(sql, search_term.downcase)	 
 		end
 		def restore_named(name)
 			row = @dbi.select_one("SELECT content FROM object WHERE name = ?", 
@@ -255,20 +262,14 @@ module ODBA
 			row.first unless row.nil?
 		end
 		def restore_prefetchable
-			sql = "select odba_id, content from object where prefetchable = true"
-			rows = @dbi.select_all(sql)
-			[]
+			rows = @dbi.select_all <<-EOQ
+				SELECT odba_id, content FROM object WHERE prefetchable = true
+			EOQ
 			rows unless(rows.nil?)
 		end
 		def store(odba_id, dump, name, prefetchable)
 			sth = @dbi.prepare("SELECT update_object(?, ?, ?, ?)")
 			sth.execute(odba_id, dump, name, prefetchable)
-=begin
-			if(update(odba_id, dump, name, prefetchable) == 0)
-				sth = @dbi.prepare("insert into object (odba_id, content, name, prefetchable) VALUES (?, ?, ?, ?)")
-				sth.execute(odba_id, dump, name, prefetchable)
-			end
-=end
 		end
 		def transaction(&block)
 			@dbi.transaction(&block)
@@ -282,7 +283,7 @@ module ODBA
 				INSERT INTO #{index_name} (origin_id, search_term, target_id) 
 				VALUES (?, ?, ?)
 			SQL
-			sth_insert.execute(origin_id, search_term, target_id)
+			sth_insert.execute(origin_id, search_term.downcase, target_id)
 		end
 =begin
 		def update(odba_id, dump, name, prefetchable)

@@ -1,13 +1,8 @@
 #!/usr/bin/env ruby
 # ScalarCache -- oddb -- 13.07.2004 -- mwalder@ywesee.com, rwaltert@ywesee.com
 
-
 module ODBA
 	class ScalarCache
-		#include Persistable
-		#ODBA_INDEXABLE = false
-		#ODBA_PREFETCH = true
-		#ODBA_SERIALIZABLE = ['@hash']
 		def initialize
 			@hash = Hash.new
 		end

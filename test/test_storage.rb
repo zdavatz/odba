@@ -46,7 +46,7 @@ module ODBA
 			rows = Mock.new("row")
 			@storage.dbi = dbi
 			dbi.__next(:select_all){ |sql|
-				assert_equal("select odba_id, content from object where prefetchable = true", sql)
+				assert_equal("\t\t\t\tSELECT odba_id, content FROM object WHERE prefetchable = true\n", sql)
 				rows
 			}
 			@storage.restore_prefetchable
@@ -156,7 +156,7 @@ module ODBA
 			sth = Mock.new
 			@storage.dbi = dbi
 			dbi.__next(:select_all) { |sql, search|
-				assert_not_nil(sql.index("inner join bar"))
+				assert_not_nil(sql.index("INNER JOIN bar"))
 				sth	
 			}
 			@storage.retrieve_from_index("bar","foo")

@@ -1,5 +1,5 @@
-# rwaltert@ywesee.com mwalder@ywesee.com
 #!/usr/bin/env ruby
+# rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'singleton'
 require 'delegate'
@@ -11,33 +11,37 @@ module ODBA
 		REAPER_ID_STEP = 1000
 		REAPER_INTERVAL = 60
 		def initialize
-			@cleaner = Thread.new {
-				Thread.current.priority = -5
-				loop {
-					sleep(self::class::CLEANING_INTERVAL)
-					begin
-						clean unless(@batch_mode)
-					rescue StandardError => e
-						puts e
-						puts e.backtrace
-					end
+			if(self::class::CLEANING_INTERVAL > 0)
+				@cleaner = Thread.new {
+					Thread.current.priority = -5
+					loop {
+						sleep(self::class::CLEANING_INTERVAL)
+						begin
+							clean unless(@batch_mode)
+						rescue StandardError => e
+							puts e
+							puts e.backtrace
+						end
+					}
 				}
-			}
-			@grim_reaper = Thread.new {
-				Thread.current.priority = -6
-				loop {
-					sleep(self::class::REAPER_INTERVAL)
-					begin
-						reap_object_connections unless(@batch_mode)
-					rescue StandardError => e
-						puts e
-						puts e.backtrace
-					end
+				@grim_reaper = Thread.new {
+					Thread.current.priority = -6
+					loop {
+						sleep(self::class::REAPER_INTERVAL)
+						begin
+							reap_object_connections unless(@batch_mode)
+						rescue StandardError => e
+							puts e
+							puts e.backtrace
+						end
+					}
 				}
-			}
+			end
 			@hash = Hash.new
 			@reaper_min_id = 0
 			@reaper_max_id = 0
+			@batch_objects = {}
+			@batch_deletions = {}
 			super(@hash)
 		end
 		def batch(&block)
@@ -171,6 +175,7 @@ module ODBA
 		def delete_old
 			@hash.each { |key, value|
 				if(value.ready_to_destroy?)
+					update_scalar_cache(value.odba_id, value.odba_cache_entries)
 					@hash.delete(key)
 				end
 			}
