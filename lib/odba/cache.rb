@@ -370,6 +370,7 @@ module ODBA
 					@hash.store(name, cache_entry)
 				end
 			end
+			cache_entry.collection = object.odba_collection
 			cache_entry.odba_object
 		end
 		def store_collection_elements(object)
@@ -382,8 +383,6 @@ module ODBA
 					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
 					ODBA.storage.collection_remove(odba_id, key_dump)
 				}
-				#ok here??
-				cache_entry.collection = collection
 			end
 			(collection - old_collection).each { |key, value|
 					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)

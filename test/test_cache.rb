@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+$: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
 require 'test/unit'
@@ -407,6 +408,7 @@ module ODBA
 				mock.__next(:odba_name){ || }
 			  mock.__next(:odba_target_ids) { []}
 				mock.__next(:odba_id){ || }
+				mock.__next(:odba_collection){ || [] }
 				if(block)
 					ODBA.storage.__next(:store, &block) 
 				else
