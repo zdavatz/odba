@@ -1,0 +1,41 @@
+- !ruby/object:ODBA::IndexDefinition 
+	index_name: 'atc_index_company'
+	origin_klass: 'ODDB::Company'
+	target_klass: 'ODDB::AtcClass'
+	search_term_mthd: ':name'
+	resolve_target: 'atc_classes.each{|atc| atc}'
+	resolve_origin: 'sequencences.collect{|seq| seq.company}'
+	fulltext: false
+
+- !ruby/object:ODBA::IndexDefinition 
+	index_name: 'atc_index'
+	origin_klass: 'ODDB::AtcClass'
+	target_klass: 'ODDB::AtcClass'
+	search_term_mthd: ':code'
+	resolve_target: ''
+	resolve_origin: ''
+	fulltext: false
+
+- !ruby/object:ODBA::IndexDefinition 
+	index_name: 'substance_index_atc'
+	origin_klass: 'ODDB::Substance'
+	target_klass: 'ODDB::AtcClass'
+	search_term_mthd: ':name'
+	resolve_target: 'sequences.collect{|seq| seq.atc_class}'
+	resolve_origin: 'sequences.collect{|seq| seq.active_agents.collect{|agent| agent.substance}'
+	fulltext: false
+
+- !ruby/object:ODBA::IndexDefinition 
+	index_name: 'sequence_index_atc'
+	origin_klass: 'ODDB::Sequence'
+	target_klass: 'ODDB::AtcClass'
+	search_term_mthd: ':name'
+	resolve_target: 'atc_class}'
+	resolve_origin: 'sequences'
+	fulltext: false
+
+
+
+
+
+
