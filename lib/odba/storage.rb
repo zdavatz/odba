@@ -35,6 +35,12 @@ module ODBA
 		def bulk_restore(bulk_fetch_ids)
 			if(bulk_fetch_ids.empty?)
 				[]
+			elsif(bulk_fetch_ids.size > 10000)
+				rows = []
+				0.step(bulk_fetch_ids.size, 10000) { |base|
+					rows.concat(bulk_restore(bulk_fetch_ids[base, 10000].compact))
+				}
+				rows
 			else
 				sql = "select odba_id, content from object where odba_id in (#{bulk_fetch_ids.join(',')})"
 				@dbi.select_all(sql)
