@@ -6,9 +6,10 @@ module ODBA
 	class Stub
 		attr_accessor :odba_id, :odba_container
 		attr_reader :receiver
-		def initialize(odba_id, odba_container, receiver=nil)
+		def initialize(odba_id, odba_container, receiver)
 			@odba_id = odba_id
 			@odba_container = odba_container
+			@odba_class = receiver.class 
 =begin
 			@carry_bag = {}
 			if(receiver)
@@ -29,7 +30,8 @@ module ODBA
 			@odba_id.to_i
 		end
 		def is_a?(klass)
-			if(klass == Stub  || klass == Persistable)
+			if([Stub, Persistable, @odba_class].include?(klass))
+			#if(klass == Stub  || klass == Persistable)
 				true
 			else
 				odba_replace
@@ -37,13 +39,16 @@ module ODBA
 			end
 		end
 		def method_missing(meth_symbol, *args, &block)
-			#ODBA.scalar_cache.fetch(@odba_id, meth_symbol) or begin
+			if(@odba_class::ODBA_CACHE_METHODS.include?(meth_symbol) \
+				&& (res = ODBA.scalar_cache.fetch(@odba_id, meth_symbol)))
+				res
+			else
 				odba_replace
-				#puts "i am replacing a:"
-				#puts @receiver.class
-				#puts meth_symbol
+				puts "i am replacing a:"
+				puts @receiver.class
+				puts meth_symbol
 				@receiver.send(meth_symbol, *args, &block)
-				#	end
+			end
 		end
 		def odba_replace(name=nil)
 			if(@receiver.nil?)

@@ -6,8 +6,9 @@ module ODBA
 		attr_accessor :odba_name, :odba_prefetch
 		attr_reader :odba_target_ids
 		ODBA_PREFETCH = false
+		ODBA_INDEXABLE = true
 		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids']
-		ODBA_CARRY_METHODS = []
+		ODBA_CACHE_METHODS = [:length, :size]
 		def dup
 			twin = super
 			twin.instance_variables.each { |name|
@@ -19,8 +20,15 @@ module ODBA
 			}
 			twin
 		end
-		def odba_carry_methods
-			self::class::ODBA_CARRY_METHODS
+		def odba_cache_methods
+			self::class::ODBA_CACHE_METHODS
+		end
+		def odba_cache_values
+			odba_cache_methods.collect { |symbol|
+				if(self.respond_to?(symbol))
+					[self.odba_id, symbol, self.send(symbol)]
+				end
+			}.compact
 		end
 		def odba_cut_connection(remove_object)
 			instance_variables.each { |name|
@@ -55,6 +63,9 @@ module ODBA
 		def odba_prefetch?
 			@odba_prefetch || self::class::ODBA_PREFETCH
 		end
+		def odba_indexable?
+			@odba_indexable || self::class::ODBA_INDEXABLE
+		end
 		def odba_replace_persistable(obj)
 			instance_variables.each { |name|
 				var = instance_variable_get(name)
@@ -71,9 +82,9 @@ module ODBA
 		end
 		def odba_replaceable?(var, name)
 			var.is_a?(ODBA::Persistable) \
-				&& (!ODBA_PREDEFINE_SERIALIZABLE.include?(name) #\
-				#&& (!defined?(self::class::ODBA_SERIALIZABLE) \
-				#|| !self::class::ODBA_SERIALIZABLE.include?(name))
+				&& (!ODBA_PREDEFINE_SERIALIZABLE.include?(name) \
+				&& (!defined?(self::class::ODBA_SERIALIZABLE) \
+				|| !self::class::ODBA_SERIALIZABLE.include?(name))
 			)
 		end
 		def odba_replace_persistables
@@ -131,6 +142,7 @@ module ODBA
 			end
 		end
 		def odba_store(name = nil)
+			puts "#{name} started transaction"
 			ODBA.transaction {
 				begin
 					unless (name.nil?)
@@ -143,6 +155,7 @@ module ODBA
 					raise
 				end
 			}
+			puts "#{name} completed transaction"
 		end
 		def odba_take_snapshot
 			@odba_snapshot_level ||= 0

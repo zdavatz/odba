@@ -186,6 +186,7 @@ module ODBA
 					obj.odba_name = name
 					#			store(obj, name) 
 					obj.odba_store(name)
+					puts "fetch named odba_store completed"
 				else
 					obj = ODBA.marshaller.load(dump)
 					obj.odba_restore
@@ -223,6 +224,12 @@ module ODBA
 		end
 		def store(object)
 				odba_id = object.odba_id
+				cache_values = object.odba_cache_values
+				unless(cache_values.empty?)
+					puts "call from cache"
+					ODBA.scalar_cache.update(cache_values)
+					ODBA.scalar_cache.odba_isolated_store
+				end
 				dump = object.odba_isolated_dump
 				name = object.odba_name
 				prefetchable = object.odba_prefetch?
@@ -251,24 +258,14 @@ module ODBA
 			end
 		end
 		def update_indices(odba_object)
+			puts "UPDATING INDEX:"
 			klass = odba_object.class
 			puts "klass #{klass}"
-			indices.each { |index_name, index|
-				index.update(odba_object)
-=begin
-				if(index.origin_class?(klass))
-					puts "**********"
-					#update index
-					search_term = index.search_term(odba_object)
-					puts "search_term"
-					puts search_term
-					if(target_id = index.resolve_target_id(odba_object))
-						ODBA.storage.update_index(index_name, 
-							odba_object.odba_id, search_term, target_id)
-					end
-				end
-=end
-			}
+			if(odba_object.odba_indexable?)
+				indices.each { |index_name, index|
+					index.update(odba_object)
+				}
+			end
 		end
 		private
 		def load_object(odba_id)
