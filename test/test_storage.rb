@@ -41,44 +41,12 @@ module ODBA
 			dbi.__verify
 			sth.__verify
 		end
-		def test_fill_index
-			dbi = Mock.new("dbi")
-			sth = Mock.new
-			@storage.dbi = dbi
-			rows = [[1, "baz", 3], [2, "bar", 5]]
-			dbi.__next(:prepare) { |query|
-				assert_not_nil(query.index('into foo'))
-				sth
-			}
-			dbi.__next(:prepare) { |query|
-				assert_not_nil(query.index('into foo'))
-				sth
-			}
-			sth.__next(:execute){  }
-			sth.__next(:execute){  }
-			@storage.fill_index("foo" , rows)
-			dbi.__verify
-			sth.__verify
-		end
-		def test_drop_index_table
-			dbi = Mock.new("dbi")
-			sth = Mock.new("sth")
-			@storage.dbi = dbi
-			dbi.__next(:prepare) { |sql|
-				assert_not_nil(sql.index('drop table'))
-				sth
-			}
-			sth.__next(:execute) {  }
-			@storage.drop_index_table("foo")
-			dbi.__verify
-			sth.__verify
-		end
 		def test_restore_prefetchable
 			dbi = Mock.new("dbi")
 			rows = Mock.new("row")
 			@storage.dbi = dbi
 			dbi.__next(:select_all){ |sql|
-				assert_equal("select content from object where prefetchable = true", sql)
+				assert_equal("select odba_id, content from object where prefetchable = true", sql)
 				rows
 			}
 			@storage.restore_prefetchable
@@ -97,25 +65,19 @@ module ODBA
 		def test_create_index
 			dbi = Mock.new
 			sth = Mock.new
+			sth2 = Mock.new
 			@storage.dbi = dbi
 			dbi.__next(:prepare){ |query| 
 				assert_not_nil(query.index('table sequences'))
 				sth
 			}
 			sth.__next(:execute){  }
+			dbi.__next(:prepare){ |query| 
+				assert_not_nil(query.index('index search_term_sequences on'))
+				sth2
+			}
+			sth2.__next(:execute){  }
 			@storage.create_index("sequences")
-			dbi.__verify
-			sth.__verify
-		end
-		def test_update
-			dbi = Mock.new
-			sth = Mock.new
-			row = Mock.new
-			@storage.dbi = dbi
-			dbi.__next(:prepare){ |arg| sth}
-			sth.__next(:execute){ |id,dump,name, prefetch| row}
-			sth.__next(:rows){ || 0}
-			@storage.update(2,"34353", "foo", true)
 			dbi.__verify
 			sth.__verify
 		end
@@ -125,9 +87,9 @@ module ODBA
 			assert_equal(3, @storage.next_id)
 		end
 		def test_store_insert
-			dbi = Mock.new
-			sth = Mock.new
-			row = Mock.new
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			row = Mock.new("row")
 			@storage.dbi = dbi
 			dbi.__next(:prepare) { |arg| sth} 
 			sth.__next(:execute){ |id, dump, name, prefetch| row }
@@ -215,16 +177,10 @@ module ODBA
 			sth_delete = Mock.new("sth_delete")
 			sth_insert = Mock.new("sth_insert")
 			@storage.dbi = dbi
-			#delete query
-			dbi.__next(:prepare){ |sql| 
-				assert_not_nil(sql.index("delete from foo"))	
-				sth_delete
-			}
-			sth_delete.__next(:execute) { |id| }
 
 			#insert query
 			dbi.__next(:prepare){ |sql| 
-				assert_not_nil(sql.index("insert into foo"))	
+				assert_not_nil(sql.index("INSERT INTO"))	
 				sth_insert
 			}
 			sth_insert.__next(:execute) { |id, term, target_id| }
@@ -297,27 +253,11 @@ module ODBA
 			sth1 = Mock.new("sth1")
 			sth2 = Mock.new("sth2")
 			@storage.dbi = dbi
-			dbi.__next(:select_all){|sql|
-				[[1]]
-			}
-			dbi.__next(:select_all){|sql|
-				[[3]]
-			}
 			dbi.__next(:prepare){|sql|
 				sth1
 			}
-			sth1.__next(:execute){|id1, id2|
-				assert_equal(1, id1)
-				assert_equal(1, id2)
-			}
-			dbi.__next(:prepare){|sql|
-				sth2
-			}
-			sth2.__next(:execute){|id1, id2|
-				assert_equal(3, id1)
-				assert_equal(3, id2)
-			}
-			@storage.remove_dead_connections
+			sth1.__next(:execute){}
+			@storage.remove_dead_connections(0, 10)
 			sth1.__verify
 			sth2.__verify
 			dbi.__verify
@@ -327,12 +267,42 @@ module ODBA
 			sth1 = Mock.new("sth1")
 			@storage.dbi = dbi
 			dbi.__next(:prepare) { |sql|
-				assert_not_nil(sql.index('DELETE FROM object WHERE'))
+				assert_not_nil(sql.index('DELETE FROM'))
 				sth1
 			}
 			sth1.__next(:execute) {}
-			@storage.remove_dead_objects
+			@storage.remove_dead_objects(0, 10)
 			sth1.__verify
+			dbi.__verify
+		end
+		def test_index_delete_target
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			@storage.dbi = dbi
+			dbi.__next(:prepare){|sql|
+				sth
+			}
+			sth.__next(:execute){|target_id|}
+			@storage.index_delete_target("foo_index", 1)
+			sth.__verify
+			dbi.__verify
+		end
+		def test_drop_index
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			@storage.dbi = dbi
+			dbi.__next(:prepare){|sql| sth}
+			sth.__next(:execute){}
+			@storage.drop_index("foo_index")
+		end
+		def test_index_delete_origin
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			@storage.dbi = dbi
+			dbi.__next(:prepare){|sql| sth}
+			sth.__next(:execute){|origin_id|}
+			@storage.index_delete_origin("foo_index", 1)
+			sth.__verify
 			dbi.__verify
 		end
 	end

@@ -9,19 +9,20 @@ require 'mock'
 
 module ODBA
 	class Stub
-		attr_accessor :receiver
+		attr_accessor :receiver, :carry_bag
 	end
 	class MockReceiver < Mock
+		ODBA_CACHE_METHODS = []
 		def taint
 			super
 		end
 	end
 	class TestStub < Test::Unit::TestCase
 		def setup
-			#Stub.delegate_object_methods
-			@odba_container = Mock.new('Container')
-			ODBA.cache_server = Mock.new('CacheServer')
-			@stub = Stub.new(9, @odba_container)
+			@odba_container = Mock.new("odba_container")
+			ODBA.cache_server = Mock.new("cache")
+			@receiver = MockReceiver.new("receiver")
+			@stub = Stub.new(9, @odba_container, @receiver)
 		end
 		def test_method_missing
 			receiver = Mock.new
@@ -64,7 +65,7 @@ module ODBA
 				receiver
 			}
 			receiver.__next(:taint) {}
-			@stub = Stub.new(1, @odba_container)
+			@stub = Stub.new(1, @odba_container, @receiver)
 			@stub.taint
 			@odba_container.__verify
 			ODBA.cache_server.__verify

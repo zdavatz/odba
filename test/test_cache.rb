@@ -15,10 +15,6 @@ module ODBA
 		attr_accessor :cleaner, :hash
 		attr_writer :indices
 		public :load_object
-		def initialize
-			@hash = Hash.new
-			super(@hash)
-		end
 	end
 	class TestCache < Test::Unit::TestCase
 		class ODBAContainer
@@ -27,6 +23,7 @@ module ODBA
 		end
 		def setup
 			ODBA.storage = Mock.new("storage")
+			ODBA.scalar_cache = Mock.new("scalar")
 			@cache = ODBA::Cache.instance
 			@cache.hash.clear
 			ODBA.marshaller = Mock.new("marshaller")
@@ -37,6 +34,7 @@ module ODBA
 		end
 		def teardown
 			ODBA.storage.__verify
+			ODBA.cache_server = nil
 		end
 		def test_fetch_named_ok
 			storage = Mock.new("storage")
@@ -75,22 +73,18 @@ module ODBA
 			ODBA.marshaller = Mock.new
 			ODBA.storage = storage
 			storage.__next(:bulk_restore) { |ids|
-				[foo, bar]
+				[[2, foo],[3, bar]]
 			}
 			ODBA.marshaller.__next(:load) { |dump|
 				foo
 			}
-			foo.__next(:first) { || foo}
 			foo.__next(:odba_restore) { }
-			foo.__next(:odba_id) { 2 }
 			foo.__next(:odba_id) { 2 }
 			foo.__next(:odba_name) { nil }
 			ODBA.marshaller.__next(:load) { |dump|
 				bar
 			}
-			bar.__next(:first) {|| bar }
 			bar.__next(:odba_restore) { }
-			bar.__next(:odba_id) { 3 }
 			bar.__next(:odba_id) { 3 }
 			bar.__next(:odba_name) { nil }
 			@cache.bulk_fetch(array, caller)
@@ -116,22 +110,18 @@ module ODBA
 			}
 			baz.__next(:odba_add_reference) { |caller| }
 			storage.__next(:bulk_restore) { |ids|
-				[foo, bar]
+				[[2, foo], [3,bar]]
 			}
 			ODBA.marshaller.__next(:load) { |dump|
 				foo
 			}
-			foo.__next(:first) {|| foo }
 			foo.__next(:odba_restore) { }
-			foo.__next(:odba_id) { 2 }
 			foo.__next(:odba_id) { 2 }
 			foo.__next(:odba_name) { nil }
 			ODBA.marshaller.__next(:load) { |dump|
 				bar
 			}
-			bar.__next(:first) {|| bar }
 			bar.__next(:odba_restore) { }
-			bar.__next(:odba_id) { 3 }
 			bar.__next(:odba_id) { 3 }
 			bar.__next(:odba_name) { nil }
 			@cache.bulk_fetch(array, caller)
@@ -145,29 +135,31 @@ module ODBA
 		end
 		def test_bulk_restore
 			foo = Mock.new("foo")
-			rows = [foo]
-			foo.__next(:first) {|| foo }
-			foo.__next(:odba_restore) { }
-			foo.__next(:odba_id) { 2 }
-			foo.__next(:odba_id) { 2 }
-			foo.__next(:odba_name) { nil }
+			rows = [[2, foo]]
+			#foo.__next(:to_i) {|| 1 }
+			#foo.__next(:first) {|| foo }
+			#foo.__next(:odba_id) { 2 }
+			
 			ODBA.marshaller.__next(:load) { |dump|
 				foo
 			}
+			foo.__next(:odba_restore) { }
+			foo.__next(:odba_id) { 2 }
+			foo.__next(:odba_name) { nil }
 			@cache.bulk_restore(rows, "foo")
 			foo.__verify
 		end
 		def test_bulk_restore_in_hash
 			foo = Mock.new("foo")
-			rows = [foo]
+			rows = [[2, foo]]
 			@cache.hash.store(1, foo)
-			foo.__next(:first) {|| foo }
-			foo.__next(:odba_restore) { }
+			#foo.__next(:first) {|| foo }
 			ODBA.marshaller.__next(:load) { |dump|
 				foo
 			}
+			foo.__next(:odba_restore) { }
 			foo.__next(:odba_id){|| 1}
-			foo.__next(:odba_add_reference){|caller|}
+			foo.__next(:odba_name) { nil }
 			@cache.bulk_restore(rows, "foo")
 			foo.__verify
 			ODBA.marshaller.__verify
@@ -288,7 +280,7 @@ module ODBA
 				@cache.load_object(23)
 			}
 		end
-		def test_store						
+		def test_store
 			storage = Mock.new("storage")
 			save_obj = Mock.new("save_obj")
 			prepare_store([save_obj])
@@ -346,15 +338,17 @@ module ODBA
 			receiver.__verify
 		end
 		def test_clean_object_connection
-			ODBA.storage.__next(:remove_dead_objects) { }
-			ODBA.storage.__next(:remove_dead_connections) { }
+			ODBA.storage.__next(:max_id){3}
+			ODBA.storage.__next(:remove_dead_objects) {|min, max| }
+			ODBA.storage.__next(:remove_dead_connections) { |min, max| }
 			@cache.clean_object_connections
+			ODBA.storage.__verify
 		end
 		def test_prefetch
 			foo = Mock.new("foo")
 			ODBA.storage = Mock.new("storage")
 			ODBA.storage.__next(:restore_prefetchable){||
-				[foo]
+				[[2, foo]]
 			
 			}
 			prepare_bulk_restore([foo])
@@ -367,7 +361,6 @@ module ODBA
 			foo.__next(:fill) { |target| 
 				assert_equal("baz", target)
 			}
-			ODBA.storage.__next(:fill_index) { |index_name, row| }
 			@cache.indices = { 
 				"foo" => foo
 			}
@@ -376,41 +369,56 @@ module ODBA
 			foo.__verify
 		end
 		def test_create_index
-			ODBA.storage.__next(:create_index) { |index_name|  }
-			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:store) { |name, index, mp, pref|  
-			}
-			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:add_object_connection) { |id, targedid|  }
-			ODBA.storage.__next(:add_object_connection) { |id, targedid|  }
-			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:next_id) {  }
-			ODBA.storage.__next(:store) { |name, index, mp, pref| }
-			ODBA.storage.__next(:next_id) {  }
-			ODBA.marshaller.__next(:dump) { |dump| }
-			ODBA.marshaller.__next(:dump) { |dump| }
-			@cache.create_index("foo", "bar", "proc_code", "baz")
-			assert_instance_of(Index, @cache.indices['foo'])
+			index_def_mock = Mock.new("index_def")
+			index_def_mock.__next(:index_name){ "foo"}
+			index_def_mock.__next(:fulltext){ true}
+			index_def_mock.__next(:origin_klass){ "ODBA"}
+			index_def_mock.__next(:target_klass){ "ODBA"}
+			index_def_mock.__next(:resolve_origin){ "foo"}
+			index_def_mock.__next(:resolve_target){ "bar"}
+			index_def_mock.__next(:index_name){ "foo"}
+			index_def_mock.__next(:resolve_search_term){ "foo"}
+			index_def_mock.__next(:dictionary){"german"}	
+			index_def_mock.__next(:index_name){ "foo"}
+			ODBA.storage.__next(:transaction){|block| block.call}
+			ODBA.storage.__next(:create_fulltext_index) { |index_name|  }
+			ODBA.storage.__next(:next_id){1}
+			ODBA.scalar_cache.__next(:update){|arr|}
+			ODBA.scalar_cache.__next(:odba_isolated_store){}
+			ODBA.storage.__next(:next_id){1}
+			ODBA.marshaller.__next(:dump){}
+			ODBA.storage.__next(:store){}
+			ODBA.marshaller.__next(:dump){}
+			ODBA.storage.__next(:add_object_connection){}
+			ODBA.storage.__next(:store){}
+			@cache.create_index(index_def_mock, ODBA)
+			assert_instance_of(FulltextIndex, @cache.indices['foo'])
 			verify_store
 		end
-		def prepare_store(store_array)
+		def prepare_store(store_array, &block)
 			store_array.each{ |mock|
 				mock.__next(:odba_id){ || }
+				mock.__next(:odba_cache_values){ []}
 				mock.__next(:odba_isolated_dump){ || }
 				mock.__next(:odba_name){ || }
 				mock.__next(:odba_prefetch?){ || }
+				mock.__next(:odba_indexable?){}
 				mock.__next(:odba_name){ || }
 			  mock.__next(:odba_target_ids) { []}
 				mock.__next(:odba_id){ || }
-				ODBA.storage.__next(:store) { |id, dump, name, pref| }
+				if(block)
+					ODBA.storage.__next(:store, &block) 
+				else
+					ODBA.storage.__next(:store) { 
+						assert(true)
+					}
+				end
 			}
 		end
 		def verify_store
 			ODBA.storage.__verify
 			ODBA.marshaller.__verify
+			ODBA.scalar_cache.__verify
 		end
 		def test_delete
 			delete_item = ODBAContainer.new
@@ -421,9 +429,9 @@ module ODBA
 			@cache.hash.store(1, delete_item)
 			ODBA.storage.__next(:retrieve_connected_objects) { |id|					[[2]] 
 			}
+			ODBA.storage.__next(:delete_persistable) { |id| } 
 			prepare_fetch(2, origin_obj)
 			ODBA.storage.__next(:store) { |id, dump, name, prefetch|}
-		  ODBA.storage.__next(:delete_persistable) { |id| } 
 			ODBA.marshaller.__next(:dump) { |ob| "foo"}
 			@cache.delete(delete_item)
 			assert_equal(1, @cache.hash.size)
@@ -431,39 +439,22 @@ module ODBA
 			ODBA.storage.__verify
 			ODBA.marshaller.__verify
 		end
-		def test_delete_index
-			index = Mock.new("index")
-			@cache.hash.store(1, index)
-			@cache.hash.store("foobar", index)
-			@cache.indices.store("foobar", index)
-			ODBA.storage.__next(:next_id) { 1}
-			ODBA.storage.__next(:store) { |id, dump, name, pref| }
-			#ODBA.storage.__next(:add_object_connection) { |id, target_id| }
-			index.__next(:odba_object) { }
-			prepare_delete(index, "foobar", 1)
-			ODBA.storage.__next(:drop_index_table) { |name| }
-			ODBA.marshaller.__next(:dump) {	|dum| "foo" } 
-			@cache.delete_index("foobar")
-			assert_equal(0, @cache.indices.size)
-			assert_equal(0, @cache.size)
-			index.__verify
-			ODBA.storage.__verify
-		end
 		def prepare_delete(mock, name, id)
 			mock.__next(:odba_id) { id }
 			ODBA.storage.__next(:retrieve_connected_objects) { |id|
 				[]
 			}
-			ODBA.storage.__next(:delete_persistable) { |id| }
 			mock.__next(:odba_id) { id }
 			mock.__next(:odba_name) { name }
+			ODBA.storage.__next(:delete_persistable) { |id| }
 			mock.__next(:odba_id) { id }
+			mock.__next(:origin_class?) { true }
+			mock.__next(:odba_id) { 2}
+			ODBA.storage.__next(:delete_index_element){ }
 		end
 		def prepare_bulk_restore(rows)
 			rows.each { |foo|
-				foo.__next(:first) {|| foo }
 				foo.__next(:odba_restore) { }
-				foo.__next(:odba_id) { 2 }
 				foo.__next(:odba_id) { 2 }
 				foo.__next(:odba_name) { nil }
 				ODBA.marshaller.__next(:load) { |dump|
@@ -473,13 +464,16 @@ module ODBA
 		end
 		def test_retrieve_from_index
 				foo = Mock.new
-				ODBA.storage.__next(:retrieve_from_index){|name, term|
-					[foo]
+				index = Mock.new("bar_index")
+				@cache.indices["bar"] = index
+				index.__next(:retrieve_data){|search_term, meta|	
+					[[2, foo]]
 				}
 				prepare_bulk_restore([foo])
 				@cache.retrieve_from_index("bar", "search bar")
 				ODBA.storage.__verify
 				foo.__verify
+				index.__verify
 		end
 =begin
 		def test_update_index
@@ -493,24 +487,16 @@ module ODBA
 		end
 =end
 		def test_update_indices
-			foo = Mock.new("foo")
+			index = Mock.new("index")
 			bar = Mock.new("bar")
+			bar.__next(:odba_indexable?){ true}
 			@cache.indices = {
-				"foo" => foo
+				"foo" => index
 			}
-			foo.__next(:origin_class?) { |klass| true }
-			foo.__next(:search_term) { |obj| "foobar" }
-			foo.__next(:resolve_target_id) { |obj| "foobar" }
-			bar.__next(:odba_id) { 1 }
-			ODBA.storage.__next(:update_index) { |name, id, search, target_id|
-				assert_equal(name, "foo")
-				assert_equal(id, 1)
-				assert_equal(search, "foobar")
-			}
+			index.__next(:update){|obj|}
 			@cache.update_indices(bar)
-			ODBA.storage.__verify
-			foo.__verify
-			bar.__verify
+			assert_equal(nil, index.__verify)
+			assert_equal(nil, bar.__verify)	
 		end
 		def test_delete_index_element
 			foo = Mock.new("foo")
@@ -525,6 +511,34 @@ module ODBA
 				assert_equal(id, 1)
 			}
 			@cache.delete_index_element(bar)
+			ODBA.storage.__verify
+		end
+		def test_drop_index
+			ODBA.storage.__next(:transaction) { |block| block.call }
+			ODBA.storage.__next(:drop_index){|index_name|
+				assert_equal("foo_index", index_name)
+			}
+			
+			index = Mock.new("index")
+			prepare_delete(index, "foo", 2)
+			@cache.indices.store("foo_index", index)
+			@cache.drop_index("foo_index")
+			index.__verify
+			ODBA.storage.__verify
+		end
+		def test_drop_indices
+			ODBA.storage.__next(:transaction) { |block| block.call}
+			
+			ODBA.storage.__next(:drop_index){|index_name|
+				assert_equal("foo_index", index_name)
+			}
+			index = Mock.new("index")
+			prepare_delete(index, "foo", 2)
+						
+			
+			@cache.indices.store("foo_index", index)
+			@cache.drop_indices
+			index.__verify
 			ODBA.storage.__verify
 		end
 	end

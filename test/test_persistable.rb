@@ -28,6 +28,10 @@ module ODBA
 		 attr_accessor	:non_replaceable, :replaceable, :replaceable2, :array, :odba_persistent
 		 attr_accessor	:odba_snapshot_level
 		end
+		class Hash
+			include ODBA::Persistable
+			attr_accessor :odba_persistent
+		end
 		class PersistableMock < Mock
 			def is_a?(arg)
 				true
@@ -55,6 +59,7 @@ module ODBA
 		def test_odba_delete
 			odba_container = ODBAContainer.new
 			odba_container.odba_id = 2
+			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.cache_server.__next(:delete) { |object|
 				assert_equal(odba_container, object)
 			}
@@ -195,14 +200,26 @@ module ODBA
 			ODBA.cache_server.__next(:store)	{	|obj| 2}
 			
 			@odba.odba_store_unsaved
-			#assert_equal(1, @odba.odba_snapshot_level)
-			#assert_equal(1, level1.odba_snapshot_level)
-			#assert_equal(1, level2.odba_snapshot_level)
-			ODBA.cache_server.__verify
+			assert_equal(nil, ODBA.cache_server.__verify)
+		end
+		def test_odba_store_unsaved_hash
+			level1 = ODBAContainer.new
+			hash_element = ODBAContainer.new
+			hash = Hash.new
+			non_rep_hash = Hash.new
+			level1.replaceable = hash
+			level1.non_replaceable = non_rep_hash
+			non_rep_hash.odba_persistent = true
+			
+			ODBA.cache_server.__next(:store)	{	|obj| 2}
+			ODBA.cache_server.__next(:store)	{	|obj| 2}
+			
+			level1.odba_store_unsaved
+			assert_equal(nil, ODBA.cache_server.__verify)
 		end
 		def test_dup
-			stub = StubMock.new
-			stub2 = StubMock.new
+			stub = StubMock.new("stub")
+			stub2 = StubMock.new("stub2")
 			@odba.replaceable = stub
 			@odba.replaceable2 = stub2
 			@odba.non_replaceable = 4
@@ -230,9 +247,13 @@ module ODBA
 			assert_equal(@replaceable, odba.replaceable)
 		end
 =end
+		def test_odba_unsaved_true
+			@odba.instance_variable_set("@odba_persistent", false)
+			assert_equal(true, @odba.odba_unsaved?)
+		end
 		def test_odba_isolated_dump
-			replaceable = StubMock.new
-			replaceable2 = StubMock.new
+			replaceable = StubMock.new("rep")
+			replaceable2 = StubMock.new("rep2")
 			@odba.replaceable2 = replaceable2
 			@odba.replaceable = replaceable
 			
@@ -243,8 +264,14 @@ module ODBA
 			replaceable2.__next(:is_a?) { |arg| true}
 			replaceable2.__next(:odba_id) { 13 }
 			ODBA.storage.__next(:next_id){|| 2}
-			ODBA.cache_server.__next(:add_object_connection){|id,id2|}
-			ODBA.cache_server.__next(:add_object_connection){|id,id2|}
+			f_obj1 = Mock.new("fobj1")
+			f_obj1.__next(:odba_carry_methods){[]}
+			f_obj2 = Mock.new("fobj2")
+			f_obj2.__next(:odba_carry_methods){[]}
+			ODBA.cache_server.__next(:fetch) { |id,container| f_obj1}
+			ODBA.cache_server.__next(:fetch) { |id,container| f_obj2}
+			#ODBA.cache_server.__next(:add_object_connection){|id,id2|}
+			#			ODBA.cache_server.__next(:add_object_connection){|id,id2|}
 			
 			ODBA.marshaller.__next(:dump) { |twin|
 				assert_equal(true, twin.replaceable.is_a?(Stub))
@@ -259,6 +286,7 @@ module ODBA
 			#expected = [12, 13]
 			#assert_equal(expected, @odba.odba_target_ids)
 			replaceable.__verify
+			ODBA.cache_server.__verify
 		end
 		def test_odba_isolated_dump_2
 			ODBA.marshaller = ODBA::Marshal
@@ -279,6 +307,7 @@ module ODBA
 		end
 		def test_odba_dump_has_id
 			@odba.odba_id = nil
+			ODBA.storage.__next(:transaction) { |block| block.call}
 			ODBA.storage.__next(:next_id) { 1 }
 			ODBA.marshaller = Marshal
 			ODBA.cache_server.__next(:store) { |obj|
@@ -292,6 +321,7 @@ module ODBA
 			@odba.odba_name = "foo"
 			cache_server = Mock.new
 			ODBA.cache_server = cache_server
+			ODBA.storage.__next(:transaction) { |block| block.call}
 			cache_server.__next(:store) { |dump|
 				raise DBI::ProgrammingError
 			}
@@ -306,12 +336,13 @@ module ODBA
 			@odba.odba_name = "foo"
 			cache_server = Mock.new
 			ODBA.cache_server = cache_server
+			ODBA.storage.__next(:transaction) { |block| block.call}
 			cache_server.__next(:store) { |dump| }
 			@odba.odba_store('bar')
 			assert_equal("bar", @odba.odba_name)
 			cache_server.__verify
 		end
-	end
+	end	
 	class TestArrayReplaceStubs < Test::Unit::TestCase
 		class StubMock < Mock
 			def is_a?(arg)
@@ -328,6 +359,16 @@ module ODBA
 			ODBA.marshaller = Mock.new("marshaller")
 			#@array.extend(ODBA::PersistableArray)
 			ODBA.cache_server = Mock.new("cache_server")
+		end
+		def test_odba_cut_connection
+			remove_obj = Mock.new("receiver")
+			remove_obj.extend(ODBA::Persistable)
+			remove_obj.odba_id = 2
+			receiver = ODBA::Stub.new(2,self, remove_obj)
+			array = Array.new
+			array.push(receiver)
+			assert_equal(0, array.odba_cut_connection(remove_obj).size)
+			
 		end
 		def test_odba_unsaved_neighbors_array
 			rep1 = ODBAContainer.new
@@ -398,14 +439,14 @@ module ODBA
 			@array.push(replaceable)
 			@array.push(replaceable2)
 			replaceable.__next(:is_a?) { |arg| true}
-			replaceable.__next(:odba_id) { || 1}
-			replaceable.__next(:odba_id) { || 1}
+			replaceable.__next(:odba_id) { 1 }
+			replaceable.__next(:odba_id) { 1 }
 			
 			replaceable2.__next(:is_a?) { |arg| true}
-			replaceable2.__next(:odba_id) { || 2}
-			replaceable2.__next(:odba_id) { || 2}
+			replaceable2.__next(:odba_id) { 2 }
+			replaceable2.__next(:odba_id) { 2 }
 
-			ODBA.storage.__next(:next_id) { 2 }
+			ODBA.storage.__next(:next_id) { 1 }
 
 			@array.odba_replace_persistables
 			replaceable.__verify
@@ -415,6 +456,14 @@ module ODBA
 			assert_equal(true, @array[1].is_a?(Stub))
 			assert_equal(1, @array[0].odba_id)
 			assert_equal(2, @array[1].odba_id)
+		end
+		def test_odba_unsaved_array_true
+			val = StubMock.new("val")
+			@array.instance_variable_set("@odba_persistent", true)
+			@array.push(val)
+			val.__next(:is_a?) { |klass| true }
+			val.__next(:odba_unsaved?) { true }
+			assert_equal(true, @array.odba_unsaved?)
 		end
 	end
 end
