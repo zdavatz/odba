@@ -217,7 +217,7 @@ module ODBA
 				cache_entry.odba_add_reference(odba_caller)
 				obj = cache_entry.odba_object
 			else
-				obj = load_object(odba_id)
+				obj = load_object(odba_id, odba_caller)
 			end
 			obj
 		end
@@ -421,10 +421,10 @@ module ODBA
 			end
 		end
 		private
-		def load_object(odba_id)
+		def load_object(odba_id, caller)
 			dump = ODBA.storage.restore(odba_id)
 			begin
-				restore_object(dump)
+				restore_object(dump, caller)
 			rescue OdbaError => odba_error
 				if(@last_timeout.nil? || (Time.now - @last_timeout) > 300)
 					text = TMail::Mail.new
@@ -432,7 +432,7 @@ module ODBA
 					text.set_content_type('text', 'plain', 'charset'=>'ISO-8859-1')
 					text.body = <<-EOM
 Error loading object unknown odba_id #{odba_id}"
-#{caller.join("\n")}
+#{::Kernel.caller.join("\n")}
 					EOM
 					text.from = self::class::MAIL_FROM
 					text.to = recipients
@@ -452,7 +452,7 @@ Error loading object unknown odba_id #{odba_id}"
 				raise odba_error
 			end
 		end
-		def restore_object(dump, odba_caller = nil)
+		def restore_object(dump, odba_caller)
 			if(dump.nil?)
 				raise OdbaError, "Unknown odba_id"
 			end

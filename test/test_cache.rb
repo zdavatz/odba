@@ -50,9 +50,9 @@ module ODBA
 		 attr_accessor	:odba_connection, :odba_id
 		end
 		def setup
-			ODBA.storage = Mock.new("storage")
+			@storage = ODBA.storage = Mock.new("storage")
 			ODBA.scalar_cache = Mock.new("scalar")
-			ODBA.marshaller = Mock.new("marshaller")
+			@marshal = ODBA.marshaller = Mock.new("marshaller")
 			ODBA.cache_server = @cache = ODBA::Cache.instance
 			@cache.hash = {}
 			@cache.indices = {}
@@ -244,8 +244,29 @@ module ODBA
 				nil	
 			}
 			assert_raises(OdbaError) {
-				@cache.load_object(23)
+				@cache.load_object(23, receiver)
 			}
+		end
+		def test_fetch__adds_reference
+			obj = CountingStub.new
+			obj.__define(:odba_id, 23)
+			@storage.__next(:restore) { |id|
+				assert_equal(23, id)
+				'dump'
+			}
+			@storage.__next(:restore_collection) { |id|
+				[]
+			}
+			@marshal.__next(:load) { |dump|
+				assert_equal('dump', dump)
+				obj
+			}
+			caller = CountingStub.new
+			res = @cache.fetch(23, caller)
+			cache_entry = @cache.hash[23]
+			assert_instance_of(CacheEntry, cache_entry)
+			assert_equal([caller], cache_entry.accessed_by)
+			assert_equal(obj, res)
 		end
 		def test_store
 			save_obj = Mock.new("save_obj")
@@ -323,7 +344,7 @@ module ODBA
 			receiver.__next(:odba_id){23}
 			receiver.__next(:odba_name){23}
 			receiver.__next(:odba_name){23}
-			@cache.load_object(23)
+			@cache.load_object(23, receiver)
 			receiver.__verify
 		end
 		def test_reap_object_connection
