@@ -234,15 +234,6 @@ end
 class Array
 	include ODBA::Persistable
 	ODBA_CACHE_METHODS = [:length, :size, :empty?]
-=begin
-# FIXME: I can't really believe this does anything good.. what's this for?
-	def <=>(obj)
-		super || (obj.is_a?(ODBA::Stub) && super(obj.receiver))
-	end
-=end
-	def include?(obj)
-		super || (obj.is_a?(ODBA::Stub) && super(obj.receiver))
-	end
 	def odba_collection
 		coll = []
 		each_with_index { |item, index|
@@ -353,14 +344,12 @@ class Hash
 		ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
 		self.each { |key, value|
 			if(value.is_a?(ODBA::Stub))
-				value.odba_replace
-				value = value.receiver
+				value = value.odba_instance
 				self[key] = value
 			end
 			if(key.is_a?(ODBA::Stub))
 				delete(key)
-				key.odba_replace
-				store(key.receiver, value)
+				store(key.odba_instance, value)
 			end
 		}
 		collection.each { |key, val| 

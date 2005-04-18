@@ -30,27 +30,29 @@ module ODBA
 			ODBA.cache_server = Mock.new("cache_server")
 		end
 		def test_retire_check
+			@mock.__next(:odba_unsaved?) { false }
+			@mock.__next(:odba_unsaved?) { false }
 			assert_equal(false, @cache_entry.odba_old?)
 			sleep(1.5)
 			assert_equal(true, @cache_entry.odba_old?)
 		end
 		def test_ready_to_destroy_true
+			@mock.__next(:odba_unsaved?) { false }
 			sleep(1)
-			@mock.__next(:odba_prefetch?) { false }
 			assert_equal(true, @cache_entry.ready_to_destroy?)
 		end
 		def test_ready_to_destroy_false__age
-			@mock.__next(:odba_prefetch?) { false }
+			@mock.__next(:odba_unsaved?) { false }
 			assert_equal(false, @cache_entry.ready_to_destroy?)
 		end
 		def test_ready_to_destroy_false__accessed_by
 			sleep(1)
-			@mock.__next(:odba_prefetch?) { false }
+			@mock.__next(:odba_unsaved?) { false }
 			@cache_entry.accessed_by = ['foo']
 			assert_equal(false, @cache_entry.ready_to_destroy?)
 		end
 		def test_ready_to_destroy_false__combined
-			@mock.__next(:odba_prefetch?) { true }
+			@mock.__next(:odba_unsaved?) { false }
 			@cache_entry.accessed_by = ['foo']
 			assert_equal(false, @cache_entry.ready_to_destroy?)
 		end
