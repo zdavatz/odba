@@ -32,7 +32,7 @@ module ODBA
 			sth = Mock.new
 			@storage.dbi = dbi
 			expected1 = <<-SQL
-				DELETE FROM object WHERE odba_id = ?
+				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
 			SQL
 			dbi.__next(:prepare) { |sql|
 				assert_equal(expected1, sql)
@@ -42,10 +42,20 @@ module ODBA
 				assert_equal(2, id)
 			}
 			expected2 = <<-SQL
-				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
+				DELETE FROM collection WHERE odba_id = ?
 			SQL
 			dbi.__next(:prepare) { |sql|
 				assert_equal(expected2, sql)
+				sth
+			}
+			sth.__next(:execute) { |id|
+				assert_equal(2, id)
+			}
+			expected3 = <<-SQL
+				DELETE FROM object WHERE odba_id = ?
+			SQL
+			dbi.__next(:prepare) { |sql|
+				assert_equal(expected3, sql)
 				sth
 			}
 			sth.__next(:execute) { |id|

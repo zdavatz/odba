@@ -26,9 +26,15 @@ module ODBA
 		end
 		def test_method_missing
 			receiver = Mock.new
-			@stub.receiver = receiver	
+			ODBA.cache_server.__next(:fetch) { |id, caller|
+				assert_equal(9, id)
+				receiver
+			}
 			receiver.__next(:foo_method){ |number|
 				assert_equal(3, number)
+			}
+			@odba_container.__next(:odba_replace_stubs) { |stub, rec| 
+				assert_equal(receiver, rec)
 			}
 			@stub.foo_method(3)
 			receiver.__verify

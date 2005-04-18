@@ -6,7 +6,6 @@ require 'yaml'
 module ODBA
 	class Stub
 		attr_accessor :odba_id, :odba_container
-		attr_reader :receiver
 		def initialize(odba_id, odba_container, receiver)
 			@odba_id = odba_id
 			@odba_container = odba_container
@@ -26,21 +25,13 @@ module ODBA
 				|| odba_instance.is_a?(klass)
 		end
 		def method_missing(meth_symbol, *args, &block)
-=begin
-			if(@odba_class \
-				&& @odba_class::ODBA_CACHE_METHODS.include?(meth_symbol) \
-				&& (res = ODBA.scalar_cache.fetch(@odba_id, meth_symbol)))
-				res
-			else
-				odba_replace
-				@receiver.send(meth_symbol, *args, &block)
-			end
-=end
 			odba_instance.send(meth_symbol, *args, &block)
+		end
+		def odba_fix_receiver
+			@receiver = nil
 		end
 		def odba_instance
 			odba_replace
-			@receiver
 		end
 		def odba_isolated_stub
 			stub = dup
@@ -48,17 +39,15 @@ module ODBA
 			stub
 		end
 		def odba_replace(name=nil)
-			if(@receiver.nil?)
-				$stdout.flush
-				begin
-					@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
-					if(@odba_container)
-						@odba_container.odba_replace_stubs(self, @receiver)
-					end
-				rescue OdbaError => e
-					#require 'debug'
-					warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
+			begin
+				receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
+				if(@odba_container)
+					@odba_container.odba_replace_stubs(self, receiver)
 				end
+				receiver
+			rescue OdbaError => e
+				#require 'debug'
+				warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
 			end
 		end
 		# A stub always references a Persistable that has 
@@ -68,14 +57,13 @@ module ODBA
 		end
 		no_override = [
 			"class", "dup", "is_a?", "__id__", "__send__", "inspect", "hash",
-			"eql?", "nil?", "respond_to?", "odba_id", 
+			"eql?", "nil?", "respond_to?", "odba_id", "odba_instance"
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
 			eval <<-EOS
 				def #{method}(*args)
-					odba_replace
-					@receiver.#{method}(*args)
+					odba_instance.#{method}(*args)
 				end
 			EOS
 		}
@@ -83,8 +71,7 @@ module ODBA
 			if([:marshal_dump, :_dump].include?(meth))
 				super
 			else
-				odba_replace
-				@receiver.respond_to?(meth)
+				odba_instance.respond_to?(meth)
 			end
 		end
 		## FIXME
@@ -122,7 +109,7 @@ class Array
 	def |(stub)
 		self.odba_union(stub.odba_instance)
 	end
-	['concat', 'replace'].each { |method|
+	['concat', 'replace', 'include?'].each { |method|
 		eval <<-EOS
 			alias :odba_#{method} :#{method}
 			def #{method}(stub)
