@@ -27,7 +27,7 @@ module ODBA
 		def method_missing(meth_symbol, *args, &block)
 			odba_instance.send(meth_symbol, *args, &block)
 		end
-		def odba_fix_receiver
+		def odba_clear_receiver
 			@receiver = nil
 		end
 		def odba_instance
@@ -39,12 +39,12 @@ module ODBA
 			stub
 		end
 		def odba_replace(name=nil)
-			begin
-				receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
+			@receiver || begin
+				@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
 				if(@odba_container)
-					@odba_container.odba_replace_stubs(self, receiver)
+					@odba_container.odba_replace_stubs(self, @receiver)
 				end
-				receiver
+				@receiver
 			rescue OdbaError => e
 				#require 'debug'
 				warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"

@@ -115,6 +115,8 @@ module ODBA
 					odba_id = var.odba_id
 					stub = ODBA::Stub.new(odba_id, self, var)
 					instance_variable_set(name, stub)
+				elsif(var.is_a?(ODBA::Stub))
+					var.odba_clear_receiver
 				end
 			}
 		end
