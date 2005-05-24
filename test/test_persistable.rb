@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+$: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
 require 'odba'
@@ -192,6 +193,10 @@ module ODBA
 				assert_equal(Persistable, arg)
 				false
 			}
+			non_replaceable.__next(:is_a?) { |arg|
+				assert_equal(Stub, arg)
+				false
+			}
 			#ODBA.storage.__next(:next_id){ 13 }
 			@odba.odba_replace_persistables
 			assert_instance_of(StubMock, @odba.non_replaceable)
@@ -274,20 +279,43 @@ module ODBA
 			replaceable2.__verify
 		end
 		def test_odba_isolated_dump
-			replaceable = StubMock.new("rep")
-			replaceable2 = StubMock.new("rep2")
+			replaceable = StubMock.new("Replaceable")
+			replaceable2 = StubMock.new("Replaceable2")
 			@odba.replaceable = replaceable
 			@odba.replaceable2 = replaceable2
 			ODBA.storage.__next(:next_id){ 11 }
 
-			replaceable2.__next(:is_a?){false}
-			replaceable2.__next(:is_a?){true}
-			replaceable2.__next(:is_a?){false}
-			replaceable2.__next(:odba_id){ 12}
+			replaceable2.__next(:is_a?) { |arg| ### from self.dup
+				assert_equal(Stub, arg)
+				false
+			}
+			replaceable2.__next(:is_a?) { |arg| ### from odba_replaceable?
+				assert_equal(Persistable, arg)
+				true
+			}
+			replaceable2.__next(:is_a?){ |arg| ### from odba_replaceable?
+				assert_equal(Stub, arg)
+				false
+			}
+			replaceable2.__next(:odba_id) { 12 }
 
-			replaceable.__next(:is_a?){false}
-			replaceable.__next(:is_a?){true}
-			replaceable.__next(:is_a?){true}
+			replaceable.__next(:is_a?) { |arg| ### from self.dup
+				assert_equal(Stub, arg)
+				false ## say no here, because we need to control the following
+			}
+			replaceable.__next(:is_a?) { |arg| ### from odba_replaceable?
+				assert_equal(Persistable, arg)
+				true
+			}
+			replaceable.__next(:is_a?) { |arg| ### from odba_replaceable?
+				assert_equal(Stub, arg)
+				true
+			}
+			replaceable.__next(:is_a?) { |arg|
+				assert_equal(Stub, arg)
+				true
+			}
+			replaceable.__next(:odba_clear_receiver){}
 			ODBA.marshaller.__next(:dump) { |twin|
 				"TheDump"
 			}
