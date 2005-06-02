@@ -199,8 +199,8 @@ module ODBA
 					dict_name, dict_init, dict_initoption, dict_lexize, dict_comment
 				) 
 				VALUES (
-					'#{language}_stem', 'snb_en_init(text)', '#{stopfile}', 
-					'snb_lexize(internal, internal, integer)', '#{language} stem'
+					'#{language}_stem', 'dinit_#{language}(internal)', NULL, 
+					'snb_lexize(internal, internal, int4)', '#{language} stemmer. snowball'
 				)
 			SQL
 		end
