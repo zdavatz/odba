@@ -77,10 +77,10 @@ module ODBA
 		## FIXME
 		#  implement full hash/array access - separate collection stub?
 		def [](*args, &block)
-			elm = if(@odba_class == Hash)
+			if(@odba_class == Hash \
+				&& !ODBA.cache_server.include?(@odba_id))
 				ODBA.cache_server.fetch_collection_element(@odba_id, args.first)
-			end
-			elm || method_missing(:[], *args, &block)
+			end || method_missing(:[], *args, &block)
 		end
 	end
 end
