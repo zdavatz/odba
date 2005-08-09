@@ -53,7 +53,7 @@ module ODBA
 				while(conn = @connections.shift)
 					begin 
 						conn.disconnect
-					rescue Exception
+					rescue DBI::InterfaceError, Exception
 						## we're not interested.
 					end
 				end
