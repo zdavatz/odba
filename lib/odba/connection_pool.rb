@@ -40,28 +40,32 @@ module ODBA
 		def pool_size
 			@connections.size
 		end
-		def connect
+		def connect 
+			@mutex.synchronize { _connect }
+		end
+		def _connect
 			@pos = 0
-			@mutex.synchronize { 
-				POOL_SIZE.times { 
-					@connections.push(DBI.connect(*@dbi_args))
-				}
+			POOL_SIZE.times { 
+				@connections.push(DBI.connect(*@dbi_args))
 			}
 		end
-		def disconnect
-			@mutex.synchronize {
-				while(conn = @connections.shift)
-					begin 
-						conn.disconnect
-					rescue DBI::InterfaceError, Exception
-						## we're not interested.
-					end
+		def disconnect 
+			@mutex.synchronize { _disconnect }
+		end
+		def _disconnect
+			while(conn = @connections.shift)
+				begin 
+					conn.disconnect
+				rescue DBI::InterfaceError, Exception
+					## we're not interested.
 				end
-			}
+			end
 		end
 		def reconnect
-			disconnect
-			connect
+			@mutex.synchronize {
+				_disconnect
+				_connect
+			}
 		end
 	end
 end
