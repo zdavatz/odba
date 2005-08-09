@@ -16,18 +16,21 @@ module ODBA
 			connect
 		end
 		def next_connection
-			conn = @connections.at(@pos)
-			@pos = (@pos + 1) % POOL_SIZE
+			conn = nil
+			@mutex.synchronize {
+				conn = @connections.at(@pos)
+				@pos = (@pos + 1) % POOL_SIZE
+			}
 			conn
 		end
 		def method_missing(method, *args, &block)
 			tries = SETUP_RETRIES
 			begin
 				next_connection.send(method, *args, &block)
-			rescue DBI::DatabaseError 
+			rescue DBI::DatabaseError
 				if(tries > 0)
 					sleep(SETUP_RETRIES - tries)
-					connect
+					reconnect
 					retry
 				else
 					raise
@@ -39,7 +42,6 @@ module ODBA
 		end
 		def connect
 			@pos = 0
-			@mutex.synchronize { disconnect }
 			@mutex.synchronize { 
 				POOL_SIZE.times { 
 					@connections.push(DBI.connect(*@dbi_args))
@@ -47,13 +49,19 @@ module ODBA
 			}
 		end
 		def disconnect
-			while(conn = @connections.shift)
-				begin 
-					conn.disconnect
-				rescue Exception
-					## we're not interested.
+			@mutex.synchronize {
+				while(conn = @connections.shift)
+					begin 
+						conn.disconnect
+					rescue Exception
+						## we're not interested.
+					end
 				end
-			end
+			}
+		end
+		def reconnect
+			disconnect
+			connect
 		end
 	end
 end
