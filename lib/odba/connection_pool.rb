@@ -27,7 +27,7 @@ module ODBA
 			tries = SETUP_RETRIES
 			begin
 				next_connection.send(method, *args, &block)
-			rescue DBI::DatabaseError
+			rescue NoMethodError, DBI::DatabaseError
 				if(tries > 0)
 					sleep(SETUP_RETRIES - tries)
 					reconnect
