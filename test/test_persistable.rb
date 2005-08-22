@@ -413,20 +413,15 @@ module ODBA
 			replacement2 = Mock.new('replacement2')
 			stub = StubMock.new('stub')
 			stub2 = StubMock.new('stub2')
-			stub3 = StubMock.new('stub3')
-			stub3.__next(:is_a?) { false }
 			foo = Mock.new("foo")
 			@array.push(stub)
 			@array.push(stub2)
-			@array.push(stub3)
 			@array.odba_restore([[0,replacement], [1,replacement2]])
 			assert_equal(replacement, @array[0])
 			assert_equal(replacement2, @array[1])
-			assert_equal(stub3, @array[2])
 			ODBA.cache_server.__verify
 			stub.__verify
 			stub2.__verify
-			stub3.__verify
 		end
 		def test_odba_replace_persistables_array
 			replaceable = StubMock.new("replaceable")
