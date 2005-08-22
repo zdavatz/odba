@@ -123,8 +123,6 @@ module ODBA
 			klass = odba_object.class
 			indices.each { |index_name, index|
 				if(index.origin_class?(klass))
-					# no transaction needed, because method call is
-					# already in a transaction (see delete)
 					ODBA.storage.delete_index_element(index_name, odba_object.odba_id)
 				end
 			}
@@ -156,14 +154,12 @@ module ODBA
 				}
 		end
 		def fetch(odba_id, odba_caller=nil)
-			obj = nil
 			if(cache_entry = fetch_cache_entry(odba_id))
 				cache_entry.odba_add_reference(odba_caller)
-				obj = cache_entry.odba_object
+				cache_entry.odba_object
 			else
-				obj = load_object(odba_id, odba_caller)
+				load_object(odba_id, odba_caller)
 			end
-			obj
 		end
 		def fetch_cache_entry(odba_id)
 			@prefetched[odba_id] || @fetched[odba_id]
@@ -184,7 +180,8 @@ module ODBA
 			collection.each { |pair| 
 				pair.collect! { |item| 
 					if(item.is_a?(Stub))
-						#correct order to get the real object
+						## replace any stubized instance_variables in obj with item
+						## independent of odba_restore
 						item.odba_container = obj
 						item.odba_instance
 					else
@@ -281,7 +278,6 @@ module ODBA
 		end
 		def store(object)
 			odba_id = object.odba_id
-			#update_scalar_cache(odba_id, object.odba_cache_values)
 			dump = object.odba_isolated_dump
 			store_collection_elements(odba_id, object.odba_collection)
 			name = object.odba_name
@@ -325,7 +321,6 @@ module ODBA
 			ODBA.storage.ensure_object_connections(odba_id, target_ids)
 		end
 		def update_indices(odba_object)
-			klass = odba_object.class
 			if(odba_object.odba_indexable?)
 				indices.each { |index_name, index|
 					index.update(odba_object)

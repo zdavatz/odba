@@ -30,6 +30,7 @@ module ODBA
 			rescue NoMethodError, DBI::DatabaseError
 				if(tries > 0)
 					sleep(SETUP_RETRIES - tries)
+					tries -= 1
 					reconnect
 					retry
 				else

@@ -261,6 +261,7 @@ class Array
 		collection.each { |key, val| 
 			self[key] = val
 		}
+=begin
 		## can be phased out...
 		bulk_fetch_ids = []
 		each { |item|
@@ -277,6 +278,7 @@ class Array
 			}
 		end
 		##
+=end
 	end
 	def odba_unsaved_neighbors(snapshot_level = nil)
 		unsaved = super
@@ -334,6 +336,11 @@ class Hash
 		super
 	end
 	def odba_restore(collection=[])
+		collection.each { |key, val| 
+			self[key] = val
+		}
+=begin
+		## can be phased out...
 		bulk_fetch_ids = []
 		self.each { |key, value|
 			if(value.is_a?(ODBA::Stub))
@@ -354,9 +361,7 @@ class Hash
 				store(key.odba_instance, value)
 			end
 		}
-		collection.each { |key, val| 
-			self[key] = val
-		}
+=end
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
