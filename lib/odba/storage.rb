@@ -8,7 +8,7 @@ require 'dbi'
 module ODBA
 	class Storage
 		include Singleton
-		attr_accessor :dbi
+		attr_writer :dbi
 		BULK_FETCH_STEP = 5000
 		def initialize
 			@id_mutex = Mutex.new
@@ -31,7 +31,7 @@ module ODBA
 		end
 		def create_dictionary_map(language)
 			['lhword', 'lpart_hword', 'lword'].each { |token|
-				@dbi.execute <<-SQL
+				self.dbi.execute <<-SQL
 					INSERT INTO pg_ts_cfgmap (ts_name, tok_alias, dict_name)
 					VALUES ('default_#{language}', '#{token}',
 					'{#{language}_ispell,#{language}_stem}')
@@ -40,7 +40,7 @@ module ODBA
 			['url', 'host', 'sfloat', 'uri', 'int', 'float', 'email', 'word',
 				'hword', 'nlword', 'nlpart_hword', 'part_hword', 'nlhword', 
 				'file', 'uint', 'version'].each { |token|
-				@dbi.execute <<-SQL
+				self.dbi.execute <<-SQL
 					INSERT INTO pg_ts_cfgmap (ts_name, tok_alias, dict_name)
 					VALUES ('default_#{language}', '#{token}', '{simple}')
 				SQL
@@ -54,19 +54,19 @@ module ODBA
 					target_id integer
 				)
 			SQL
-			@dbi.prepare(sql).execute
+			self.dbi.prepare(sql).execute
 			#index origin_id
 			sql = <<-SQL
 				CREATE INDEX origin_id_#{table_name} 
 				ON #{table_name}(origin_id)
 			SQL
-			@dbi.prepare(sql).execute
+			self.dbi.prepare(sql).execute
 			#index search_term
 			sql = <<-SQL
 				CREATE INDEX search_term_#{table_name} 
 				ON #{table_name}(search_term)
 			SQL
-			@dbi.prepare(sql).execute
+			self.dbi.prepare(sql).execute
 		end
 		def create_fulltext_index(table_name)
 			sql = <<-SQL
@@ -76,26 +76,29 @@ module ODBA
 					target_id integer
 				)
 			SQL
-			@dbi.prepare(sql).execute
+			self.dbi.prepare(sql).execute
 			#index origin_id
 			sql = <<-SQL
 				CREATE INDEX origin_id_#{table_name} 
 				ON #{table_name}(origin_id)
 			SQL
-			@dbi.prepare(sql).execute
+			self.dbi.prepare(sql).execute
 			#index search_term
 			sql = <<-SQL
 				CREATE INDEX search_term_#{table_name} 
 				ON #{table_name} USING gist(search_term)
 			SQL
-			@dbi.prepare(sql).execute
+			self.dbi.prepare(sql).execute
+		end
+		def dbi
+			Thread.current[:txn] || @dbi
 		end
 		def drop_index(index_name)
-			sth = @dbi.prepare("DROP TABLE #{index_name}")
+			sth = self.dbi.prepare("DROP TABLE #{index_name}")
 			sth.execute
 		end
 		def delete_index_element(index_name, odba_id)
-			sth = @dbi.prepare <<-SQL
+			sth = self.dbi.prepare <<-SQL
 				DELETE FROM #{index_name} WHERE origin_id = ?
 			SQL
 			sth.execute(odba_id)
@@ -104,17 +107,17 @@ module ODBA
 			sql = <<-SQL
 				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
 			SQL
-			sth = @dbi.prepare(sql)
+			sth = self.dbi.prepare(sql)
 			sth.execute(odba_id)
 			sql = <<-SQL
 				DELETE FROM collection WHERE odba_id = ?
 			SQL
-			sth = @dbi.prepare(sql)
+			sth = self.dbi.prepare(sql)
 			sth.execute(odba_id)
 			sql = <<-SQL
 				DELETE FROM object WHERE odba_id = ?
 			SQL
-			sth = @dbi.prepare(sql)
+			sth = self.dbi.prepare(sql)
 			sth.execute(odba_id)
 		end
 		def ensure_object_connections(origin_id, target_ids)
@@ -123,8 +126,11 @@ module ODBA
 				WHERE origin_id = ?
 			SQL
 			target_ids.uniq!
+			update_ids = target_ids
+			old_ids = []
 			if(rows = @dbi.select_all(sql, origin_id))
-				old_ids = rows.collect { |row| row[0].to_i }.uniq
+				old_ids = rows.collect { |row| row[0] }
+				old_ids.uniq!
 				delete_ids = old_ids - target_ids
 				update_ids = target_ids - old_ids
 				unless(delete_ids.empty?)
@@ -133,11 +139,11 @@ module ODBA
 							DELETE FROM object_connection 
 							WHERE target_id IN (#{ids.join(',')})
 						SQL
-						@dbi.execute(sql)
+						self.dbi.execute(sql)
 					end
 				end
 			end
-			sth = @dbi.prepare <<-SQL
+			sth = self.dbi.prepare <<-SQL
 				INSERT INTO object_connection (origin_id, target_id)
 				VALUES (?, ?)
 			SQL
@@ -154,7 +160,7 @@ module ODBA
 			row.first unless row.nil?
 		end
 		def collection_remove(odba_id, key_dump)
-			sth = @dbi.prepare <<-SQL
+			sth = self.dbi.prepare <<-SQL
 				DELETE FROM collection 
 				WHERE odba_id = ? AND key = ?
 			SQL
@@ -162,7 +168,7 @@ module ODBA
 		end
 		def collection_store(odba_id, key_dump, value_dump)
 			retries = 1
-			sth = @dbi.prepare <<-SQL 
+			sth = self.dbi.prepare <<-SQL 
 				INSERT INTO collection (odba_id, key, value)
 				VALUES (?, ?, ?)
 			SQL
@@ -175,11 +181,11 @@ module ODBA
 			end
 		end
 		def generate_dictionary(language, locale, dict_dir)
-			@dbi.execute <<-SQL
+			self.dbi.execute <<-SQL
 				INSERT INTO pg_ts_cfg (ts_name, prs_name, locale)
 				VALUES ('default_#{language}', 'default', '#{locale}')
 			SQL
-			sth = @dbi.prepare <<-SQL
+			sth = self.dbi.prepare <<-SQL
 				INSERT INTO pg_ts_dict (
 					SELECT '#{language}_ispell', dict_init, ?, dict_lexize 
 					FROM pg_ts_dict 
@@ -194,7 +200,7 @@ module ODBA
 			].join(',')
 			sth.execute(path)
 			create_dictionary_map(language)
-			@dbi.execute <<-SQL
+			self.dbi.execute <<-SQL
 				INSERT INTO pg_ts_dict (
 					dict_name, dict_init, dict_initoption, dict_lexize, dict_comment
 				) 
@@ -205,13 +211,13 @@ module ODBA
 			SQL
 		end
 		def index_delete_origin(index_name, origin_id)
-			sth = @dbi.prepare <<-SQL
+			sth = self.dbi.prepare <<-SQL
 				DELETE FROM #{index_name} WHERE origin_id = ?
 			SQL
 			sth.execute(origin_id)
 		end
 		def index_delete_target(index_name, target_id)
-			sth = @dbi.prepare <<-SQL
+			sth = self.dbi.prepare <<-SQL
 				DELETE FROM #{index_name} WHERE target_id = ?
 			SQL
 			sth.execute(target_id)
@@ -225,7 +231,7 @@ module ODBA
 			@next_id += 1
 		end
 		def remove_dead_connections(min_id, max_id)
-			sth = @dbi.prepare <<-EOQ
+			sth = self.dbi.prepare <<-EOQ
 				DELETE FROM object_connection
 				WHERE origin_id BETWEEN ? AND ?
 				AND (
@@ -247,7 +253,7 @@ module ODBA
 		end
 		def remove_dead_objects(min_id, max_id)
 			# remove all objects which are not being linked to and have no name
-			sth = @dbi.prepare <<-EOQ
+			sth = self.dbi.prepare <<-EOQ
 			DELETE FROM object
 			WHERE (
 				SELECT DISTINCT target_id 
@@ -264,15 +270,15 @@ module ODBA
 			#end
 		end
 		def remove_dictionary(language)
-			@dbi.execute <<-SQL
+			self.dbi.execute <<-SQL
 				DELETE FROM pg_ts_cfg 
 				WHERE ts_name='default_#{language}'
 			SQL
-			@dbi.execute <<-SQL
+			self.dbi.execute <<-SQL
 				DELETE FROM pg_ts_dict 
 				WHERE dict_name IN ('#{language}_ispell', '#{language}_stem')
 			SQL
-			@dbi.execute <<-SQL
+			self.dbi.execute <<-SQL
 				DELETE FROM pg_ts_cfgmap
 				WHERE ts_name='default_#{language}'
 			SQL
@@ -318,10 +324,9 @@ module ODBA
 			@dbi.select_all(sql, search_term.downcase)	 
 		end
 		def restore_collection(odba_id)
-			rows = @dbi.select_all <<-EOQ
+			@dbi.select_all <<-EOQ
 				SELECT key, value FROM collection WHERE odba_id = #{odba_id}
 			EOQ
-			rows
 		end
 		def restore_named(name)
 			row = @dbi.select_one("SELECT content FROM object WHERE name = ?", 
@@ -329,36 +334,36 @@ module ODBA
 			row.first unless row.nil?
 		end
 		def restore_prefetchable
-			rows = @dbi.select_all <<-EOQ
+			@dbi.select_all <<-EOQ
 				SELECT odba_id, content FROM object WHERE prefetchable = true
 			EOQ
-			rows
 		end
 		def store(odba_id, dump, name, prefetchable)
-			sth = @dbi.prepare("SELECT update_object(?, ?, ?, ?)")
+			sth = self.dbi.prepare("SELECT update_object(?, ?, ?, ?)")
 			sth.execute(odba_id, dump, name, prefetchable)
 		end
 		def transaction(&block)
-			@dbi.transaction(&block)
+			@dbi.transaction { |dbi|
+				dbi['AutoCommit'] = false
+				Thread.current[:txn] = dbi
+				res = block.call
+				dbi['AutoCommit'] = true
+				res
+			}
+		ensure
+			#Thread.current[:txn] = nil
 		end
 		def update_fulltext_index(index_name, origin_id, search_term, target_id, dict)
-			sth_insert = @dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector(?, ? ), ?)")
+			sth_insert = self.dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector(?, ? ), ?)")
 			sth_insert.execute(origin_id, dict, search_term, target_id)
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
-			sth_insert = @dbi.prepare <<-SQL
+			sth_insert = self.dbi.prepare <<-SQL
 				INSERT INTO #{index_name} (origin_id, search_term, target_id) 
 				VALUES (?, ?, ?)
 			SQL
 			sth_insert.execute(origin_id, search_term.downcase, target_id)
 		end
-=begin
-		def update(odba_id, dump, name, prefetchable)
-			sth = @dbi.prepare("update object set content = ?, name = ?, prefetchable = ? where odba_id = ?")
-			sth.execute(dump, name, prefetchable, odba_id)
-			sth.rows
-		end
-=end
 		private
 		def ensure_next_id_set
 			@id_mutex.synchronize {

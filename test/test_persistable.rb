@@ -46,18 +46,15 @@ module ODBA
 			ODBA.storage = Mock.new("storage")
 			ODBA.marshaller = Mock.new("marshaller")
 			ODBA.cache_server = Mock.new("cache_server")
-			#ODBA.scalar_cache = Mock.new("scalar_cache")
 			@odba  = ODBAContainer.new
 		end
 		def teardown
 			ODBA.storage.__verify
 			ODBA.marshaller.__verify
 			ODBA.cache_server.__verify
-			#ODBA.scalar_cache.__verify
 			ODBA.storage = nil
 			ODBA.marshaller = nil
 			ODBA.cache_server = nil
-			#ODBA.scalar_cache = nil
 		end
 		def test_odba_id
 			ODBA.storage.__next(:next_id) { ||

@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # TestStorage -- odba -- 10.05.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
+$: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
 require 'odba'
@@ -327,6 +328,35 @@ module ODBA
 			}
 			@storage.retrieve_from_fulltext_index('index_name',
 				'dràgées ähnlïch kömprüssèn ëtç', 'default_german')
+		end
+		def test_ensure_object_connections
+			dbi = Mock.new("dbi")
+			@storage.dbi = dbi
+			dbi.__next(:select_all) { |sql, origin_id|
+				assert_equal(123, origin_id)
+				[[1], [3], [5], [7], [9]]
+			}
+			dbi.__next(:execute) { |query|
+				assert_not_nil(query.index('DELETE'))
+				assert_not_nil(query.index('IN (7,9)'))
+			}
+			dbi.__next(:prepare) { |query|
+				assert_not_nil(query.index('INSERT'))
+				dbi ## pretends to be a StatementHandle
+			}
+			dbi.__next(:execute) { |origin_id, target_id|
+				assert_equal(123, origin_id)
+				assert_equal(2, target_id)
+			}
+			dbi.__next(:execute) { |origin_id, target_id|
+				assert_equal(123, origin_id)
+				assert_equal(4, target_id)
+			}
+			dbi.__next(:execute) { |origin_id, target_id|
+				assert_equal(123, origin_id)
+				assert_equal(6, target_id)
+			}
+			@storage.ensure_object_connections(123, [1,2,2,3,4,4,5,6,6])
 		end
 	end
 end

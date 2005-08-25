@@ -2,11 +2,10 @@
 # Persistable -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
 
 class Object
+	def odba_id
+	end
 	def odba_instance
 		self
-	end
-	#defined here for fetch_collection fetch in cache_server
-	def odba_id
 	end
 	def odba_isolated_stub
 		self
@@ -22,6 +21,9 @@ module ODBA
 		ODBA_PREFETCH = false
 		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids']
 		ODBA_SERIALIZABLE = []
+		def ==(other)
+			super(other.odba_instance)
+		end
 		def dup
 			twin = super
 			odba_potentials.each { |name|
@@ -90,7 +92,18 @@ module ODBA
 		def odba_potentials
 			instance_variables - odba_serializables - self::class::ODBA_EXCLUDE_VARS
 		end
+		def odba_replace(obj)
+			id = obj.odba_id
+			odba_potentials.each { |name|
+				var = instance_variable_get(name)
+				if(var.odba_id == id)
+					instance_variable_set(name, obj)
+				end
+			}
+		end
+		## should be called odba_stubize or similar
 		def odba_replace_persistable(obj)
+			id = obj.odba_id
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				# must not be synchronized because of the following if
@@ -98,15 +111,14 @@ module ODBA
 				# a	stub, it will have the correct id and it
 				# will be ignored) 
 				if(var.is_a?(Persistable) \
-					&& var.odba_id == obj.odba_id) 
-					stub = ODBA::Stub.new(obj.odba_id, self, obj)
+					&& var.odba_id == id) 
+					stub = ODBA::Stub.new(id, self, obj)
 					instance_variable_set(name, stub) 
 				end
 			}
 		end
 		def odba_replaceable?(var, name)
-			var.is_a?(ODBA::Persistable) && (!var.is_a?(ODBA::Stub)) #\
-			#&& (!odba_serializables.include?(name))
+			var.is_a?(ODBA::Persistable) && (!var.is_a?(ODBA::Stub))
 		end
 		def odba_replace_persistables
 			odba_potentials.each { |name|
@@ -253,6 +265,13 @@ class Array
 				&& item.odba_prefetch? 
 		}
 	end
+	def odba_replace(obj)
+		id = obj.odba_id
+		collect! { |item|
+			item.odba_id == id ? obj : item
+		}
+		super
+	end
 	def odba_replace_persistables
 		clear
 		super
@@ -331,6 +350,20 @@ class Hash
 				&& item.odba_prefetch?
 		}
 	end
+	def odba_replace(obj)
+		id = obj.odba_id
+		dup.each_key { |key|
+			if(key.odba_id == id)
+				store(obj, delete(key))
+			end
+		}
+		dup.each { |key, value|
+			if(value.odba_id == id)
+				store(key, obj)
+			end
+		}
+		super
+	end
 	def odba_replace_persistables
 		clear
 		super
@@ -339,29 +372,6 @@ class Hash
 		collection.each { |key, val| 
 			self[key] = val
 		}
-=begin
-		## can be phased out...
-		bulk_fetch_ids = []
-		self.each { |key, value|
-			if(value.is_a?(ODBA::Stub))
-				bulk_fetch_ids.push(value.odba_id)
-			end
-			if(key.is_a?(ODBA::Stub))
-				bulk_fetch_ids.push(key.odba_id)
-			end
-		}
-		ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
-		self.each { |key, value|
-			if(value.is_a?(ODBA::Stub))
-				value = value.odba_instance
-				self[key] = value
-			end
-			if(key.is_a?(ODBA::Stub))
-				delete(key)
-				store(key.odba_instance, value)
-			end
-		}
-=end
 	end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|

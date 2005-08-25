@@ -15,7 +15,7 @@ module ODBA
 			@odba_class || odba_instance.class
 		end
 		def eql?(other)
-			other.is_a?(Persistable) && other.odba_id == @odba_id
+			@odba_id == other.odba_id ## defined in Object
 		end
 		def hash
 			@odba_id.to_i
@@ -57,7 +57,9 @@ module ODBA
 		end
 		no_override = [
 			"class", "dup", "is_a?", "__id__", "__send__", "inspect", "hash",
-			"eql?", "nil?", "respond_to?", "odba_id", "odba_instance"
+			"eql?", "nil?", "respond_to?", 
+			## methods defined in persistable.rb:Object
+			"odba_id", "odba_instance", "odba_isolated_stub"
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|

@@ -18,6 +18,11 @@ module ODBA
 				@accessed_by.push(object)	
 			end
 		end
+		def odba_cut_connections!
+			@accessed_by.each { |item|
+				item.odba_cut_connection(@odba_object)
+			}
+		end
 		def odba_id
 			@odba_object.odba_id
 		end
@@ -42,6 +47,12 @@ module ODBA
 				end
 			}
 			@accessed_by = keep
+		end
+		def odba_replace!(obj)
+			@odba_object = obj
+			@accessed_by.each { |item|
+				item.odba_replace(obj)
+			}
 		end
 		def ready_to_destroy?
 			!@odba_object.odba_unsaved? && @accessed_by.empty? \

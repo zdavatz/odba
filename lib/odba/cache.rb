@@ -18,6 +18,7 @@ module ODBA
 				start_cleaner
 				#start_reaper
 			end
+			@cache_mutex = Mutex.new
 			@fetched = Hash.new
 			@prefetched = Hash.new
 			@clean_prefetched = false
@@ -46,11 +47,11 @@ module ODBA
 			rows.each { |row|
 				obj_id = row.at(0)
 				dump = row.at(1)
-				if(cache_entry = fetch_cache_entry(obj_id.to_i))
+				if(cache_entry = fetch_cache_entry(obj_id))
 					obj = cache_entry.odba_object
 					cache_entry.odba_add_reference(odba_caller)
 				else
-					obj = restore_object(dump, odba_caller)
+					obj = restore_object(obj_id, dump, odba_caller)
 				end
 				retrieved_objects.push(obj)
 			}
@@ -87,7 +88,7 @@ module ODBA
 			@prefetched.clear
 		end
 		def create_index(index_definition, origin_module)
-			ODBA.transaction {
+			transaction {
 				index = ODBA.index_factory(index_definition, origin_module)
 				self.indices.store(index_definition.index_name, index)
 				self.indices.odba_store_unsaved
@@ -142,7 +143,7 @@ module ODBA
 			#$stdout.flush
 		end
 		def drop_index(index_name)
-			ODBA.transaction {
+			transaction {
 				ODBA.storage.drop_index(index_name)
 				self.delete(self.indices[index_name]) #.odba_delete
 			}
@@ -161,8 +162,8 @@ module ODBA
 				load_object(odba_id, odba_caller)
 			end
 		end
-		def fetch_cache_entry(odba_id)
-			@prefetched[odba_id] || @fetched[odba_id]
+		def fetch_cache_entry(odba_id_or_name)
+			@prefetched[odba_id_or_name] || @fetched[odba_id_or_name]
 		end
 		def fetch_collection(obj)
 			collection = []
@@ -200,23 +201,48 @@ module ODBA
 			end
 		end
 		def fetch_named(name, caller, &block)
-			cache_entry = fetch_cache_entry(name)
-			obj = nil
-			if(cache_entry.nil?)
+			fetch_or_do(name, caller) { 
 				dump = ODBA.storage.restore_named(name)
 				if(dump.nil?)
 					obj = block.call
 					obj.odba_name = name
 					obj.odba_store(name)
+					obj
 				else
-					obj = restore_object(dump, caller)
+					fetch_or_restore(name, dump, caller)
 				end	
+			}
+		end
+		def fetch_or_do(obj_id, odba_caller, &block)
+			if(cache_entry = fetch_cache_entry(obj_id))
+				cache_entry.odba_add_reference(odba_caller)
+				cache_entry.odba_object
 			else
-				#add reference only in this case  
-				cache_entry.odba_add_reference(caller)
-				obj = cache_entry.odba_object
+				block.call
 			end
-			obj
+		end
+		def fetch_or_restore(obj_id, dump, odba_caller)
+			fetch_or_do(obj_id, odba_caller) { 
+				obj, collection = restore(dump)
+				cache_entry = CacheEntry.new(obj)
+				cache_entry.odba_add_reference(odba_caller)
+				## only add collection elements that exist in the collection
+				## table
+				cache_entry.collection = collection
+				obj = cache_entry.odba_object
+				hash = obj.odba_prefetch? ? @prefetched : @fetched
+				name = obj.odba_name
+				@cache_mutex.synchronize {
+					fetch_or_do(odba_id, odba_caller) {
+						hash.store(obj.odba_id, cache_entry)
+						unless(name.nil?)
+							hash.store(name, cache_entry)
+						end
+						## set access time to now
+						cache_entry.odba_object
+					}
+				}
+			}
 		end
 		def fill_index(index_name, targets)
 			self.indices[index_name].fill(targets)
@@ -278,6 +304,9 @@ module ODBA
 		end
 		def store(object)
 			odba_id = object.odba_id
+			if(ids = Thread.current[:txids])
+				ids.unshift(odba_id)
+			end
 			dump = object.odba_isolated_dump
 			store_collection_elements(odba_id, object.odba_collection)
 			name = object.odba_name
@@ -288,17 +317,19 @@ module ODBA
 			store_cache_entry(odba_id, object, name)
 		end
 		def store_cache_entry(odba_id, object, name=nil)
-			cache_entry = fetch_cache_entry(odba_id)
-			if(cache_entry.nil?)
-				hash = object.odba_prefetch? ? @prefetched : @fetched
-				cache_entry = CacheEntry.new(object)
-				hash.store(odba_id, cache_entry)
-				unless(name.nil?)
-					hash.store(name, cache_entry)
+			@cache_mutex.synchronize {
+				cache_entry = fetch_cache_entry(odba_id)
+				if(cache_entry.nil?)
+					hash = object.odba_prefetch? ? @prefetched : @fetched
+					cache_entry = CacheEntry.new(object)
+					hash.store(odba_id, cache_entry)
+					unless(name.nil?)
+						hash.store(name, cache_entry)
+					end
 				end
-			end
-			cache_entry.collection = object.odba_collection
-			cache_entry.odba_object
+				cache_entry.collection = object.odba_collection
+				cache_entry.odba_object
+			}
 		end
 		def store_collection_elements(odba_id, collection)
 			#odba_id = object.odba_id
@@ -320,6 +351,29 @@ module ODBA
 		def store_object_connections(odba_id, target_ids)
 			ODBA.storage.ensure_object_connections(odba_id, target_ids)
 		end
+		def transaction(&block)
+			Thread.current[:txids] = []
+			ODBA.storage.transaction(&block)
+		rescue Exception
+			transaction_rollback
+			raise
+		ensure
+			Thread.current[:txids] = nil
+		end
+		def transaction_rollback
+			if(ids = Thread.current[:txids])
+				ids.each { |id|
+					entry = fetch_cache_entry(id)
+					if(dump = ODBA.storage.restore(id))
+						obj, collection = restore(dump)
+						entry.collection = collection
+						entry.odba_replace!(obj)
+					else
+						entry.odba_cut_connections!
+					end
+				}
+			end
+		end
 		def update_indices(odba_object)
 			if(odba_object.odba_indexable?)
 				indices.each { |index_name, index|
@@ -327,17 +381,11 @@ module ODBA
 				}
 			end
 		end
-		def update_scalar_cache(odba_id, cache_values)
-			unless(cache_values.empty?)
-				ODBA.scalar_cache.delete(odba_id)
-				ODBA.scalar_cache.update(cache_values)
-			end
-		end
 		private
 		def load_object(odba_id, caller)
 			dump = ODBA.storage.restore(odba_id)
 			begin
-				restore_object(dump, caller)
+				restore_object(odba_id, dump, caller)
 			rescue OdbaError => odba_error
 				if(@last_timeout.nil? || (Time.now - @last_timeout) > 300)
 					text = TMail::Mail.new
@@ -365,42 +413,17 @@ Error loading object unknown odba_id #{odba_id}"
 				raise odba_error
 			end
 		end
-		def restore_object(dump, odba_caller)
+		def restore(dump)
+			obj = ODBA.marshaller.load(dump)
+			collection = fetch_collection(obj)
+			obj.odba_restore(collection)
+			[obj, collection]
+		end
+		def restore_object(odba_id, dump, odba_caller)
 			if(dump.nil?)
-				raise OdbaError, "Unknown odba_id"
+				raise OdbaError, "Unknown odba_id #{odba_id}"
 			end
-			obj = ODBA.marshaller.load(dump)
-			collection = fetch_collection(obj)
-			obj.odba_restore(collection)
-			cache_entry = CacheEntry.new(obj)
-			cache_entry.odba_add_reference(odba_caller)
-			#only add collection elements that exist in the collection
-			#table
-			cache_entry.collection = collection
-			obj = cache_entry.odba_object
- ## Thread-Critical ##
- ## if(@hash.include?(obj.odba_id))
- ##		@hash[obj.odba_id].odba_object
- ## else
-			hash = obj.odba_prefetch? ? @prefetched : @fetched
- 			hash.store(obj.odba_id, cache_entry)
-			name = obj.odba_name
- 			unless(name.nil?)
-				hash.store(name, cache_entry)
-			end
- ## bis da. ##
-			obj
-=begin
-			obj = ODBA.marshaller.load(dump)
-			collection = fetch_collection(obj)
-			obj.odba_restore(collection)
-			cache_entry = CacheEntry.new(obj)
-			cache_entry.odba_add_reference(odba_caller)
-			#only add collection elements that exist in the collection
-			#table
-			cache_entry.collection = collection
-			cache_entry.odba_object
-=end
+			fetch_or_restore(odba_id, dump, odba_caller)
 		end
 	end
 end

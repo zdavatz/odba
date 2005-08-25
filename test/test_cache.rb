@@ -52,7 +52,6 @@ module ODBA
 		end
 		def setup
 			@storage = ODBA.storage = Mock.new("storage")
-			ODBA.scalar_cache = Mock.new("scalar")
 			@marshal = ODBA.marshaller = Mock.new("marshaller")
 			ODBA.cache_server = @cache = ODBA::Cache.instance
 			@cache.fetched = {}
@@ -61,10 +60,8 @@ module ODBA
 		end
 		def teardown
 			ODBA.storage.__verify
-			ODBA.scalar_cache.__verify
 			ODBA.storage = nil
 			ODBA.marshaller = nil
-			ODBA.scalar_cache = nil
 			@cache.fetched.clear
 			@cache.prefetched.clear
 			@cache.indices.clear
@@ -204,10 +201,6 @@ module ODBA
 			@cache.prefetched.store(13, prefetched)
 			assert_equal(1, @cache.fetched.size)
 			value.__next(:ready_to_destroy?) { true }
-			## scalar cache is disabled
-			#value.__next(:odba_object) { obj }
-			#obj.__next(:odba_id) { 12 }
-			#obj.__next(:odba_cache_values) { {} }
 			@cache.delete_old
 			value.__verify
 			obj.__verify
@@ -256,8 +249,8 @@ module ODBA
 			receiver.__next(:odba_id) {23}
 			receiver.__next(:odba_restore) {}
 			receiver.__next(:odba_prefetch?) { false }
-			receiver.__next(:odba_id) {23}
 			receiver.__next(:odba_name) { 'name' }
+			receiver.__next(:odba_id) {23}
 			first_fetch = @cache.fetch(23, caller)
 			assert_equal(receiver, first_fetch)
 			assert_equal(2, @cache.fetched.size)
@@ -355,8 +348,8 @@ module ODBA
 			loaded.__next(:odba_id) { 23 }
 			loaded.__next(:odba_restore) { }
 			loaded.__next(:odba_prefetch?) { false }
-			loaded.__next(:odba_id) { 23 }
 			loaded.__next(:odba_name) {}
+			loaded.__next(:odba_id) { 23 }
 			@cache.load_object(23, caller)
 			loaded.__verify
 		end
@@ -481,8 +474,8 @@ module ODBA
 				odba_mock.__next(:odba_id) { 2 }
 				odba_mock.__next(:odba_restore) { }
 				odba_mock.__next(:odba_prefetch?) { true }
-				odba_mock.__next(:odba_id) { 2 }
 				odba_mock.__next(:odba_name) { nil }
+				odba_mock.__next(:odba_id) { 2 }
 				ODBA.marshaller.__next(:load) { |dump|
 					odba_mock
 				}
@@ -548,9 +541,7 @@ module ODBA
 			index.__verify
 		end
 		def test_drop_indices
-			#ODBA.scalar_cache.__next(:odba_isolated_store){}
 			ODBA.storage.__next(:transaction) { |block| block.call}
-			#ODBA.scalar_cache.__next(:odba_isolated_store) { }
 			ODBA.storage.__next(:drop_index){|index_name|
 				assert_equal("foo_index", index_name)
 			}

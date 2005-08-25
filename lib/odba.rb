@@ -9,7 +9,6 @@ require 'odba/marshal'
 require 'odba/cache_entry'
 require 'odba/odba_error'
 require 'odba/index'
-require 'odba/scalar_cache'
 require 'thread'
 
 module ODBA
@@ -28,14 +27,6 @@ module ODBA
 	def marshaller=(marshaller)
 		@marshaller = marshaller
 	end
-	def scalar_cache=(scalar_cache)
-		@scalar_cache = scalar_cache
-	end
-	def scalar_cache
-		@scalar_cache ||= #cache_server.fetch_named('__scalar_cache__', self) {
-			ScalarCache.new
-		#}
-	end
 	def storage
 		@storage ||= ODBA::Storage.instance
 	end
@@ -44,7 +35,7 @@ module ODBA
 	end
 	def transaction(&block)
 		result = nil
-		ODBA.storage.transaction {
+		ODBA.cache_server.transaction {
 			result = block.call
 		}
 		result
@@ -62,8 +53,6 @@ module ODBA
 	module_function :cache_server=
 	module_function :marshaller
 	module_function :marshaller=
-	module_function :scalar_cache
-	module_function :scalar_cache=
 	module_function :storage
 	module_function :storage=
 	module_function :transaction
