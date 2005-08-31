@@ -24,7 +24,7 @@ module ODBA
 						SELECT odba_id, content FROM object 
 						WHERE odba_id IN (#{ids.join(',')})
 					SQL
-					rows.concat(@dbi.select_all(sql))
+					rows.concat(self.dbi.select_all(sql))
 				end
 				rows
 			end
@@ -158,7 +158,7 @@ module ODBA
 				SELECT value FROM collection 
 				WHERE odba_id = ? AND key = ?
 			SQL
-			row = @dbi.select_one(sql, odba_id, key_dump)
+			row = self.dbi.select_one(sql, odba_id, key_dump)
 			row.first unless row.nil?
 		end
 		def collection_remove(odba_id, key_dump)
@@ -286,7 +286,7 @@ module ODBA
 			SQL
 		end
 		def restore(odba_id)
-			row = @dbi.select_one("SELECT content FROM object WHERE odba_id = ?", odba_id)
+			row = self.dbi.select_one("SELECT content FROM object WHERE odba_id = ?", odba_id)
 			row.first unless row.nil?
 		end	
 		def retrieve_connected_objects(target_id)
@@ -294,7 +294,7 @@ module ODBA
 				SELECT origin_id FROM object_connection 
 				WHERE target_id = ?
 			SQL
-			@dbi.select_all(sql, target_id)
+			self.dbi.select_all(sql, target_id)
 		end
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
 			term = search_term.gsub(/\s+/, '&').gsub(/[():]/i, 
@@ -307,10 +307,10 @@ module ODBA
 				GROUP BY target_id
 				ORDER BY relevance DESC
 			EOQ
-			@dbi.select_all(sql, dict, term, dict, term)
+			self.dbi.select_all(sql, dict, term, dict, term)
 		rescue DBI::ProgrammingError => e
 			warn("ODBA::Storage.retrieve_from_fulltext_index rescued a DBI::ProgrammingError(#{e.message}). Query:")
-			warn("@dbi.select_all(#{sql}, #{dict}, #{term}, #{dict}, #{term})")
+			warn("self.dbi.select_all(#{sql}, #{dict}, #{term}, #{dict}, #{term})")
 			warn("returning empty result")
 			[]
 		end
@@ -323,20 +323,20 @@ module ODBA
 				FROM #{index_name} 
 				WHERE search_term LIKE ?
 			EOQ
-			@dbi.select_all(sql, search_term.downcase)	 
+			self.dbi.select_all(sql, search_term.downcase)	 
 		end
 		def restore_collection(odba_id)
-			@dbi.select_all <<-EOQ
+			self.dbi.select_all <<-EOQ
 				SELECT key, value FROM collection WHERE odba_id = #{odba_id}
 			EOQ
 		end
 		def restore_named(name)
-			row = @dbi.select_one("SELECT content FROM object WHERE name = ?", 
+			row = self.dbi.select_one("SELECT content FROM object WHERE name = ?", 
 				name)
 			row.first unless row.nil?
 		end
 		def restore_prefetchable
-			@dbi.select_all <<-EOQ
+			self.dbi.select_all <<-EOQ
 				SELECT odba_id, content FROM object WHERE prefetchable = true
 			EOQ
 		end
@@ -375,7 +375,7 @@ module ODBA
 			}
 		end
 		def restore_max_id
-			row = @dbi.select_one("select MAX(odba_id) from object")
+			row = self.dbi.select_one("select MAX(odba_id) from object")
 			unless(row.first.nil?)
 				row.first
 			else
