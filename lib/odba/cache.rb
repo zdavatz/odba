@@ -363,13 +363,14 @@ module ODBA
 		def transaction_rollback
 			if(ids = Thread.current[:txids])
 				ids.each { |id|
-					entry = fetch_cache_entry(id)
-					if(dump = ODBA.storage.restore(id))
-						obj, collection = restore(dump)
-						entry.collection = collection
-						entry.odba_replace!(obj)
-					else
-						entry.odba_cut_connections!
+					if(entry = fetch_cache_entry(id))
+						if(dump = ODBA.storage.restore(id))
+							obj, collection = restore(dump)
+							entry.collection = collection
+							entry.odba_replace!(obj)
+						else
+							entry.odba_cut_connections!
+						end
 					end
 				}
 			end

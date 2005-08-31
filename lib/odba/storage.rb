@@ -128,7 +128,9 @@ module ODBA
 			target_ids.uniq!
 			update_ids = target_ids
 			old_ids = []
-			if(rows = @dbi.select_all(sql, origin_id))
+			## use self.dbi instead of @dbi to get information about
+			## object_connections previously stored within this transaction
+			if(rows = self.dbi.select_all(sql, origin_id))
 				old_ids = rows.collect { |row| row[0] }
 				old_ids.uniq!
 				delete_ids = old_ids - target_ids
