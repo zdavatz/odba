@@ -58,9 +58,7 @@ module ODBA
 			}
 		end
 		def odba_delete
-			#ODBA.transaction {
-				ODBA.cache_server.delete(self)
-			#}
+			ODBA.cache_server.delete(self)
 		end
 		def odba_id
 			@odba_id ||= ODBA.storage.next_id

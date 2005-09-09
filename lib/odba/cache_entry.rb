@@ -14,13 +14,16 @@ module ODBA
 			@accessed_by = []
 		end	
 		def odba_add_reference(object)
-			unless(object.nil?)
+			if(object)
 				@accessed_by.push(object)	
 			end
+			object
 		end
 		def odba_cut_connections!
 			@accessed_by.each { |item|
-				item.odba_cut_connection(@odba_object)
+				if(item.is_a?(ODBA::Persistable))
+					item.odba_cut_connection(@odba_object) 
+				end
 			}
 		end
 		def odba_id
@@ -51,11 +54,14 @@ module ODBA
 		def odba_replace!(obj)
 			@odba_object = obj
 			@accessed_by.each { |item|
-				item.odba_replace(obj)
+				if(item.is_a?(ODBA::Persistable))
+					item.odba_replace(obj)
+				end
 			}
 		end
 		def ready_to_destroy?
-			!@odba_object.odba_unsaved? && @accessed_by.empty? \
+			!@odba_object.odba_unsaved? \
+				&& @accessed_by.empty? \
 				&& ((Time.now - @last_access) > self::class::DESTROY_TIME) 
 		end
 	end

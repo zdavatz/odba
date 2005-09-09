@@ -341,8 +341,23 @@ module ODBA
 			EOQ
 		end
 		def store(odba_id, dump, name, prefetchable)
-			sth = self.dbi.prepare("SELECT update_object(?, ?, ?, ?)")
-			sth.execute(odba_id, dump, name, prefetchable)
+			sql = "SELECT odba_id FROM object WHERE odba_id = ?"
+			if(self.dbi.select_one(sql, odba_id))
+				sth = self.dbi.prepare <<-SQL
+					UPDATE object SET 
+					content = ?,
+					name = ?,
+					prefetchable = ?
+					WHERE odba_id = ?
+				SQL
+				sth.execute(dump, name, prefetchable, odba_id)
+			else
+				sth = self.dbi.prepare <<-SQL
+					INSERT INTO object (odba_id, content, name, prefetchable)
+					VALUES (?, ?, ?, ?)
+				SQL
+				sth.execute(odba_id, dump, name, prefetchable)
+			end
 		end
 		def transaction(&block)
 			@dbi.transaction { |dbi|
@@ -353,7 +368,7 @@ module ODBA
 				res
 			}
 		ensure
-			#Thread.current[:txn] = nil
+			Thread.current[:txn] = nil
 		end
 		def update_fulltext_index(index_name, origin_id, search_term, target_id, dict)
 			sth_insert = self.dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector(?, ? ), ?)")

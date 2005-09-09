@@ -354,9 +354,9 @@ module ODBA
 		def transaction(&block)
 			Thread.current[:txids] = []
 			ODBA.storage.transaction(&block)
-		rescue Exception
+		rescue Exception => excp
 			transaction_rollback
-			raise
+			raise excp
 		ensure
 			Thread.current[:txids] = nil
 		end

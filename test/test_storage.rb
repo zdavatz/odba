@@ -119,15 +119,56 @@ module ODBA
 			assert_equal(2, @storage.next_id)
 			assert_equal(3, @storage.next_id)
 		end
-		def test_store
+		def test_store__1
 			dbi = Mock.new("dbi")
 			sth = Mock.new("sth")
 			@storage.dbi = dbi
-			dbi.__next(:prepare) { |query| 
-				assert_equal('SELECT update_object(?, ?, ?, ?)', query)
-				sth
+			dbi.__next(:select_one) { |query, id| 
+				assert_equal('SELECT odba_id FROM object WHERE odba_id = ?', 
+					query)
+				assert_equal(1, id)
+				nil
 			} 
+			dbi.__next(:prepare) { |query|
+				expected= <<-SQL
+					INSERT INTO object (odba_id, content, name, prefetchable)
+					VALUES (?, ?, ?, ?)
+				SQL
+				assert_equal(expected, query)
+				sth
+			}
 			sth.__next(:execute){ |id, dump, name, prefetch| 
+				assert_equal(1, id)	
+				assert_equal("foodump", dump)	
+				assert_equal("foo", name)	
+				assert_equal(true, prefetch)
+			}
+			@storage.store(1,"foodump", "foo", true)
+			dbi.__verify
+			sth.__verify
+		end
+		def test_store__2
+			dbi = Mock.new("dbi")
+			sth = Mock.new("sth")
+			@storage.dbi = dbi
+			dbi.__next(:select_one) { |query, id| 
+				assert_equal('SELECT odba_id FROM object WHERE odba_id = ?', 
+					query)
+				assert_equal(1, id)
+				[1]
+			} 
+			dbi.__next(:prepare) { |query|
+				expected= <<-SQL
+					UPDATE object SET 
+					content = ?,
+					name = ?,
+					prefetchable = ?
+					WHERE odba_id = ?
+				SQL
+				assert_equal(expected, query)
+				sth
+			}
+			sth.__next(:execute){ |dump, name, prefetch, id| 
 				assert_equal(1, id)	
 				assert_equal("foodump", dump)	
 				assert_equal("foo", name)	

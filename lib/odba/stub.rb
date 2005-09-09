@@ -87,49 +87,49 @@ module ODBA
 	end
 end
 class Array
-	alias :odba_amp :&
+	alias :_odba_amp :&
 	def &(stub)
-		self.odba_amp(stub.odba_instance)
+		self._odba_amp(stub.odba_instance)
 	end
-	alias :odba_plus :+
+	alias :_odba_plus :+
 	def +(stub)
-		self.odba_plus(stub.odba_instance)
+		self._odba_plus(stub.odba_instance)
 	end
-	alias :odba_minus :-
+	alias :_odba_minus :-
 	def -(stub)
-		self.odba_minus(stub.odba_instance)
+		self._odba_minus(stub.odba_instance)
 	end
-	alias :odba_weight :<=>
+	alias :_odba_weight :<=>
 	def <=>(stub)
-		self.odba_weight(stub.odba_instance)
+		self._odba_weight(stub.odba_instance)
 	end
-	alias :odba_equal? :==
+	alias :_odba_equal? :==
 	def ==(stub)
-		self.odba_equal?(stub.odba_instance)
+		self._odba_equal?(stub.odba_instance)
 	end
-	alias :odba_union :|
+	alias :_odba_union :|
 	def |(stub)
-		self.odba_union(stub.odba_instance)
+		self._odba_union(stub.odba_instance)
 	end
 	['concat', 'replace', 'include?'].each { |method|
 		eval <<-EOS
-			alias :odba_#{method} :#{method}
+			alias :_odba_#{method} :#{method}
 			def #{method}(stub)
-				self.odba_#{method}(stub.odba_instance)
+				self._odba_#{method}(stub.odba_instance)
 			end
 		EOS
 	}
 end
 class Hash
-	alias :odba_equal? :==
+	alias :_odba_equal? :==
 	def ==(stub)
-		self.odba_equal?(stub.odba_instance)
+		self._odba_equal?(stub.odba_instance)
 	end
 	['merge', 'merge!', 'replace'].each { |method|
 		eval <<-EOS
-			alias :odba_#{method} :#{method}
+			alias :_odba_#{method} :#{method}
 			def #{method}(stub)
-				self.odba_#{method}(stub.odba_instance)
+				self._odba_#{method}(stub.odba_instance)
 			end
 		EOS
 	}
