@@ -361,14 +361,14 @@ module ODBA
 			end
 		end
 		def transaction(&block)
+			dbi = nil
 			@dbi.transaction { |dbi|
 				dbi['AutoCommit'] = false
 				Thread.current[:txn] = dbi
-				res = block.call
-				dbi['AutoCommit'] = true
-				res
+				block.call
 			}
 		ensure
+			dbi['AutoCommit'] = true
 			Thread.current[:txn] = nil
 		end
 		def update_fulltext_index(index_name, origin_id, search_term, target_id, dict)
