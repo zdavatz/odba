@@ -341,8 +341,9 @@ module ODBA
 			EOQ
 		end
 		def store(odba_id, dump, name, prefetchable)
-			sql = "SELECT odba_id FROM object WHERE odba_id = ?"
-			if(self.dbi.select_one(sql, odba_id))
+			sql = "SELECT name FROM object WHERE odba_id = ?"
+			if(row = self.dbi.select_one(sql, odba_id))
+				name ||= row['name']
 				sth = self.dbi.prepare <<-SQL
 					UPDATE object SET 
 					content = ?,
