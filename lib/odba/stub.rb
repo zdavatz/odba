@@ -63,11 +63,16 @@ module ODBA
 		]
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
-			eval <<-EOS
+			src = (method[-1] == ?=) ? <<-EOW : <<-EOS
+				def #{method}(args)
+					odba_instance.#{method}(args)
+				end
+			EOW
 				def #{method}(*args)
 					odba_instance.#{method}(*args)
 				end
 			EOS
+			eval src
 		}
 		def respond_to?(meth)
 			if([:marshal_dump, :_dump].include?(meth))
