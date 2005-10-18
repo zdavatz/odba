@@ -20,6 +20,9 @@ module ODBA
 		def hash
 			@odba_id.to_i
 		end
+		def inspect
+			"#<ODBA::Stub:#{object_id}##@odba_id @odba_class=#@odba_class @odba_container=#{@odba_container.object_id}>"
+		end
 		def is_a?(klass)
 			[Stub, Persistable, @odba_class].include?(klass) \
 				|| odba_instance.is_a?(klass)
@@ -57,7 +60,9 @@ module ODBA
 		end
 		no_override = [
 			"class", "dup", "is_a?", "__id__", "__send__", "inspect", "hash",
-			"eql?", "nil?", "respond_to?", 
+			"eql?", "nil?", "respond_to?", "object_id", 
+			"instance_variables", "instance_variable_get",
+			"instance_variable_set",
 			## methods defined in persistable.rb:Object
 			"odba_id", "odba_instance", "odba_isolated_stub"
 		]
@@ -69,11 +74,12 @@ module ODBA
 				end
 			EOS
 		}
-		def respond_to?(meth)
-			if([:marshal_dump, :_dump].include?(meth))
-				super
+		def respond_to?(msg_id)
+			case msg_id
+			when :_dump, :marshal_dump
+				false
 			else
-				odba_instance.respond_to?(meth)
+				odba_instance.respond_to?(msg_id)
 			end
 		end
 		## FIXME

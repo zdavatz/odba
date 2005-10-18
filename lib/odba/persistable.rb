@@ -15,7 +15,6 @@ module ODBA
 	class Stub; end
 	module Persistable
 		attr_accessor :odba_name, :odba_prefetch
-		ODBA_CACHE_METHODS = []
 		ODBA_EXCLUDE_VARS = []
 		ODBA_INDEXABLE = true
 		ODBA_PREFETCH = false
@@ -35,16 +34,6 @@ module ODBA
 				end
 			}
 			twin
-		end
-		def odba_cache_methods
-			self::class::ODBA_CACHE_METHODS
-		end
-		def odba_cache_values
-			odba_cache_methods.collect { |symbol|
-				if(self.respond_to?(symbol))
-					[self.odba_id, symbol, self.send(symbol)]
-				end
-			}.compact
 		end
 		def odba_collection
 			[]
@@ -115,18 +104,21 @@ module ODBA
 				end
 			}
 		end
-		def odba_replaceable?(var, name)
-			var.is_a?(ODBA::Persistable) && (!var.is_a?(ODBA::Stub))
-		end
 		def odba_replace_persistables
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
-				if(odba_replaceable?(var, name))
+				if(var.is_a?(ODBA::Stub))
+					var.odba_clear_receiver
+				elsif(var.is_a?(ODBA::Persistable))
 					odba_id = var.odba_id
 					stub = ODBA::Stub.new(odba_id, self, var)
 					instance_variable_set(name, stub)
-				elsif(var.is_a?(ODBA::Stub))
-					var.odba_clear_receiver
+				end
+			}
+			odba_serializables.each { |name|
+				var = instance_variable_get(name)
+				if(var.is_a?(ODBA::Stub))
+					instance_variable_set(name, var.odba_instance)
 				end
 			}
 		end
@@ -245,7 +237,6 @@ module ODBA
 end
 class Array
 	include ODBA::Persistable
-	ODBA_CACHE_METHODS = [:length, :size, :empty?]
 	def odba_collection
 		coll = []
 		each_with_index { |item, index|
@@ -278,24 +269,6 @@ class Array
 		collection.each { |key, val| 
 			self[key] = val
 		}
-=begin
-		## can be phased out...
-		bulk_fetch_ids = []
-		each { |item|
-			if(item.is_a?(ODBA::Stub))
-				bulk_fetch_ids.push(item.odba_id)
-			end
-		}
-		unless(bulk_fetch_ids.empty?)
-			ODBA.cache_server.bulk_fetch(bulk_fetch_ids, self)
-			each_with_index { |item, idx|
-				if(item.is_a? ODBA::Stub)
-					self[idx] = item.odba_instance
-				end
-			}
-		end
-		##
-=end
 	end
 	def odba_unsaved_neighbors(snapshot_level = nil)
 		unsaved = super
@@ -313,13 +286,6 @@ class Array
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved?
 		} )
 	end
-	unless(instance_methods.include?('odba_flatten!'))
-		alias :odba_flatten! :flatten!
-		def flatten!
-			odba_restore
-			odba_flatten!
-		end
-	end
 	def odba_target_ids
 		ids = super
 		self.each { |value|
@@ -332,7 +298,6 @@ class Array
 end
 class Hash
 	include ODBA::Persistable
-	ODBA_CACHE_METHODS = [:length, :size, :empty?]
 	def odba_cut_connection(remove_object)
 		super(remove_object)
 		delete_if { |key, val|

@@ -9,8 +9,8 @@ require 'date'
 module ODBA
 	class Cache
 		include Singleton
-		CLEANER_PRIORITY = 0
-		CLEANING_INTERVAL = 300
+		CLEANER_PRIORITY = 1
+		CLEANING_INTERVAL = 30
 		REAPER_ID_STEP = 1000
 		REAPER_INTERVAL = 900
 		def initialize
@@ -60,6 +60,8 @@ module ODBA
 		def clean
 			delete_old
 			#cleaned = 0
+			#puts "starting cleaning cycle"
+			#$stdout.flush
 			#start = Time.now
 			@fetched.each_value { |value|
 				if(value.odba_old?)
@@ -76,6 +78,8 @@ module ODBA
 				}
 			end
 			#puts "cleaned: #{cleaned} objects in #{Time.now - start} seconds"
+			#puts "remaining objects in @fetched:    #{@fetched.size}"
+			#puts "remaining objects in @prefetched: #{@prefetched.size}"
 			#$stdout.flush
 		end
 		def clean_prefetched(flag=true)
@@ -266,6 +270,7 @@ module ODBA
 				@reaper_min_id = 0
 				@reaper_max_id = REAPER_ID_STEP
 			end
+			#puts "removing objects between #{@reaper_min_id} and #{@reaper_max_id}"
 			ODBA.storage.remove_dead_objects(@reaper_min_id, @reaper_max_id)
 			ODBA.storage.remove_dead_connections(@reaper_min_id, @reaper_max_id)
 		end

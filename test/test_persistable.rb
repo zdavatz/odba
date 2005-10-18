@@ -22,6 +22,9 @@ module ODBA
 			def is_a?(arg)
 				true
 			end
+			def odba_instance
+				true
+			end
 		end
 		class ODBAExcluding
 			include ODBA::Persistable
@@ -30,7 +33,9 @@ module ODBA
 		end
 		class ODBAContainer
 		 include ODBA::Persistable
-		 attr_accessor	:non_replaceable, :replaceable, :replaceable2, :array, :odba_persistent
+		 ODBA_SERIALIZABLE = ['@serializable']
+		 attr_accessor	:non_replaceable, :replaceable, :replaceable2, 
+			:array, :odba_persistent, :serializable
 		 attr_accessor	:odba_snapshot_level
 		end
 		class Hash
@@ -152,14 +157,6 @@ module ODBA
 			excluded.__verify
 			included.__verify
 		end
-		def test_odba_replaceable
-			var = StubMock.new
-			name = "foo"
-			var.__next(:is_a?) { |persistable| true }
-			var.__next(:is_a?) { |stub| false }
-			assert_equal(true, @odba.odba_replaceable?(var, name))
-			var.__verify
-		end
 		def test_extend_enumerable
 			hash = Hash.new
 			array = Array.new
@@ -187,11 +184,11 @@ module ODBA
 			@odba.non_replaceable = non_replaceable
 			@odba.replaceable = replaceable
 			non_replaceable.__next(:is_a?) { |arg|
-				assert_equal(Persistable, arg)
+				assert_equal(Stub, arg)
 				false
 			}
 			non_replaceable.__next(:is_a?) { |arg|
-				assert_equal(Stub, arg)
+				assert_equal(Persistable, arg)
 				false
 			}
 			#ODBA.storage.__next(:next_id){ 13 }
@@ -201,6 +198,20 @@ module ODBA
 			assert_equal(true, @odba.replaceable.is_a?(Stub))
 			non_replaceable.__verify
 			ODBA.cache_server.__verify
+		end
+		def test_odba_replace_persistables__stubised_serialisable
+			non_replaceable = StubMock.new
+			@odba.serializable = non_replaceable
+			non_replaceable.__next(:is_a?) { |arg|
+				assert_equal(Stub, arg)
+				true
+			}
+			non_replaceable.__next(:odba_instance) { 
+				'serialize this'
+			}
+			@odba.odba_replace_persistables
+			assert_equal('serialize this', @odba.serializable)
+			non_replaceable.__verify
 		end
 		def test_odba_store_unsaved
 			level1 = ODBAContainer.new
@@ -286,27 +297,19 @@ module ODBA
 				assert_equal(Stub, arg)
 				false
 			}
-			replaceable2.__next(:is_a?) { |arg| ### from odba_replaceable?
-				assert_equal(Persistable, arg)
-				true
-			}
 			replaceable2.__next(:is_a?){ |arg| ### from odba_replaceable?
 				assert_equal(Stub, arg)
 				false
+			}
+			replaceable2.__next(:is_a?) { |arg| ### from odba_replaceable?
+				assert_equal(Persistable, arg)
+				true
 			}
 			replaceable2.__next(:odba_id) { 12 }
 
 			replaceable.__next(:is_a?) { |arg| ### from self.dup
 				assert_equal(Stub, arg)
 				false ## say no here, because we need to control the following
-			}
-			replaceable.__next(:is_a?) { |arg| ### from odba_replaceable?
-				assert_equal(Persistable, arg)
-				true
-			}
-			replaceable.__next(:is_a?) { |arg| ### from odba_replaceable?
-				assert_equal(Stub, arg)
-				true
 			}
 			replaceable.__next(:is_a?) { |arg|
 				assert_equal(Stub, arg)
@@ -370,6 +373,15 @@ module ODBA
 			}
 			@odba.odba_store('bar')
 			assert_equal("bar", @odba.odba_name)
+		end
+		def test_inspect_with_stub_in_array
+			ODBA.storage.__next(:next_id) { 12 }
+			ODBA.storage.__next(:next_id) { 13 }
+			content = ODBAContainer.new
+			@odba.instance_variable_set('@contents', [content])
+			twin = @odba.odba_isolated_twin
+			assert_not_nil(/@contents=#<ODBA::Stub:/.match(twin.inspect))
+			ODBA.storage.__verify
 		end
 	end	
 	class TestArrayReplaceStubs < Test::Unit::TestCase
