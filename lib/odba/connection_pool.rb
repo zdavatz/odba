@@ -18,15 +18,20 @@ module ODBA
 		def next_connection
 			conn = nil
 			@mutex.synchronize {
-				conn = @connections.at(@pos)
-				@pos = (@pos + 1) % POOL_SIZE
+				conn = @connections.shift
 			}
-			conn
+			yield(conn)
+		ensure
+			@mutex.synchronize {
+				@connections.push(conn)
+			}
 		end
 		def method_missing(method, *args, &block)
 			tries = SETUP_RETRIES
 			begin
-				next_connection.send(method, *args, &block)
+				next_connection { |conn|
+					conn.send(method, *args, &block)
+				}
 			rescue NoMethodError, DBI::DatabaseError
 				if(tries > 0)
 					sleep(SETUP_RETRIES - tries)
@@ -45,7 +50,6 @@ module ODBA
 			@mutex.synchronize { _connect }
 		end
 		def _connect
-			@pos = 0
 			POOL_SIZE.times { 
 				@connections.push(DBI.connect(*@dbi_args))
 			}
