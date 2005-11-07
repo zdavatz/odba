@@ -6,8 +6,8 @@ module ODBA
 		include Persistable
 		ODBA_EXCLUDE_VARS = ['@proc_target', '@proc_origin']
 		def initialize(index_definition, origin_module)
-			@origin_klass = origin_module.instance_eval(index_definition.origin_klass)
-			@target_klass = origin_module.instance_eval(index_definition.target_klass)
+			@origin_klass = origin_module.instance_eval(index_definition.origin_klass.to_s)
+			@target_klass = origin_module.instance_eval(index_definition.target_klass.to_s)
 			@resolve_origin = index_definition.resolve_origin
 			@resolve_target = index_definition.resolve_target
 			@index_name = index_definition.index_name

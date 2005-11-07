@@ -337,8 +337,6 @@ module ODBA
 			}
 		end
 		def store_collection_elements(odba_id, collection)
-			#odba_id = object.odba_id
-			#collection = object.odba_collection
 			old_collection = []
 			if(cache_entry = fetch_cache_entry(odba_id))
 				old_collection = cache_entry.collection
@@ -346,6 +344,7 @@ module ODBA
 					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
 					ODBA.storage.collection_remove(odba_id, key_dump)
 				}
+				cache_entry.collection = collection
 			end
 			(collection - old_collection).each { |key, value|
 				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)

@@ -307,6 +307,9 @@ module ODBA
 
 			cache_entry = Mock.new('cache_entry')
 			cache_entry.__next(:collection) { old_collection }
+			cache_entry.__next(:collection=) { |col|
+				assert_equal(new_collection, col)
+			}
 
 			ODBA.storage.__next(:collection_remove) { |odba_id, key| 
 				assert_equal(54, odba_id)

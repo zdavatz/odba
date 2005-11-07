@@ -17,9 +17,6 @@ module ODBA
 		def eql?(other)
 			@odba_id == other.odba_id ## defined in Object
 		end
-		def hash
-			@odba_id.to_i
-		end
 		def inspect
 			"#<ODBA::Stub:#{object_id}##@odba_id @odba_class=#@odba_class @odba_container=#{@odba_container.object_id}>"
 		end
@@ -59,7 +56,7 @@ module ODBA
 			false
 		end
 		no_override = [
-			"class", "dup", "is_a?", "__id__", "__send__", "inspect", "hash",
+			"class", "dup", "is_a?", "__id__", "__send__", "inspect", 
 			"eql?", "nil?", "respond_to?", "object_id", 
 			"instance_variables", "instance_variable_get",
 			"instance_variable_set",

@@ -190,5 +190,38 @@ module ODBA
 			}
 			assert_equal('foo', stub['bar'])
 		end
+		def test_hash_key__1
+			stub = Stub.new(9, nil, nil)
+			ODBA.cache_server.__next(:fetch) { |odba_id, caller|
+				assert_equal(9, odba_id)
+				@receiver
+			}
+			ODBA.cache_server.__next(:fetch) { |odba_id, caller|
+				assert_equal(9, odba_id)
+				@receiver
+			}
+			@odba_container.__next(:odba_replace_stubs) {}
+			hash = {stub => 'success'}
+			assert_equal('success', hash[@stub])
+			other = Stub.new(8, nil, nil)
+			ODBA.cache_server.__next(:fetch) { |odba_id, caller|
+				assert_equal(8, odba_id)
+				'other'
+			}
+			assert_nil(hash[other])
+			ODBA.cache_server.__verify
+		end
+=begin # FIXME
+		def test_hash_key__2
+			ODBA.cache_server.__next(:fetch) { |odba_id, caller|
+				assert_equal(9, odba_id)
+				@receiver
+			}
+			@odba_container.__next(:odba_replace_stubs) {}
+			hash = {@stub => 'success'}
+			ODBA.cache_server.__verify
+			assert_equal('success', hash[@receiver])
+		end
+=end
 	end
 end
