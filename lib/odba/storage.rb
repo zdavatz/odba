@@ -169,18 +169,11 @@ module ODBA
 			sth.execute(odba_id, key_dump)
 		end
 		def collection_store(odba_id, key_dump, value_dump)
-			retries = 1
 			sth = self.dbi.prepare <<-SQL 
 				INSERT INTO collection (odba_id, key, value)
 				VALUES (?, ?, ?)
 			SQL
 			sth.execute(odba_id, key_dump, value_dump)
-		rescue DBI::ProgrammingError => e
-			if(/duplicate key/.match(e.message) && retries > 0)
-				retries -= 1
-				collection_remove(odba_id, key_dump)
-				retry
-			end
 		end
 		def generate_dictionary(language, locale, dict_dir)
 			self.dbi.execute <<-SQL
