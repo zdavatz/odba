@@ -325,7 +325,10 @@ module ODBA
 				54 => cache_entry
 			}
 			
-			@cache.store_collection_elements(54, new_collection)
+			obj = Mock.new('Obj')
+			obj.__next(:odba_id) { 54 }
+			obj.__next(:odba_collection) { new_collection }
+			@cache.store_collection_elements(obj)
 			ODBA.marshaller = old_mar
 		end
 		def test_store_object_connections
@@ -404,13 +407,15 @@ module ODBA
 		def prepare_fetch_collection(obj)
 		end
 		def prepare_store(store_array, &block)
-			store_array.each{ |mock|
+			store_array.each { |mock|
 				# store
 				mock.__next(:odba_id){ || }
 				mock.__next(:odba_isolated_dump){ || }
 
 				# store_collection_elements
+				mock.__next(:odba_id){ || }
 				mock.__next(:odba_collection){|| []}
+				mock.__next(:odba_id){ || }
 
 				# store
 				mock.__next(:odba_name){ || }
@@ -426,6 +431,7 @@ module ODBA
 				mock.__next(:odba_prefetch?){ || }
 				mock.__next(:odba_collection){ || [] }
 
+				ODBA.storage.__next(:restore_collection) { [] }
 				if(block)
 					ODBA.storage.__next(:store, &block) 
 				else

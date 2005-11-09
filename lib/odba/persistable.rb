@@ -202,15 +202,6 @@ module ODBA
 		def odba_unsaved_neighbors(snapshot_level = nil)
 			unsaved = []
 			odba_potentials.each { |name|
-=begin
-				unless(self::class::ODBA_EXCLUDE_VARS.include?(name))
-					item = instance_variable_get(name)
-					#odba_extend_enumerable(item)
-					if(item.is_a?(ODBA::Persistable) \
-						&& item.odba_unsaved?(snapshot_level))
-						unsaved.push(item)
-					end
-=end
 				item = instance_variable_get(name)
 					if(item.is_a?(ODBA::Persistable) \
 						&& item.odba_unsaved?(snapshot_level))

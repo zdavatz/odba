@@ -313,11 +313,13 @@ module ODBA
 				ids.unshift(odba_id)
 			end
 			dump = object.odba_isolated_dump
-			store_collection_elements(odba_id, object.odba_collection)
+			store_collection_elements(object)
 			name = object.odba_name
 			prefetchable = object.odba_prefetch?
 			ODBA.storage.store(odba_id, dump, name, prefetchable)
-			store_object_connections(odba_id, object.odba_target_ids)
+			target_ids = object.odba_target_ids
+			store_object_connections(odba_id, target_ids)
+			update_references(target_ids, object)
 			update_indices(object)
 			store_cache_entry(odba_id, object, name)
 		end
@@ -336,15 +338,19 @@ module ODBA
 				cache_entry.odba_object
 			}
 		end
-		def store_collection_elements(odba_id, collection)
+		def store_collection_elements(obj)
+			odba_id = obj.odba_id
+			collection = obj.odba_collection
 			old_collection = []
 			if(cache_entry = fetch_cache_entry(odba_id))
 				old_collection = cache_entry.collection
-				(old_collection - collection).each { |key, value|
-					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
-					ODBA.storage.collection_remove(odba_id, key_dump)
-				}
+			else
+				old_collection = fetch_collection(obj)
 			end
+			(old_collection - collection).each { |key, value|
+				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
+				ODBA.storage.collection_remove(odba_id, key_dump)
+			}
 			(collection - old_collection).each { |key, value|
 				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
 				value_dump = ODBA.marshaller.dump(value.odba_isolated_stub)
@@ -384,6 +390,13 @@ module ODBA
 					index.update(odba_object)
 				}
 			end
+		end
+		def update_references(target_ids, object)
+			target_ids.each { |odba_id|
+				if(entry = fetch_cache_entry(odba_id))
+					entry.odba_add_reference(object)
+				end
+			}
 		end
 		private
 		def load_object(odba_id, caller)
