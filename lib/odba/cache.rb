@@ -344,7 +344,6 @@ module ODBA
 					key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
 					ODBA.storage.collection_remove(odba_id, key_dump)
 				}
-				cache_entry.collection = collection
 			end
 			(collection - old_collection).each { |key, value|
 				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
