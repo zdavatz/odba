@@ -2,8 +2,6 @@
 #-- Cache -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'singleton'
-require 'tmail'
-require 'net/smtp'
 require 'date'
 
 module ODBA
@@ -217,8 +215,8 @@ module ODBA
 				ODBA.marshaller.load(dump)
 			end
 		end
-		def fetch_named(name, caller, &block) # :nodoc:
-			fetch_or_do(name, caller) { 
+		def fetch_named(name, odba_caller, &block) # :nodoc:
+			fetch_or_do(name, odba_caller) { 
 				dump = ODBA.storage.restore_named(name)
 				if(dump.nil?)
 					obj = block.call
@@ -226,7 +224,7 @@ module ODBA
 					obj.odba_store(name)
 					obj
 				else
-					fetch_or_restore(name, dump, caller)
+					fetch_or_restore(name, dump, odba_caller)
 				end	
 			}
 		end
@@ -428,36 +426,9 @@ module ODBA
 			}
 		end
 		private
-		def load_object(odba_id, caller)
+		def load_object(odba_id, odba_caller)
 			dump = ODBA.storage.restore(odba_id)
-			begin
-				restore_object(odba_id, dump, caller)
-			rescue OdbaError => odba_error
-				if(@last_timeout.nil? || (Time.now - @last_timeout) > 300)
-					text = TMail::Mail.new
-					recipients = self::class::MAIL_RECIPIENTS
-					text.set_content_type('text', 'plain', 'charset'=>'ISO-8859-1')
-					text.body = <<-EOM
-Error loading object unknown odba_id #{odba_id}"
-#{::Kernel.caller.join("\n")}
-					EOM
-					text.from = self::class::MAIL_FROM
-					text.to = recipients
-					text.subject = "ODBA ID ERROR"
-					text.date = Time.now
-					text['User-Agent'] = 'ODBA Framework'
-					if(recipients.size > 0)
-						begin
-							Net::SMTP.start(self::class::SMTP_SERVER) { |smtp|
-								smtp.sendmail(text.encoded, self::class::MAIL_FROM, recipients.uniq)
-							}
-						rescue Timeout::Error
-							@last_timeout = Time.now
-						end
-					end
-				end
-				raise odba_error
-			end
+			restore_object(odba_id, dump, odba_caller)
 		end
 		def restore(dump)
 			obj = ODBA.marshaller.load(dump)
