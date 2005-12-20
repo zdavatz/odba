@@ -10,16 +10,16 @@ require 'odba/id_server'
 module ODBA
 	class TestIdServer < Test::Unit::TestCase
 		def setup
-			ODBA.cache_server = Mock.new('cache_server')
+			ODBA.cache = Mock.new('cache')
 			@id_server = IdServer.new
 			@id_server.instance_variable_set('@odba_id', 1)
 		end
 		def teardown
-			ODBA.cache_server.__verify
+			ODBA.cache.__verify
 		end
 		def test_first
 			3.times { 
-				ODBA.cache_server.__next(:store) { |obj|
+				ODBA.cache.__next(:store) { |obj|
 					assert_equal(@id_server, obj)
 				}
 			}
@@ -29,7 +29,7 @@ module ODBA
 		end
 		def test_consecutive
 			3.times { 
-				ODBA.cache_server.__next(:store) { |obj|
+				ODBA.cache.__next(:store) { |obj|
 					assert_equal(@id_server, obj)
 				}
 			}
@@ -38,7 +38,7 @@ module ODBA
 			assert_equal(3, @id_server.next_id(:foo))
 		end
 		def test_dumpable
-			ODBA.cache_server.__next(:store) { |obj|
+			ODBA.cache.__next(:store) { |obj|
 				assert_equal(@id_server, obj)
 			}
 			@id_server.next_id(:foo)

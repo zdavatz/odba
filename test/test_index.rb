@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# -- oddb -- 13.05.2004 -- mwalder@ywesee.com
+# TestIndex -- oddb -- 13.05.2004 -- hwyss@ywesee.com mwalder@ywesee.com
 
 $: << File.dirname(__FILE__)
 $: << File.expand_path("../lib", File.dirname(__FILE__))
@@ -17,7 +17,7 @@ module ODBA
 	class TestIndex < Test::Unit::TestCase
 		def setup
 			ODBA.storage = Mock.new("storage")
-			ODBA.cache_server = Mock.new("cache_server")
+			ODBA.cache = Mock.new("cache")
 			ODBA.storage.__next(:create_index) { |name| }
 		end
 		def test_fill_array
@@ -50,19 +50,19 @@ module ODBA
 			bar.__next(:odba_id) { || 5}
 			bar.__next(:origin){bar_origin}
 			
-			ODBA.cache_server.__next(:bulk_fetch){}
+			ODBA.cache.__next(:bulk_fetch){}
 			foo_origin.__next(:odba_id){45}
 			foo_origin.__next(:res_s){"result"}
 			foo_origin.__next(:res_s){"result"}
 		
 
-			ODBA.cache_server.__next(:bulk_fetch){}
+			ODBA.cache.__next(:bulk_fetch){}
 			baz_origin.__next(:odba_id){47}
 			baz_origin.__next(:res_s){"result"}
 			baz_origin.__next(:res_s){"result"}
 		
 
-			ODBA.cache_server.__next(:bulk_fetch){}
+			ODBA.cache.__next(:bulk_fetch){}
 			bar_origin.__next(:odba_id){48}
 			bar_origin.__next(:res_s){"result"}
 			bar_origin.__next(:res_s){"result"}
@@ -148,7 +148,7 @@ module ODBA
 			mock.__next(:target){
 				bar
 			}
-			ODBA.cache_server.__next(:bulk_fetch){|ids, obj|}
+			ODBA.cache.__next(:bulk_fetch){|ids, obj|}
 			result = index.resolve_targets(mock)
 			assert_equal([bar], result)
 			assert_equal(nil, bar.__verify)
@@ -170,7 +170,7 @@ module ODBA
 				assert_equal("test_index", name)
 			}
 			ODBA.storage.__next(:update_index) { |name, ogid, term, tarid | }	
-			ODBA.cache_server.__next(:bulk_fetch) { |ids, caller| }
+			ODBA.cache.__next(:bulk_fetch) { |ids, caller| }
 			index.update(foo)
 			assert_equal(nil, foo.__verify)
 		end
@@ -187,7 +187,7 @@ module ODBA
 			foo  = Mock.new("foo")
 			target = Mock.new("target")
 			index = Index.new(index_definition, ODBA)
-			ODBA.cache_server.__next(:bulk_fetch){|ids, obj|}
+			ODBA.cache.__next(:bulk_fetch){|ids, obj|}
 			index.update(foo)
 			assert_equal(nil, foo.__verify)
 			assert_equal(nil, ODBA.storage.__verify)

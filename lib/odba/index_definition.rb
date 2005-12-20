@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
-# IndexDefinition -- odba -- 20.09.2004 -- hwyss@ywesee.com
-
-require 'yaml'
+#-- IndexDefinition -- odba -- 20.09.2004 -- hwyss@ywesee.com
 
 module ODBA
+	# IndexDefinition is a convenience class. Load a yaml-dump of this and pass it
+	# to Cache#create_index to introduce new indices 
 	class IndexDefinition
 		attr_accessor :index_name, :dictionary, :origin_klass, 
 			:target_klass, :resolve_search_term, :resolve_target, 

@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# TestStorage -- odba -- 10.05.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
+# TestStorage -- odba -- 10.05.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))

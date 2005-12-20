@@ -29,7 +29,7 @@ module ODBA
 		def setup
 			@hash = Hash.new
 			#@hash.extend(ODBA::PersistableHash)
-			ODBA.cache_server = Mock.new("cache_server")
+			ODBA.cache = Mock.new("cache")
 			ODBA.storage = Mock.new("storage")
 			@hash.clear
 		end

@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# -- odba-- 29.04.2004 -- mwalder@ywesee.com
+# TestCacheEntry -- odba-- 29.04.2004 -- hwyss@ywesee.com mwalder@ywesee.com
 
 $: << File.dirname(__FILE__)
 $: << File.expand_path("../lib", File.dirname(__FILE__))
@@ -27,7 +27,7 @@ module ODBA
 		def setup
 			@mock = Mock.new
 			@cache_entry = ODBA::CacheEntry.new(@mock)
-			ODBA.cache_server = Mock.new("cache_server")
+			ODBA.cache = Mock.new("cache")
 		end
 		def test_retire_check
 			@mock.__next(:odba_unsaved?) { false }
@@ -61,7 +61,7 @@ module ODBA
 			obj_2 = TestMockCacheEntry.new
 			hash = TestMockCacheEntry.new
 			obj_1.__next(:is_a?) { |arg| false}
-			ODBA.cache_server.__next(:include?){|id| false}
+			ODBA.cache.__next(:include?){|id| false}
 			obj_1.__next(:is_a?) { |arg| true}
 			obj_1.__next(:odba_replace_persistable) {}
 			obj_2.__next(:is_a?) { |arg| false}

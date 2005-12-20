@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
-# Persistable -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
+#-- Persistable -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
-class Object
+class Object # :nodoc: all
 	def odba_id
 	end
 	def odba_instance
@@ -15,15 +15,22 @@ module ODBA
 	class Stub; end
 	module Persistable
 		attr_accessor :odba_name, :odba_prefetch
+		# Classes which include Persistable may override ODBA_EXCLUDE_VARS to 
+		# prevent data from being stored in the database (e.g. passwords, file
+		# descriptors). Simply redefine: ODBA_EXCLUDE_VARS = ['@foo']
 		ODBA_EXCLUDE_VARS = []
-		ODBA_INDEXABLE = true
+		ODBA_INDEXABLE = true # :nodoc:
+		# see odba_prefetch?
 		ODBA_PREFETCH = false
-		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids']
+		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids'] # :nodoc:
+		# If you want to prevent Persistables from being disconnected and stored 
+		# separately (Array and Hash are Persistable by default), redefine:
+		# ODBA_SERIALIZABLE = ['@bar']
 		ODBA_SERIALIZABLE = []
-		def ==(other)
+		def ==(other) # :nodoc:
 			super(other.odba_instance)
 		end
-		def dup
+		def dup #:nodoc:
 			twin = super
 			odba_potentials.each { |name|
 				var = twin.instance_variable_get(name)
@@ -35,9 +42,11 @@ module ODBA
 			}
 			twin
 		end
-		def odba_collection
+		def odba_collection #:nodoc:
 			[]
 		end
+		# Removes all connections to another persistable. This method is called
+		# by the Cache server when _remove_object_ is deleted from the database
 		def odba_cut_connection(remove_object)
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
@@ -46,22 +55,31 @@ module ODBA
 				end
 			}
 		end
+		# Permanently deletes this Persistable from the database and remove all 
+		# connections to it
 		def odba_delete
-			ODBA.cache_server.delete(self)
+			ODBA.cache.delete(self)
 		end
+		# Returns the odba unique id of this Persistable. If no id had been assigned,
+		# this is now done. No attempt is made to store the Persistable in the db.
 		def odba_id
-			@odba_id ||= ODBA.storage.next_id
+			@odba_id ||= ODBA.cache.next_id
 		end
-		def odba_isolated_dump
+		def odba_isolated_dump # :nodoc:
 			ODBA.marshaller.dump(odba_isolated_twin)
 		end
-		def odba_isolated_store
+		# Convenience method equivalent to ODBA.cache.store(self)
+		def odba_isolated_store 
 			@odba_persistent = true
-			ODBA.cache_server.store(self)
-		end		
+			ODBA.cache.store(self)
+		end
+		# Returns a new instance of Stub, which can be used as a stand-in replacement
+		# for this Persistable.
 		def odba_isolated_stub
 			Stub.new(self.odba_id, nil, self)
 		end
+		# Returns a duplicate of this Persistable, for which all connected 
+		# Persistables have been replaced by a Stub
 		def odba_isolated_twin
 			# ensure a valid odba_id
 			self.odba_id
@@ -70,16 +88,21 @@ module ODBA
 			twin.odba_replace_excluded!
 			twin
 		end
+		# A Persistable instance can be _prefetchable_. This means that the object
+		# can be loaded at startup by calling ODBA.cache.prefetch, and that it will 
+		# never expire from the Cache. The prefetch status can be controlled per 
+		# instance by setting the instance variable @odba_prefetch, and per class by 
+		# overriding the module constant ODBA_PREFETCH
 		def odba_prefetch?
 			@odba_prefetch || self::class::ODBA_PREFETCH
 		end
-		def odba_indexable?
+		def odba_indexable? # :nodoc:
 			@odba_indexable || self::class::ODBA_INDEXABLE
 		end
-		def odba_potentials
+		def odba_potentials # :nodoc:
 			instance_variables - odba_serializables - self::class::ODBA_EXCLUDE_VARS
 		end
-		def odba_replace(obj)
+		def odba_replace(obj) # :nodoc:
 			id = obj.odba_id
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
@@ -89,7 +112,7 @@ module ODBA
 			}
 		end
 		## should be called odba_stubize or similar
-		def odba_replace_persistable(obj)
+		def odba_replace_persistable(obj) # :nodoc:
 			id = obj.odba_id
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
@@ -104,7 +127,7 @@ module ODBA
 				end
 			}
 		end
-		def odba_replace_persistables
+		def odba_replace_persistables # :nodoc:
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
@@ -122,7 +145,7 @@ module ODBA
 				end
 			}
 		end
-		def odba_replace_stubs(stub, substitution, name = nil)
+		def odba_replace_stubs(stub, substitution, name = nil) # :nodoc:
 			if(name)
 				instance_variable_set(name, substitution)
 			else
@@ -134,13 +157,13 @@ module ODBA
 				}
 			end
 		end
-		def odba_restore(collection=[])
+		def odba_restore(collection=[]) # :nodoc:
 		end
-		def odba_serializables
+		def odba_serializables # :nodoc:
 			self::class::ODBA_PREDEFINE_SERIALIZABLE \
 				+ self::class::ODBA_SERIALIZABLE
 		end
-		def odba_store_unsaved
+		def odba_store_unsaved # :nodoc:
 			@odba_persistent = false
 			current_level = [self]
 			while(!current_level.empty?)
@@ -151,15 +174,19 @@ module ODBA
 						item.odba_isolated_store
 					end
 				}
-				current_level = next_level #.uniq
+				current_level = next_level
 			end
 		end
-		def odba_snapshot(snapshot_level)
+		def odba_snapshot(snapshot_level) # :nodoc:
 			if(snapshot_level > @odba_snapshot_level.to_i)
 				@odba_snapshot_level = snapshot_level
 				odba_isolated_store
 			end
 		end
+		# Stores this Persistable and recursively all connected unsaved persistables,
+		# until no more direcly connected unsaved persistables can be found.
+		# The optional parameter _name_ can be used later to retrieve this 
+		# Persistable using Cache#fetch_named
 		def odba_store(name = nil)
 			begin
 				unless (name.nil?)
@@ -172,6 +199,7 @@ module ODBA
 				raise
 			end
 		end
+		# Recursively stores all connected Persistables.
 		def odba_take_snapshot
 			@odba_snapshot_level ||= 0
 			snapshot_level = @odba_snapshot_level.next
@@ -191,7 +219,7 @@ module ODBA
 				current_level = next_level #.uniq
 			end
 		end
-		def odba_target_ids
+		def odba_target_ids # :nodoc:
 			odba_potentials.collect { |name|
 				var = instance_variable_get(name)
 				if(var.is_a?(ODBA::Persistable))
@@ -199,7 +227,7 @@ module ODBA
 				end
 			}.compact.uniq
 		end
-		def odba_unsaved_neighbors(snapshot_level = nil)
+		def odba_unsaved_neighbors(snapshot_level = nil) # :nodoc:
 			unsaved = []
 			odba_potentials.each { |name|
 				item = instance_variable_get(name)
@@ -210,7 +238,7 @@ module ODBA
 				}
 			unsaved
 		end
-		def odba_unsaved?(snapshot_level = nil)
+		def odba_unsaved?(snapshot_level = nil) # :nodoc:
 			if(snapshot_level.nil?)
 				!@odba_persistent
 				#true
@@ -226,7 +254,7 @@ module ODBA
 		end
 	end
 end
-class Array
+class Array # :nodoc: all
 	include ODBA::Persistable
 	def odba_collection
 		coll = []
@@ -287,7 +315,7 @@ class Array
 		ids.uniq
 	end
 end
-class Hash
+class Hash # :nodoc: all
 	include ODBA::Persistable
 	def odba_cut_connection(remove_object)
 		super(remove_object)

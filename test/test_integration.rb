@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# -- oddb -- 28.04.2004 -- mwalder@ywesee.com
+# TestIntegration -- oddb -- 28.04.2004 -- mwalder@ywesee.com
 =begin
 $: << File.expand_path('../lib/odba/', File.dirname(__FILE__))
 
@@ -44,7 +44,7 @@ module ODBA
 		def setup
 			#	Stub.delegate_object_methods
 			ODBA.storage  = Storage.new
-			ODBA.cache_server.hash.clear
+			ODBA.cache.hash.clear
 		end
 		def test_integration_simple
 		 root_odba = ODBAContainer.new
@@ -57,7 +57,7 @@ module ODBA
 		 level_1.link = level_2
 		 root_odba.odba_take_snapshot
 		 root_obda = nil
-		 root_odba = ODBA.cache_server.fetch(1, self)
+		 root_odba = ODBA.cache.fetch(1, self)
 		 assert_equal("rootObject", root_odba.data)
 		 assert_equal("level_1", root_odba.link.data)
 		 assert_equal("level_2", root_odba.link.link.data)
@@ -91,12 +91,12 @@ module ODBA
 			key_2_id = key_2.odba_id
 			val_2_id = val_2.odba_id
 			root_odba = nil
-			root_odba = ODBA.cache_server.fetch(1, self)
+			root_odba = ODBA.cache.fetch(1, self)
 			assert_equal("rootObject", root_odba.data)
 			assert_equal(2, root_odba.hash_obj.size)
-			new_key_2 = ODBA.cache_server.fetch(key_2_id, root_odba)
+			new_key_2 = ODBA.cache.fetch(key_2_id, root_odba)
 			assert_equal(key_2, new_key_2)
-			new_val_2 = ODBA.cache_server.fetch(val_2_id, root_odba)
+			new_val_2 = ODBA.cache.fetch(val_2_id, root_odba)
 			assert_equal(val_2, new_val_2)
 			assert_equal(new_val_2, root_odba.hash_obj[new_key_2])
 			assert_equal("val_1", root_odba.hash_obj["key_1"].data)
@@ -105,14 +105,14 @@ module ODBA
 			assert_equal(7, ODBA.storage.next_id_int)
 			
 			sleep(4)
-			root_odba = ODBA.cache_server.fetch(1, self)
+			root_odba = ODBA.cache.fetch(1, self)
 			assert_equal("rootObject", root_odba.data)
 			assert_equal(2, root_odba.hash_obj.size)
 			Thread.critical {
-				new_key_2 = ODBA.cache_server.fetch(key_2_id, self)
+				new_key_2 = ODBA.cache.fetch(key_2_id, self)
 				assert_instance_of(ODBAContainer, new_key_2)
 				assert_not_equal(key_2, new_key_2)
-				new_val_2 = ODBA.cache_server.fetch(val_2_id, self)
+				new_val_2 = ODBA.cache.fetch(val_2_id, self)
 				assert_instance_of(ODBAContainer, new_val_2)
 				assert_not_equal(val_2, new_val_2)
 				control_val = root_odba.hash_obj[new_key_2]
@@ -138,7 +138,7 @@ module ODBA
 			odba.link = odba_sub
 			odba.odba_take_snapshot
 			sleep(1.5)
-			loaded_odba = ODBA.cache_server.fetch(1, self)
+			loaded_odba = ODBA.cache.fetch(1, self)
 			assert_equal(true, loaded_odba.link.is_a?(Stub))
 			assert_equal("odba_sub", loaded_odba.link.data)
 			assert_equal(2, ODBA.storage.store_obj.size)
@@ -148,13 +148,13 @@ module ODBA
 		def test_cache_delete
 			odba = ODBAContainer.new
 			odba_sub = ODBAContainer.new
-			ODBA.cache_server.super_store(1, CacheEntry.new(odba))
-			ODBA.cache_server.super_store(2, CacheEntry.new(odba_sub))
-			loaded_odba = ODBA.cache_server.fetch(1, self)
-			assert_equal(2, ODBA.cache_server.size)
+			ODBA.cache.super_store(1, CacheEntry.new(odba))
+			ODBA.cache.super_store(2, CacheEntry.new(odba_sub))
+			loaded_odba = ODBA.cache.fetch(1, self)
+			assert_equal(2, ODBA.cache.size)
 			sleep(1)
-			ODBA.cache_server.delete_old
-			assert_equal(1, ODBA.cache_server.size)
+			ODBA.cache.delete_old
+			assert_equal(1, ODBA.cache.size)
 		end
 		def test_delete_hash_elements
 			root_element = ODBAContainer.new
@@ -172,15 +172,15 @@ module ODBA
 			root_element.odba_take_snapshot
 			root_element = nil
 			sleep(1.5)
-			root_element = ODBA.cache_server.fetch(1, self)
+			root_element = ODBA.cache.fetch(1, self)
 			root_element.hash_obj["key1"]
-			cache_entry = ODBA.cache_server[val_1.odba_id]
+			cache_entry = ODBA.cache[val_1.odba_id]
 			accessed_by = cache_entry.instance_variable_get("@accessed_by")
 			assert_equal(hash.odba_id, accessed_by[0].odba_id)
 			sleep(1.5)
-			assert_equal(true, ODBA.cache_server.has_key?(1))
-			assert_equal(false, ODBA.cache_server.has_key?(hash.odba_id))
-			assert_equal(1, ODBA.cache_server.size)
+			assert_equal(true, ODBA.cache.has_key?(1))
+			assert_equal(false, ODBA.cache.has_key?(hash.odba_id))
+			assert_equal(1, ODBA.cache.size)
 		end
 	end
 end

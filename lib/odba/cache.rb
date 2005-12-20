@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# Cache -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
+#-- Cache -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'singleton'
 require 'tmail'
@@ -9,14 +9,14 @@ require 'date'
 module ODBA
 	class Cache
 		include Singleton
-		CLEANER_PRIORITY = 1
-		CLEANING_INTERVAL = 30
-		REAPER_ID_STEP = 1000
-		REAPER_INTERVAL = 900
-		def initialize
+		CLEANER_PRIORITY = 1   # :nodoc: 
+		CLEANING_INTERVAL = 30 # :nodoc: 
+		REAPER_ID_STEP = 1000  # :nodoc: 
+		REAPER_INTERVAL = 900  # :nodoc: 
+		def initialize # :nodoc: 
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
-				#start_reaper
+				#start_reaper # TODO Database Garbage-Collection.
 			end
 			@cache_mutex = Mutex.new
 			@fetched = Hash.new
@@ -25,6 +25,9 @@ module ODBA
 			@reaper_min_id = 0
 			@reaper_max_id = 0
 		end
+		# Returns all objects designated by _bulk_fetch_ids_ and registers 
+		# _odba_caller_ for each of them. Objects which are not yet loaded are loaded
+		# from ODBA#storage.
 		def bulk_fetch(bulk_fetch_ids, odba_caller)
 			instances = []
 			loaded_ids = []
@@ -42,7 +45,7 @@ module ODBA
 			end
 			instances
 		end
-		def bulk_restore(rows, odba_caller = nil)
+		def bulk_restore(rows, odba_caller = nil) # :nodoc:
 			retrieved_objects= []
 			rows.each { |row|
 				obj_id = row.at(0)
@@ -57,7 +60,7 @@ module ODBA
 			}
 			retrieved_objects
 		end
-		def clean
+		def clean # :nodoc:
 			delete_old
 			#cleaned = 0
 			#puts "starting cleaning cycle"
@@ -82,23 +85,30 @@ module ODBA
 			#puts "remaining objects in @prefetched: #{@prefetched.size}"
 			#$stdout.flush
 		end
+		# overrides the ODBA_PREFETCH constant and @odba_prefetch instance variable
+		# in Persistable. Use this if a secondary client is more memory-bound than 
+		# performance-bound.
 		def clean_prefetched(flag=true)
 			if(@clean_prefetched = flag)
 				clean
 			end
 		end
-		def clear
+		def clear # :nodoc:
 			@fetched.clear
 			@prefetched.clear
 		end
+		# Creates a new index according to IndexDefinition
 		def create_index(index_definition, origin_module)
 			transaction {
-				index = ODBA.index_factory(index_definition, origin_module)
-				self.indices.store(index_definition.index_name, index)
-				self.indices.odba_store_unsaved
+				klass = index_definition.fulltext ? FulltextIndex : Index
+				index = klass.new(index_definition, origin_module)
+				indices.store(index_definition.index_name, index)
+				indices.odba_store_unsaved
 				index
 			}
 		end
+		# Permanently deletes _object_ from the database and deconnects all connected
+		# Persistables 
 		def delete(object)
 			odba_id = object.odba_id
 			#require 'debug'
@@ -124,7 +134,7 @@ module ODBA
 			delete_index_element(object)
 			object
 		end
-		def delete_index_element(odba_object)
+		def delete_index_element(odba_object) # :nodoc:
 			klass = odba_object.class
 			indices.each { |index_name, index|
 				if(index.origin_class?(klass))
@@ -132,7 +142,7 @@ module ODBA
 				end
 			}
 		end
-		def delete_old
+		def delete_old # :nodoc:
 			#deleted = 0
 			#start = Time.now
 			@fetched.delete_if { |key, value|
@@ -146,18 +156,21 @@ module ODBA
 			#puts "deleted: #{deleted} objects in #{Time.now - start} seconds"
 			#$stdout.flush
 		end
+		# Permanently deletes the index named _index_name_
 		def drop_index(index_name)
 			transaction {
 				ODBA.storage.drop_index(index_name)
-				self.delete(self.indices[index_name]) #.odba_delete
+				self.delete(self.indices[index_name]) 
 			}
 		end
-		def drop_indices
+		def drop_indices # :nodoc:
 				keys = self.indices.keys
 				keys.each{ |key|
 					drop_index(key)
 				}
 		end
+		# Fetch a Persistable identified by _odba_id_. Registers _odba_caller_ with
+		# the CacheEntry. Loads the Persistable if it is not already loaded.
 		def fetch(odba_id, odba_caller=nil)
 			if(cache_entry = fetch_cache_entry(odba_id))
 				cache_entry.odba_add_reference(odba_caller)
@@ -166,10 +179,10 @@ module ODBA
 				load_object(odba_id, odba_caller)
 			end
 		end
-		def fetch_cache_entry(odba_id_or_name)
+		def fetch_cache_entry(odba_id_or_name) # :nodoc:
 			@prefetched[odba_id_or_name] || @fetched[odba_id_or_name]
 		end
-		def fetch_collection(obj)
+		def fetch_collection(obj) # :nodoc:
 			collection = []
 			bulk_fetch_ids = [] 
 			rows = ODBA.storage.restore_collection(obj.odba_id)
@@ -196,7 +209,7 @@ module ODBA
 			}
 			collection
 		end
-		def fetch_collection_element(odba_id, key)
+		def fetch_collection_element(odba_id, key) # :nodoc:
 			key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
 			## for backward-compatibility and robustness we only attempt
 			## to load if there was a dump stored in the collection table
@@ -204,7 +217,7 @@ module ODBA
 				ODBA.marshaller.load(dump)
 			end
 		end
-		def fetch_named(name, caller, &block)
+		def fetch_named(name, caller, &block) # :nodoc:
 			fetch_or_do(name, caller) { 
 				dump = ODBA.storage.restore_named(name)
 				if(dump.nil?)
@@ -217,7 +230,7 @@ module ODBA
 				end	
 			}
 		end
-		def fetch_or_do(obj_id, odba_caller, &block)
+		def fetch_or_do(obj_id, odba_caller, &block) # :nodoc:
 			if(cache_entry = fetch_cache_entry(obj_id))
 				cache_entry.odba_add_reference(odba_caller)
 				cache_entry.odba_object
@@ -225,7 +238,7 @@ module ODBA
 				block.call
 			end
 		end
-		def fetch_or_restore(obj_id, dump, odba_caller)
+		def fetch_or_restore(obj_id, dump, odba_caller) # :nodoc:
 			fetch_or_do(obj_id, odba_caller) { 
 				obj, collection = restore(dump)
 				cache_entry = CacheEntry.new(obj)
@@ -248,22 +261,29 @@ module ODBA
 				}
 			}
 		end
-		def fill_index(index_name, targets)
+		def fill_index(index_name, targets) 
 			self.indices[index_name].fill(targets)
 		end
-		def include?(key)
-			@fetched.include?(key) || @prefetched.include?(key)
+		# Checks wether the object identified by _odba_id_ has been loaded.
+		def include?(odba_id)
+			@fetched.include?(odba_id) || @prefetched.include?(odba_id)
 		end
+		# Returns a Hash-table containing all stored indices. 
 		def indices
 			@indices ||= fetch_named('__cache_server_indices__', self) {
 				{}
 			}
 		end
+		# Returns the next valid odba_id
+		def next_id
+			ODBA.storage.next_id
+		end
+		# Use this to load all prefetchable Persistables from the db at once
 		def prefetch
 			rows = ODBA.storage.restore_prefetchable
 			bulk_restore(rows)
 		end
-		def reap_object_connections
+		def reap_object_connections # :nodoc:
 			@reaper_min_id += REAPER_ID_STEP
 			@reaper_max_id = @reaper_min_id + REAPER_ID_STEP
 			if(@reaper_min_id > ODBA.storage.max_id)
@@ -274,12 +294,17 @@ module ODBA
 			ODBA.storage.remove_dead_objects(@reaper_min_id, @reaper_max_id)
 			ODBA.storage.remove_dead_connections(@reaper_min_id, @reaper_max_id)
 		end
+		# Find objects in an index
 		def retrieve_from_index(index_name, search_term, meta=nil)
 			index = indices.fetch(index_name)
 			ids = index.fetch_ids(search_term, meta)
 			bulk_fetch(ids, nil)
 		end
-		def start_cleaner
+		# Create necessary DB-Structure / other storage-setup
+		def setup
+			ODBA.storage.setup
+		end
+		def start_cleaner # :nodoc: 
 			@cleaner = Thread.new {
 				Thread.current.priority = self::class::CLEANER_PRIORITY
 				loop {
@@ -293,7 +318,7 @@ module ODBA
 				}
 			}
 		end
-		def start_reaper
+		def start_reaper # :nodoc: 
 			@grim_reaper = Thread.new {
 				Thread.current.priority = -6
 				loop {
@@ -307,6 +332,7 @@ module ODBA
 				}
 			}
 		end
+		# Store a Persistable _object_ in the database
 		def store(object)
 			odba_id = object.odba_id
 			if(ids = Thread.current[:txids])
@@ -323,7 +349,7 @@ module ODBA
 			update_indices(object)
 			store_cache_entry(odba_id, object, name)
 		end
-		def store_cache_entry(odba_id, object, name=nil)
+		def store_cache_entry(odba_id, object, name=nil) # :nodoc:
 			@cache_mutex.synchronize {
 				cache_entry = fetch_cache_entry(odba_id)
 				if(cache_entry.nil?)
@@ -338,7 +364,7 @@ module ODBA
 				cache_entry.odba_object
 			}
 		end
-		def store_collection_elements(obj)
+		def store_collection_elements(obj) # :nodoc:
 			odba_id = obj.odba_id
 			collection = obj.odba_collection
 			old_collection = []
@@ -357,9 +383,12 @@ module ODBA
 				ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
 			}
 		end
-		def store_object_connections(odba_id, target_ids)
+		def store_object_connections(odba_id, target_ids) # :nodoc:
 			ODBA.storage.ensure_object_connections(odba_id, target_ids)
 		end
+		# Executes the block in a transaction. If the transaction fails, all 
+		# affected Persistable objects are reloaded from the db (which by then has 
+		# also performed a rollback). Rollback is quite inefficient at this time.
 		def transaction(&block)
 			Thread.current[:txids] = []
 			ODBA.storage.transaction(&block)
@@ -369,7 +398,7 @@ module ODBA
 		ensure
 			Thread.current[:txids] = nil
 		end
-		def transaction_rollback
+		def transaction_rollback # :nodoc:
 			if(ids = Thread.current[:txids])
 				ids.each { |id|
 					if(entry = fetch_cache_entry(id))
@@ -384,14 +413,14 @@ module ODBA
 				}
 			end
 		end
-		def update_indices(odba_object)
+		def update_indices(odba_object) # :nodoc:
 			if(odba_object.odba_indexable?)
 				indices.each { |index_name, index|
 					index.update(odba_object)
 				}
 			end
 		end
-		def update_references(target_ids, object)
+		def update_references(target_ids, object) # :nodoc:
 			target_ids.each { |odba_id|
 				if(entry = fetch_cache_entry(odba_id))
 					entry.odba_add_reference(object)

@@ -1,15 +1,30 @@
 #!/usr/bin/env ruby
-# Storage -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
+#-- Storage -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'thread'
 require 'singleton'
 require 'dbi'
 
 module ODBA
-	class Storage
+	class Storage # :nodoc: all
 		include Singleton
 		attr_writer :dbi
 		BULK_FETCH_STEP = 5000
+		TABLES = {
+			'object'						=> 'CREATE TABLE object ( odba_id integer NOT NULL, 
+															content text, name text, prefetchable boolean,
+															PRIMARY KEY(odba_id), UNIQUE(name));',
+			'object_connection'	=> 'CREATE TABLE object_connection ( origin_id integer,
+															target_id integer, 
+															PRIMARY KEY(origin_id, target_id));
+															CREATE INDEX target_id_index 
+															ON object_connection (target_id);
+															CREATE INDEX origin_id_index 
+															ON object_connection (origin_id);',
+			'collection'				=> 'CREATE TABLE collection ( odba_id integer NOT NULL,
+															key text, value text,
+															PRIMARY KEY(odba_id, key));', 
+		}
 		def initialize
 			@id_mutex = Mutex.new
 		end
@@ -332,6 +347,17 @@ module ODBA
 			self.dbi.select_all <<-EOQ
 				SELECT odba_id, content FROM object WHERE prefetchable = true
 			EOQ
+		end
+		def setup
+			tables = self.dbi.tables
+			rows = []
+			TABLES.each { |name, definition|
+				unless(tables.include?(name))
+					sth = self.dbi.prepare(definition)
+					rows = sth.execute
+				end
+			}
+			rows
 		end
 		def store(odba_id, dump, name, prefetchable)
 			sql = "SELECT name FROM object WHERE odba_id = ?"

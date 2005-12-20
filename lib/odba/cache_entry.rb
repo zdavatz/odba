@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
-# CacheEntry -- odba -- 29.04.2004 -- mwalder@ywesee.com
+#-- CacheEntry -- odba -- 29.04.2004 -- hwyss@ywesee.com mwalder@ywesee.com
 
 module ODBA
-	class CacheEntry
+	class CacheEntry # :nodoc: all
 		RETIRE_TIME = 300
 		DESTROY_TIME =  600
 		attr_accessor :last_access, :collection
@@ -42,7 +42,7 @@ module ODBA
 			keep = []
 			@accessed_by.each { |item|
 				if((item.is_a?(Enumerable) \
-					&& ODBA.cache_server.include?(item.odba_id)) \
+					&& ODBA.cache.include?(item.odba_id)) \
 					|| (!item.is_a?(ODBA::Persistable)))
 					keep.push(item)
 				else

@@ -1,10 +1,8 @@
 #!/usr/bin/env ruby
-# Stub -- odba -- 29.04.2004 -- rwaltert@ywesee.com mwalder@ywesee.com
-
-require 'yaml'
+#-- Stub -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 module ODBA
-	class Stub
+	class Stub # :nodoc: all
 		attr_accessor :odba_id, :odba_container
 		def initialize(odba_id, odba_container, receiver)
 			@odba_id = odba_id
@@ -40,7 +38,7 @@ module ODBA
 		end
 		def odba_replace(name=nil)
 			@receiver || begin
-				@receiver = ODBA.cache_server.fetch(@odba_id, @odba_container)
+				@receiver = ODBA.cache.fetch(@odba_id, @odba_container)
 				if(@odba_container)
 					@odba_container.odba_replace_stubs(self, @receiver)
 				end
@@ -48,6 +46,7 @@ module ODBA
 			rescue OdbaError => e
 				#require 'debug'
 				warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
+				warn e.backtrace.join("\n")
 			end
 		end
 		# A stub always references a Persistable that has 
@@ -88,13 +87,13 @@ module ODBA
 		#  implement full hash/array access - separate collection stub?
 		def [](*args, &block)
 			if(@odba_class == Hash \
-				&& !ODBA.cache_server.include?(@odba_id))
-				ODBA.cache_server.fetch_collection_element(@odba_id, args.first)
+				&& !ODBA.cache.include?(@odba_id))
+				ODBA.cache.fetch_collection_element(@odba_id, args.first)
 			end || method_missing(:[], *args, &block)
 		end
 	end
 end
-class Array
+class Array # :nodoc: all
 	alias :_odba_amp :&
 	def &(stub)
 		self._odba_amp(stub.odba_instance)
@@ -128,7 +127,7 @@ class Array
 		EOS
 	}
 end
-class Hash
+class Hash # :nodoc: all
 	alias :_odba_equal? :==
 	def ==(stub)
 		self._odba_equal?(stub.odba_instance)

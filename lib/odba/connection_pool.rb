@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# ConnectionPool -- ODBA -- 08.03.2005 -- hwyss@ywesee.com
+#-- ConnectionPool -- ODBA -- 08.03.2005 -- hwyss@ywesee.com
 
 require 'dbi'
 require 'thread'
@@ -9,13 +9,15 @@ module ODBA
 		POOL_SIZE = 5
 		SETUP_RETRIES = 3
 		attr_reader :connections
+		# All connections are delegated to DBI. The constructor simply records
+		# the DBI-arguments and reuses them to setup connections when needed.
 		def initialize(*dbi_args)
 			@dbi_args = dbi_args
 			@connections = []
 			@mutex = Mutex.new
 			connect
 		end
-		def next_connection
+		def next_connection # :nodoc:
 			conn = nil
 			@mutex.synchronize {
 				conn = @connections.shift
@@ -26,7 +28,7 @@ module ODBA
 				@connections.push(conn)
 			}
 		end
-		def method_missing(method, *args, &block)
+		def method_missing(method, *args, &block) # :nodoc:
 			tries = SETUP_RETRIES
 			begin
 				next_connection { |conn|
@@ -43,30 +45,30 @@ module ODBA
 				end
 			end
 		end
-		def pool_size
+		def pool_size 
 			@connections.size
 		end
-		def connect 
+		def connect # :nodoc:
 			@mutex.synchronize { _connect }
 		end
-		def _connect
+		def _connect # :nodoc:
 			POOL_SIZE.times { 
 				@connections.push(DBI.connect(*@dbi_args))
 			}
 		end
-		def disconnect 
+		def disconnect # :nodoc:
 			@mutex.synchronize { _disconnect }
 		end
-		def _disconnect
+		def _disconnect # :nodoc:
 			while(conn = @connections.shift)
 				begin 
 					conn.disconnect
 				rescue DBI::InterfaceError, Exception
-					## we're not interested.
+					## we're not interested, since we are disconnecting anyway
 				end
 			end
 		end
-		def reconnect
+		def reconnect # :nodoc:
 			@mutex.synchronize {
 				_disconnect
 				_connect

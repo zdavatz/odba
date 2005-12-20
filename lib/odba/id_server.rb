@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# IdServer -- odba -- 10.11.2004 -- hwyss@ywesee.com
+#-- IdServer -- odba -- 10.11.2004 -- hwyss@ywesee.com
 
 require 'odba'
 

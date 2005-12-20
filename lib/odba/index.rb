@@ -1,10 +1,17 @@
 #!/usr/bin/env ruby
-# Index -- odba -- 13.05.2004 -- rwaltert@ywesee.com
+#-- Index -- odba -- 13.05.2004 -- rwaltert@ywesee.com
 
 module ODBA
-	class IndexCommon
+	# Indices in ODBA are defined by origin and target (which may be identical)
+	# Any time a Persistable of class _target_klass_ or _origin_klass_ is stored,
+	# all corresponding indices are updated. To make this possible, we have to tell
+	# Index, how to navigate from _origin_ to _target_ and vice versa.
+	# Further, _search_term_ must be resolved in relation to _origin_.
+	class IndexCommon 
 		include Persistable
 		ODBA_EXCLUDE_VARS = ['@proc_target', '@proc_origin']
+		attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
+			:resolve_search_term, :index_name
 		def initialize(index_definition, origin_module)
 			@origin_klass = origin_module.instance_eval(index_definition.origin_klass.to_s)
 			@target_klass = origin_module.instance_eval(index_definition.target_klass.to_s)
@@ -14,7 +21,7 @@ module ODBA
 			@resolve_search_term = index_definition.resolve_search_term
 			@dictionary = index_definition.dictionary
 		end
-		def do_update_index(origin_id, search_term, target_id)
+		def do_update_index(origin_id, search_term, target_id) # :nodoc:
 			if(search_term.is_a?(Array))
 				search_term.compact.each { |term|
 					do_update_index(origin_id, term, target_id)
@@ -39,7 +46,7 @@ module ODBA
 		def origin_class?(klass)
 			(@origin_klass == klass)
 		end
-		def proc_instance_origin
+		def proc_instance_origin # :nodoc:
 			if(@proc_origin.nil?)
 				if(@resolve_origin.to_s.empty?)
 					@proc_origin = Proc.new { |odba_item|  [odba_item] }
@@ -57,7 +64,7 @@ module ODBA
 			end
 			@proc_origin
 		end
-		def proc_instance_target
+		def proc_instance_target # :nodoc:
 			if(@proc_target.nil?)
 				if(@resolve_target.to_s.empty?)
 					@proc_target = Proc.new { |odba_item|  [odba_item] }
@@ -75,7 +82,7 @@ module ODBA
 			end
 			@proc_target
 		end
-		def proc_resolve_search_term
+		def proc_resolve_search_term # :nodoc:
 			if(@proc_resolve_search_term.nil?)
 				if(@resolve_search_term.to_s.empty?)
 					@proc_resolve_search_term = Proc.new { |origin| origin.to_s }
@@ -94,11 +101,11 @@ module ODBA
 			end
 			@proc_resolve_search_term
 		end
-		def resolve_targets(odba_obj)
+		def resolve_targets(odba_obj) # :nodoc:
 			@proc_target = nil
 			proc_instance_target.call(odba_obj)
 		end
-		def search_term(odba_obj)
+		def search_term(odba_obj) # :nodoc:
 			proc_resolve_search_term.call(odba_obj)
 		end
 		def update(object)
@@ -108,7 +115,7 @@ module ODBA
 				self.update_origin(object)
 			end
 		end
-		def update_origin(object)
+		def update_origin(object) # :nodoc:
 			origin_id = object.odba_id
 			search_term = search_term(object)
 			target_objs = resolve_targets(object)		
@@ -118,14 +125,14 @@ module ODBA
 				do_update_index(origin_id, search_term, target_id)
 			}
 		end
-		def update_target(object)
+		def update_target(object) # :nodoc:
 			target_id = object.odba_id
 			ODBA.storage.index_delete_target(@index_name, target_id)
 			fill([object])
 		end
 	end
-	class Index < IndexCommon
-		def initialize(index_definition, origin_module)
+	class Index < IndexCommon # :nodoc: all
+		def initialize(index_definition, origin_module) # :nodoc:
 			super(index_definition, origin_module)
 			ODBA.storage.create_index(index_definition.index_name)
 		end
@@ -136,12 +143,12 @@ module ODBA
 			rows.collect { |row| row.at(0) }
 		end
 	end
-	class FulltextIndex < IndexCommon
-		def initialize(index_definition, origin_module)
+	class FulltextIndex < IndexCommon # :nodoc: all
+		def initialize(index_definition, origin_module) 
 			super(index_definition, origin_module)
 			ODBA.storage.create_fulltext_index(index_definition.index_name)
 		end
-		def fetch_ids(search_term, meta=nil)
+		def fetch_ids(search_term, meta=nil) 
 			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, 
 				search_term, @dictionary)
 			if(meta.respond_to?(:set_relevance))

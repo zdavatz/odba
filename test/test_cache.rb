@@ -53,7 +53,7 @@ module ODBA
 		def setup
 			@storage = ODBA.storage = Mock.new("storage")
 			@marshal = ODBA.marshaller = Mock.new("marshaller")
-			ODBA.cache_server = @cache = ODBA::Cache.instance
+			ODBA.cache = @cache = ODBA::Cache.instance
 			@cache.fetched = {}
 			@cache.prefetched = {}
 			@cache.indices = {}
@@ -76,13 +76,13 @@ module ODBA
 			storage.__define(:restore_named, ODBA.marshaller.dump(obj))
 			storage.__define(:restore_collection, [])
 			ODBA.storage = storage
-			load_1 = ODBA.cache_server.fetch_named('the_name', nil)
+			load_1 = ODBA.cache.fetch_named('the_name', nil)
 			assert_instance_of(CountingStub, load_1)
 			assert_equal('the_name', load_1.odba_name)
 			assert_equal(2, load_1.odba_id)
-			load_2 = ODBA.cache_server.fetch_named('the_name', nil)
+			load_2 = ODBA.cache.fetch_named('the_name', nil)
 			assert_equal(load_1, load_2)
-			load_3 = ODBA.cache_server.fetch(2, nil)
+			load_3 = ODBA.cache.fetch(2, nil)
 			assert_equal(load_1, load_3)
 		ensure
 			ODBA.marshaller = old_marshaller
