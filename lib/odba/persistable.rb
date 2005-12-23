@@ -10,6 +10,15 @@ class Object # :nodoc: all
 	def odba_isolated_stub
 		self
 	end
+	def odba_replace(obj)
+		rep_id = obj.odba_id
+		instance_variables.each { |name|
+			var = instance_variable_get(name) 
+			if(var.odba_id == rep_id)
+				instance_variable_set(name, obj)
+			end
+		}
+	end
 end
 module ODBA
 	class Stub; end

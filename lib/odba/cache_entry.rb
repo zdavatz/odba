@@ -54,9 +54,9 @@ module ODBA
 		def odba_replace!(obj)
 			@odba_object = obj
 			@accessed_by.each { |item|
-				if(item.is_a?(ODBA::Persistable))
+				#if(item.is_a?(ODBA::Persistable))
 					item.odba_replace(obj)
-				end
+				#end
 			}
 		end
 		def ready_to_destroy?

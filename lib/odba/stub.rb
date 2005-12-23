@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 #-- Stub -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
+require 'yaml'
+
 module ODBA
 	class Stub # :nodoc: all
 		attr_accessor :odba_id, :odba_container
@@ -22,21 +24,18 @@ module ODBA
 			[Stub, Persistable, @odba_class].include?(klass) \
 				|| odba_instance.is_a?(klass)
 		end
-		def method_missing(meth_symbol, *args, &block)
-			odba_instance.send(meth_symbol, *args, &block)
-		end
 		def odba_clear_receiver
 			@receiver = nil
 		end
 		def odba_instance
-			odba_replace
+			odba_receiver
 		end
 		def odba_isolated_stub
 			stub = dup
 			stub.odba_container = nil
 			stub
 		end
-		def odba_replace(name=nil)
+		def odba_receiver(name=nil)
 			@receiver || begin
 				@receiver = ODBA.cache.fetch(@odba_id, @odba_container)
 				if(@odba_container)
@@ -44,9 +43,7 @@ module ODBA
 				end
 				@receiver
 			rescue OdbaError => e
-				#require 'debug'
 				warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
-				warn e.backtrace.join("\n")
 			end
 		end
 		# A stub always references a Persistable that has 
@@ -54,14 +51,27 @@ module ODBA
 		def odba_unsaved?(snapshot_level=nil)
 			false
 		end
+		def to_yaml_properties
+			['@odba_id', '@odba_container']
+		end
+		def to_yaml_type
+			"!ruby/object:ODBA::Stub"
+		end
+		def yaml_initialize(tag, val)
+			val.each { |key, value| instance_variable_set("@#{key}", value) }
+		end
 		no_override = [
 			"class", "dup", "is_a?", "__id__", "__send__", "inspect", 
 			"eql?", "nil?", "respond_to?", "object_id", 
 			"instance_variables", "instance_variable_get",
-			"instance_variable_set",
+			"instance_variable_set", 
 			## methods defined in persistable.rb:Object
-			"odba_id", "odba_instance", "odba_isolated_stub"
+			"odba_id", "odba_instance", "odba_isolated_stub",
+			## yaml-methods
+			"to_yaml", "taguri", "to_yaml_style", "to_yaml_type",
+			"to_yaml_properties", "yaml_initialize",
 		]
+		NO_OVERRIDE = no_override.collect { |name| name.to_sym }
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
 			src = (method[-1] == ?=) ? <<-EOW : <<-EOS
@@ -75,10 +85,19 @@ module ODBA
 			EOS
 			eval src
 		}
+		def method_missing(meth_symbol, *args, &block)
+			if(NO_OVERRIDE.include?(meth_symbol))
+				super
+			else
+				odba_instance.send(meth_symbol, *args, &block)
+			end
+		end
 		def respond_to?(msg_id)
 			case msg_id
 			when :_dump, :marshal_dump
 				false
+			when *NO_OVERRIDE
+				super
 			else
 				odba_instance.respond_to?(msg_id)
 			end
@@ -93,6 +112,7 @@ module ODBA
 		end
 	end
 end
+
 class Array # :nodoc: all
 	alias :_odba_amp :&
 	def &(stub)

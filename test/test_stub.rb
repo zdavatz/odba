@@ -7,6 +7,7 @@ $: << File.dirname(__FILE__)
 require 'odba'
 require 'test/unit'
 require 'mock'
+require 'yaml'
 
 module ODBA
 	class Stub
@@ -74,7 +75,7 @@ module ODBA
 			cache = ODBA.cache 
 			cache.__next(:fetch) { |odba_id, odba_container| }
 			@odba_container.__next(:odba_replace_stubs) { |stub,receiver|}
-			@stub.odba_replace
+			@stub.odba_receiver
 			@odba_container.__verify
 			cache.__verify
 		end
@@ -110,7 +111,7 @@ module ODBA
 				receiver
 			}
 			receiver.__verify
-			assert_equal(false, @stub.respond_to?(:odba_replace))
+			assert_equal(true, @stub.respond_to?(:odba_replace))
 		end
 		def test_array_methods
 			stub = Stub.new(9, [], [])
@@ -210,6 +211,15 @@ module ODBA
 			}
 			assert_nil(hash[other])
 			ODBA.cache.__verify
+		end
+		def test_to_yaml
+			yaml = ''
+			assert_nothing_raised {
+				yaml = @stub.odba_isolated_stub.to_yaml
+			}
+			loaded = YAML.load(yaml)
+			assert(loaded.is_a?(Stub))
+			assert_equal(9, loaded.odba_id)
 		end
 =begin # FIXME
 		def test_hash_key__2

@@ -6,6 +6,7 @@ $: << File.expand_path('../lib/', File.dirname(__FILE__))
 require 'odba'
 require 'test/unit'
 require 'mock'
+require 'yaml'
 class Mock
 	def odba_id
 		1
@@ -381,6 +382,14 @@ module ODBA
 			twin = @odba.odba_isolated_twin
 			assert_not_nil(/@contents=#<ODBA::Stub:/.match(twin.inspect))
 			ODBA.storage.__verify
+		end
+		def test_to_yaml
+			yaml = ''
+			assert_nothing_raised { 
+				yaml = @odba.to_yaml
+			}
+			loaded = YAML.load(yaml)
+			assert_instance_of(ODBAContainer, loaded)
 		end
 	end	
 	class TestArrayReplaceStubs < Test::Unit::TestCase

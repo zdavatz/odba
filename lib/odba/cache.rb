@@ -99,7 +99,7 @@ module ODBA
 		def create_index(index_definition, origin_module)
 			transaction {
 				klass = index_definition.fulltext ? FulltextIndex : Index
-				index = klass.new(index_definition, origin_module)
+				index = klass.new(index_definition, origin_module=Object)
 				indices.store(index_definition.index_name, index)
 				indices.odba_store_unsaved
 				index
@@ -120,8 +120,8 @@ module ODBA
 						connected_object.odba_isolated_store
 					end
 				rescue OdbaError
-					puts "OdbaError ### deleting #{object.class}:#{odba_id}"
-					puts "          ### while looking for connected object #{id}"
+					warn "OdbaError ### deleting #{object.class}:#{odba_id}"
+					warn "          ### while looking for connected object #{id}"
 				end
 			}
 			@fetched.delete(odba_id)
@@ -248,8 +248,9 @@ module ODBA
 				hash = obj.odba_prefetch? ? @prefetched : @fetched
 				name = obj.odba_name
 				@cache_mutex.synchronize {
+					odba_id = obj.odba_id
 					fetch_or_do(odba_id, odba_caller) {
-						hash.store(obj.odba_id, cache_entry)
+						hash.store(odba_id, cache_entry)
 						unless(name.nil?)
 							hash.store(name, cache_entry)
 						end
