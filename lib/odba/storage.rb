@@ -381,11 +381,13 @@ module ODBA
 		end
 		def transaction(&block)
 			dbi = nil
+			retval = nil
 			@dbi.transaction { |dbi|
 				dbi['AutoCommit'] = false
 				Thread.current[:txn] = dbi
-				block.call
+				retval = block.call
 			}
+			retval
 		ensure
 			dbi['AutoCommit'] = true
 			Thread.current[:txn] = nil
