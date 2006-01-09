@@ -7,6 +7,7 @@ $: << File.expand_path('../lib/', File.dirname(__FILE__))
 require 'odba'
 require 'test/unit'
 require 'mock'
+require 'flexmock'
 
 module ODBA
 	class Storage
@@ -429,6 +430,15 @@ module ODBA
 				assert_equal(6, target_id)
 			}
 			@storage.ensure_object_connections(123, [1,2,2,3,4,4,5,6,6])
+		end
+		def test_transaction_returns_blockval_even_if_dbi_does_not
+			@storage.dbi = FlexMock.new
+			@storage.dbi.mock_handle(:transaction) { |block|
+				block.call({})
+				false 
+			}
+			res = @storage.transaction { "foo" }
+			assert_equal("foo", res)
 		end
 	end
 end
