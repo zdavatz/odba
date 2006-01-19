@@ -18,6 +18,8 @@ module ODBA
 				@ids[key] ||= (startval - 1)
 				res = @ids[key] += 1
 			}
+			odba_store
+			res
 		end
 	end
 end
