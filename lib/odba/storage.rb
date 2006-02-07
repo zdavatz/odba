@@ -61,11 +61,11 @@ module ODBA
 				SQL
 			}
 		end
-		def create_index(table_name)
+		def create_condition_index(table_name, definition)
 			sql = <<-SQL
 				CREATE TABLE #{table_name} (
 					origin_id integer, 
-					search_term text, 
+					#{definition.collect { |*pair| pair.join(' ') }.join(",\n") }, 
 					target_id integer
 				)
 			SQL
@@ -77,11 +77,13 @@ module ODBA
 			SQL
 			self.dbi.prepare(sql).execute
 			#index search_term
-			sql = <<-SQL
-				CREATE INDEX search_term_#{table_name} 
-				ON #{table_name}(search_term)
-			SQL
-			self.dbi.prepare(sql).execute
+			definition.each_key { |name|
+				sql = <<-SQL
+					CREATE INDEX #{name}_#{table_name} 
+					ON #{table_name}(#{name})
+				SQL
+				self.dbi.prepare(sql).execute
+			}
 		end
 		def create_fulltext_index(table_name)
 			sql = <<-SQL
@@ -102,6 +104,28 @@ module ODBA
 			sql = <<-SQL
 				CREATE INDEX search_term_#{table_name} 
 				ON #{table_name} USING gist(search_term)
+			SQL
+			self.dbi.prepare(sql).execute
+		end
+		def create_index(table_name)
+			sql = <<-SQL
+				CREATE TABLE #{table_name} (
+					origin_id integer, 
+					search_term text, 
+					target_id integer
+				)
+			SQL
+			self.dbi.prepare(sql).execute
+			#index origin_id
+			sql = <<-SQL
+				CREATE INDEX origin_id_#{table_name} 
+				ON #{table_name}(origin_id)
+			SQL
+			self.dbi.prepare(sql).execute
+			#index search_term
+			sql = <<-SQL
+				CREATE INDEX search_term_#{table_name} 
+				ON #{table_name}(search_term)
 			SQL
 			self.dbi.prepare(sql).execute
 		end
@@ -304,6 +328,28 @@ module ODBA
 			SQL
 			self.dbi.select_all(sql, target_id)
 		end
+		def retrieve_from_condition_index(index_name, conditions)
+			sql = <<-EOQ
+				SELECT target_id FROM #{index_name}
+				WHERE	TRUE
+			EOQ
+			values = []
+			lines = conditions.collect { |name, info|
+				val = nil
+				condition = info['condition']
+				if(val = info['value']) 
+					if(/i?like/i.match(condition))
+						val += '%'
+					end
+					condition = "#{condition || '='} ?"
+					values.push(val)
+				end
+				sql << <<-EOQ
+					AND #{name} #{condition || 'IS NULL'}
+				EOQ
+			}
+			self.dbi.select_all(sql, *values)
+		end
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
 			term = search_term.gsub(/\s+/, '&').gsub(/[():]/i, 
 				'\\ \\&').gsub(/\s/, '')
@@ -391,6 +437,19 @@ module ODBA
 		ensure
 			dbi['AutoCommit'] = true
 			Thread.current[:txn] = nil
+		end
+		def update_condition_index(index_name, origin_id, search_terms, target_id)
+			keys = []
+			vals = []
+			search_terms.each { |key, val|
+				keys.push(key)
+				vals.push(val)
+			}
+			sth_insert = self.dbi.prepare <<-SQL
+				INSERT INTO #{index_name} (origin_id, target_id, #{keys.join(', ')}) 
+				VALUES (?, ?#{', ?' * keys.size})
+			SQL
+			sth_insert.execute(origin_id, target_id, *vals)
 		end
 		def update_fulltext_index(index_name, origin_id, search_term, target_id, dict)
 			sth_insert = self.dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector(?, ? ), ?)")

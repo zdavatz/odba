@@ -6,8 +6,10 @@ module ODBA
 	# Any time a Persistable of class _target_klass_ or _origin_klass_ is stored,
 	# all corresponding indices are updated. To make this possible, we have to tell
 	# Index, how to navigate from _origin_ to _target_ and vice versa.
+	# This entails the Limitation that these paths must not change without
+	# _origin_ and/or _target_ being stored.
 	# Further, _search_term_ must be resolved in relation to _origin_.
-	class IndexCommon 
+	class IndexCommon # :nodoc: all
 		include Persistable
 		ODBA_EXCLUDE_VARS = ['@proc_target', '@proc_origin']
 		attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
@@ -112,7 +114,7 @@ module ODBA
 			if(object.is_a?(@target_klass))
 				update_target(object)
 			elsif(object.is_a?(@origin_klass))
-				self.update_origin(object)
+				update_origin(object)
 			end
 		end
 		def update_origin(object) # :nodoc:
@@ -131,24 +133,77 @@ module ODBA
 			fill([object])
 		end
 	end
+	# Currently there are 3 predefined Index-classes
+	# For Sample Code see
+	# http://dev.ywesee.com/wiki.php/ODBA/SimpleIndex
+	# http://dev.ywesee.com/wiki.php/ODBA/ConditionIndex
+	# http://dev.ywesee.com/wiki.php/ODBA/FulltextIndex
 	class Index < IndexCommon # :nodoc: all
 		def initialize(index_definition, origin_module) # :nodoc:
 			super(index_definition, origin_module)
 			ODBA.storage.create_index(index_definition.index_name)
 		end
-		def fetch_ids(search_term, meta=nil)
+		def fetch_ids(search_term, meta=nil) # :nodoc:
 			exact = meta.respond_to?(:exact) && meta.exact
 			rows = ODBA.storage.retrieve_from_index(@index_name, 
 				search_term, exact)
 			rows.collect { |row| row.at(0) }
 		end
 	end
-	class FulltextIndex < IndexCommon # :nodoc: all
-		def initialize(index_definition, origin_module) 
+	class ConditionIndex < IndexCommon # :nodoc: all  
+		def initialize(index_definition, origin_module) # :nodoc:
 			super(index_definition, origin_module)
-			ODBA.storage.create_fulltext_index(index_definition.index_name)
+			definition = {}
+			@resolve_search_term = {}
+			index_definition.resolve_search_term.each { |name, info|
+				if(info.is_a?(String))
+					info = { 'resolve' => info }
+				end
+				if(info['type'].nil?)
+					info['type'] = 'text'
+				end
+				@resolve_search_term.store(name, info)
+				definition.store(name, info['type'])
+			}
+			ODBA.storage.create_condition_index(@index_name, definition)
 		end
-		def fetch_ids(search_term, meta=nil) 
+		def do_update_index(origin_id, search_term, target_id) # :nodoc:
+			ODBA.storage.update_condition_index(@index_name, origin_id, 
+				search_term, target_id)
+		end
+		def fetch_ids(conditions, meta=nil)  # :nodoc:
+			ODBA.storage.retrieve_from_condition_index(@index_name,
+																								 conditions).flatten
+		end
+		def proc_resolve_search_term # :nodoc:
+			if(@proc_resolve_search_term.nil?)
+				src = <<-EOS
+					Proc.new { |origin| 
+						values = {}
+				EOS
+				@resolve_search_term.each { |name, info|
+					src << <<-EOS
+						begin
+							values.store('#{name}', origin.#{info['resolve']})
+						rescue NameError
+						end
+					EOS
+				}
+				src << <<-EOS 
+						values
+					}
+				EOS
+				@proc_resolve_search_term = eval(src)
+			end
+			@proc_resolve_search_term
+		end
+	end
+	class FulltextIndex < IndexCommon # :nodoc: all
+		def initialize(index_definition, origin_module)  # :nodoc:
+			super(index_definition, origin_module)
+			ODBA.storage.create_fulltext_index(@index_name)
+		end
+		def fetch_ids(search_term, meta=nil)  # :nodoc:
 			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, 
 				search_term, @dictionary)
 			if(meta.respond_to?(:set_relevance))
@@ -158,7 +213,7 @@ module ODBA
 			end
 			rows.collect { |row| row.at(0) }
 		end
-		def do_update_index(origin_id, search_term, target_id)
+		def do_update_index(origin_id, search_term, target_id) # :nodoc:
 				ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id, @dictionary) 
 		end
 	end

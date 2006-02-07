@@ -11,7 +11,7 @@ module ODBA
 		def initialize
 			@ids = {}
 		end
-		def next_id(key, startval=0)
+		def next_id(key, startval=1)
 			@mutex ||= Mutex.new
 			res = nil
 			@mutex.synchronize { 

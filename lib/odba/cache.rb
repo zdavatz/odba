@@ -98,7 +98,13 @@ module ODBA
 		# Creates a new index according to IndexDefinition
 		def create_index(index_definition, origin_module)
 			transaction {
-				klass = index_definition.fulltext ? FulltextIndex : Index
+				klass = if(index_definition.fulltext)
+									FulltextIndex
+								elsif(index_definition.resolve_search_term.is_a?(Hash))
+									ConditionIndex
+								else
+									Index
+								end
 				index = klass.new(index_definition, origin_module=Object)
 				indices.store(index_definition.index_name, index)
 				indices.odba_store_unsaved
