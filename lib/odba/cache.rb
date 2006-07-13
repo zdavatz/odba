@@ -273,6 +273,10 @@ module ODBA
 		def include?(odba_id)
 			@fetched.include?(odba_id) || @prefetched.include?(odba_id)
 		end
+		def index_keys(index_name, length=nil)
+			index = indices.fetch(index_name)
+			index.keys(length)
+		end
 		# Returns a Hash-table containing all stored indices. 
 		def indices
 			@indices ||= fetch_named('__cache_server_indices__', self) {

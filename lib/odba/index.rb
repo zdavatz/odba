@@ -45,6 +45,9 @@ module ODBA
 				}
 			}
 		end
+		def keys(length=nil)
+			ODBA.storage.index_fetch_keys(@index_name, length)
+		end
 		def origin_class?(klass)
 			(@origin_klass == klass)
 		end

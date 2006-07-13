@@ -256,6 +256,19 @@ module ODBA
 			SQL
 			sth.execute(target_id)
 		end
+		def index_fetch_keys(index_name, length=nil)
+			expr = if(length)
+							 "substr(search_term, 1, #{length})"
+						 else
+							 "search_term"
+						 end
+			sql = <<-SQL
+				SELECT DISTINCT #{expr} AS key
+				FROM #{index_name}
+				ORDER BY key
+			SQL
+			self.dbi.select_all(sql).flatten
+		end
 		def max_id
 			ensure_next_id_set
 			@next_id
