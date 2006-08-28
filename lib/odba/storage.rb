@@ -9,7 +9,7 @@ module ODBA
 	class Storage # :nodoc: all
 		include Singleton
 		attr_writer :dbi
-		BULK_FETCH_STEP = 5000
+		BULK_FETCH_STEP = 2500
 		TABLES = {
 			'object'						=> 'CREATE TABLE object ( odba_id integer NOT NULL, 
 															content text, name text, prefetchable boolean,
@@ -386,9 +386,10 @@ module ODBA
 				search_term = search_term + "%"
 			end
 			sql = <<-EOQ
-				SELECT DISTINCT target_id
+				SELECT target_id, COUNT(target_id) AS relevance
 				FROM #{index_name} 
 				WHERE search_term LIKE ?
+				GROUP BY target_id
 			EOQ
 			self.dbi.select_all(sql, search_term.downcase)	 
 		end

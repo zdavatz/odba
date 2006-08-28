@@ -113,6 +113,13 @@ module ODBA
 		def search_term(odba_obj) # :nodoc:
 			proc_resolve_search_term.call(odba_obj)
 		end
+		def set_relevance(meta, rows) # :nodoc:
+			if(meta.respond_to?(:set_relevance))
+				rows.each { |row|
+					meta.set_relevance(row.at(0), row.at(1))
+				}
+			end
+		end
 		def update(object)
 			if(object.is_a?(@target_klass))
 				update_target(object)
@@ -150,6 +157,7 @@ module ODBA
 			exact = meta.respond_to?(:exact) && meta.exact
 			rows = ODBA.storage.retrieve_from_index(@index_name, 
 				search_term, exact)
+			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
 	end
@@ -209,11 +217,7 @@ module ODBA
 		def fetch_ids(search_term, meta=nil)  # :nodoc:
 			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, 
 				search_term, @dictionary)
-			if(meta.respond_to?(:set_relevance))
-				rows.each { |row|
-					meta.set_relevance(row.at(0), row.at(1))
-				}
-			end
+			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
 		def do_update_index(origin_id, search_term, target_id) # :nodoc:
