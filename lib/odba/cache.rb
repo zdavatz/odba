@@ -7,8 +7,8 @@ require 'date'
 module ODBA
 	class Cache
 		include Singleton
-		CLEANER_PRIORITY = 1   # :nodoc: 
-		CLEANING_INTERVAL = 30 # :nodoc: 
+		CLEANER_PRIORITY = 0   # :nodoc: 
+		CLEANING_INTERVAL = 120# :nodoc: 
 		REAPER_ID_STEP = 1000  # :nodoc: 
 		REAPER_INTERVAL = 900  # :nodoc: 
 		def initialize # :nodoc: 
@@ -440,6 +440,9 @@ module ODBA
 		def restore(dump)
 			obj = ODBA.marshaller.load(dump)
 			collection = fetch_collection(obj)
+      unless(obj.is_a?(Persistable))
+        obj.extend(Persistable)
+      end
 			obj.odba_restore(collection)
 			[obj, collection]
 		end

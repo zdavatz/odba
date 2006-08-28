@@ -391,6 +391,15 @@ module ODBA
 			loaded = YAML.load(yaml)
 			assert_instance_of(ODBAContainer, loaded)
 		end
+    def test_extend
+			ODBA.cache.__next(:store) { |obj| assert_equal('foo', obj) } 
+      str = 'foo'
+      str.extend(Persistable)
+      assert_nothing_raised { 
+        str.odba_store
+      }
+      ODBA.cache.__verify
+    end
 	end	
 	class TestArrayReplaceStubs < Test::Unit::TestCase
 		class StubMock < Mock

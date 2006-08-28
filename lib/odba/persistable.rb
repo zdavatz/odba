@@ -41,6 +41,9 @@ module ODBA
 		end
 		def dup #:nodoc:
 			twin = super
+      unless(twin.is_a?(Persistable))
+        twin.extend(Persistable)
+      end
 			odba_potentials.each { |name|
 				var = twin.instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
@@ -69,6 +72,13 @@ module ODBA
 		def odba_delete
 			ODBA.cache.delete(self)
 		end
+    def odba_exclude_vars # :nodoc:
+      if(defined?(self::class::ODBA_EXCLUDE_VARS))
+        self::class::ODBA_EXCLUDE_VARS
+      else
+        []
+      end
+    end
 		# Returns the odba unique id of this Persistable. If no id had been assigned,
 		# this is now done. No attempt is made to store the Persistable in the db.
 		def odba_id
@@ -103,13 +113,15 @@ module ODBA
 		# instance by setting the instance variable @odba_prefetch, and per class by 
 		# overriding the module constant ODBA_PREFETCH
 		def odba_prefetch?
-			@odba_prefetch || self::class::ODBA_PREFETCH
+			@odba_prefetch \
+        || (defined?(self::class::ODBA_PREFETCH) && self::class::ODBA_PREFETCH)
 		end
 		def odba_indexable? # :nodoc:
-			@odba_indexable || self::class::ODBA_INDEXABLE
+			@odba_indexable \
+        || (defined?(self::class::ODBA_INDEXABLE) && self::class::ODBA_INDEXABLE)
 		end
 		def odba_potentials # :nodoc:
-			instance_variables - odba_serializables - self::class::ODBA_EXCLUDE_VARS
+			instance_variables - odba_serializables - odba_exclude_vars
 		end
 		def odba_replace(obj) # :nodoc:
 			id = obj.odba_id
@@ -169,8 +181,15 @@ module ODBA
 		def odba_restore(collection=[]) # :nodoc:
 		end
 		def odba_serializables # :nodoc:
-			self::class::ODBA_PREDEFINE_SERIALIZABLE \
-				+ self::class::ODBA_SERIALIZABLE
+			srs = if(defined?(self::class::ODBA_PREDEFINE_SERIALIZABLE))
+              self::class::ODBA_PREDEFINE_SERIALIZABLE
+            else
+              ODBA_PREDEFINE_SERIALIZABLE
+            end
+			if(defined?(self::class::ODBA_SERIALIZABLE))
+        srs += self::class::ODBA_SERIALIZABLE 
+      end
+      srs
 		end
 		def odba_store_unsaved # :nodoc:
 			@odba_persistent = false
@@ -257,7 +276,7 @@ module ODBA
 		end
 		protected
 		def odba_replace_excluded!
-			self::class::ODBA_EXCLUDE_VARS.each { |name|
+			odba_exclude_vars.each { |name|
 				instance_variable_set(name, nil)
 			}
 		end
