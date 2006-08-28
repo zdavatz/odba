@@ -253,8 +253,8 @@ module ODBA
 				obj = cache_entry.odba_object
 				hash = obj.odba_prefetch? ? @prefetched : @fetched
 				name = obj.odba_name
+				odba_id = obj.odba_id
 				@cache_mutex.synchronize {
-					odba_id = obj.odba_id
 					fetch_or_do(odba_id, odba_caller) {
 						hash.store(odba_id, cache_entry)
 						unless(name.nil?)

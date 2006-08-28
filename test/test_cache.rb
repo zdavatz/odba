@@ -29,21 +29,20 @@ module ODBA
 		class CountingStub
 			def initialize
 				@called = {}
+        @results = {}
 			end
 			def called?(meth)
 				@called[meth]
 			end 
 			def method_missing(meth, *args, &block)
 				@called[meth] = @called[meth].to_i.next
+        @results[meth]
 			end
+      def respond_to?(meth)
+        super || @results.include?(meth)
+      end
 			def __define(meth, result)
-				name = meth.to_s.gsub(/[^a-z]/, '')
-				instance_variable_set("@#{name}", result)
-				eval <<-EOS
-					def #{meth}(*args)
-						@#{name}
-					end
-				EOS
+        @results.store(meth, result)
 			end
 		end
 		class ODBAContainer
@@ -70,8 +69,8 @@ module ODBA
 			old_marshaller = ODBA.marshaller
 			ODBA.marshaller = Marshal
 			obj = CountingStub.new
-			obj.__define(:odba_name, 'the_name')
-			obj.__define(:odba_id, 2)
+			obj.instance_variable_set("@odba_name", 'the_name')
+			obj.instance_variable_set("@odba_id", 2)
 			storage = CountingStub.new
 			storage.__define(:restore_named, ODBA.marshaller.dump(obj))
 			storage.__define(:restore_collection, [])
@@ -93,14 +92,13 @@ module ODBA
 			array = [2, 3]
 			storage = CountingStub.new
 			obj1 = CountingStub.new
-			obj1.__define(:odba_id, 2)
-			obj1.__define(:odba_prefetch?, false)
-			obj1.__define(:odba_name, nil)
+			obj1.instance_variable_set("@odba_id", 2)
+			obj1.instance_variable_set("@odba_prefetch", false)
+			obj1.instance_variable_set("@odba_name", nil)
 			obj2 = CountingStub.new
-			obj2.__define(:odba_id, 3)
-			obj2.__define(:odba_prefetch?, true)
-			obj2.__define(:odba_name, nil)
-			assert(obj2.odba_prefetch?)
+			obj2.instance_variable_set("@odba_id", 3)
+			obj2.instance_variable_set("@odba_prefetch", true)
+			obj2.instance_variable_set("@odba_name", nil)
 			dump_1 = Marshal.dump(obj1)
 			dump_2 = Marshal.dump(obj2)
 			storage.__define(:bulk_restore, [[2, dump_1],[3, dump_2]])
@@ -136,13 +134,13 @@ module ODBA
 			}
 			storage = CountingStub.new
 			obj1 = CountingStub.new
-			obj1.__define(:odba_id, 2)
-			obj1.__define(:odba_prefetch?, false)
-			obj1.__define(:odba_name, nil)
+			obj1.instance_variable_set("@odba_id", 2)
+			obj1.instance_variable_set("@odba_prefetch", false)
+			obj1.instance_variable_set("@odba_name", nil)
 			obj2 = CountingStub.new
-			obj2.__define(:odba_id, 3)
-			obj2.__define(:odba_prefetch?, false)
-			obj2.__define(:odba_name, nil)
+			obj2.instance_variable_set("@odba_id", 3)
+			obj2.instance_variable_set("@odba_prefetch", false)
+			obj2.instance_variable_set("@odba_name", nil)
 			dump_1 = Marshal.dump(obj1)
 			dump_2 = Marshal.dump(obj2)
 			marshal.__next(:load) { |dump|
@@ -247,10 +245,12 @@ module ODBA
 					[]
 			}
 			receiver.__next(:odba_id) {23}
-			receiver.__next(:odba_restore) {}
-			receiver.__next(:odba_prefetch?) { false }
-			receiver.__next(:odba_name) { 'name' }
-			receiver.__next(:odba_id) {23}
+			receiver.instance_variable_set("@odba_id", 23)
+			receiver.instance_variable_set("@odba_name", 'name')
+			#receiver.__next(:odba_restore) {}
+			#receiver.__next(:odba_prefetch?) { false }
+			#receiver.__next(:odba_name) { 'name' }
+			#receiver.__next(:odba_id) {23}
 			first_fetch = @cache.fetch(23, caller)
 			assert_equal(receiver, first_fetch)
 			assert_equal(2, @cache.fetched.size)
@@ -272,8 +272,8 @@ module ODBA
 		end
 		def test_fetch__adds_reference
 			obj = CountingStub.new
-			obj.__define(:odba_id, 23)
-			obj.__define(:odba_prefetch?, false)
+			obj.instance_variable_set("@odba_id", 23)
+			obj.instance_variable_set("@odba_prefetch", false)
 			@storage.__next(:restore) { |id|
 				assert_equal(23, id)
 				'dump'
@@ -285,11 +285,11 @@ module ODBA
 				assert_equal('dump', dump)
 				obj
 			}
-			caller = CountingStub.new
-			res = @cache.fetch(23, caller)
+			callr = CountingStub.new
+			res = @cache.fetch(23, callr)
 			cache_entry = @cache.fetched[23]
 			assert_instance_of(CacheEntry, cache_entry)
-			assert_equal([caller], cache_entry.accessed_by)
+			assert_equal([callr], cache_entry.accessed_by)
 			assert_equal(obj, res)
 		end
 		def test_store
@@ -352,10 +352,11 @@ module ODBA
 			ODBA.storage.__next(:restore_collection) { [] }
 
 			loaded.__next(:odba_id) { 23 }
-			loaded.__next(:odba_restore) { }
-			loaded.__next(:odba_prefetch?) { false }
-			loaded.__next(:odba_name) {}
-			loaded.__next(:odba_id) { 23 }
+      loaded.instance_variable_set('@odba_id', 23)
+			#loaded.__next(:odba_restore) { }
+			#loaded.__next(:odba_prefetch?) { false }
+			#loaded.__next(:odba_name) {}
+			#loaded.__next(:odba_id) { 23 }
 			@cache.load_object(23, caller)
 			loaded.__verify
 		end
@@ -392,6 +393,7 @@ module ODBA
 		def test_create_index
 			index_def_mock = CountingStub.new
 			index_def_mock.__define(:index_name, "foo")
+			index_def_mock.__define(:fulltext, true)
 			indices = Mock.new('indices')
 			indices.__next(:store){|key, val|
 				assert_instance_of(FulltextIndex, val)
@@ -481,12 +483,17 @@ module ODBA
 		def prepare_bulk_restore(rows)
 			rows.each { |odba_mock|
 				odba_mock.__next(:odba_id) { 2 }
-				odba_mock.__next(:odba_restore) { }
-				odba_mock.__next(:odba_prefetch?) { true }
-				odba_mock.__next(:odba_name) { nil }
-				odba_mock.__next(:odba_id) { 2 }
+        ## according to recent changes, objects are extended with 
+        #  ODBA::Persistable after loading - this enables ad-hoc storing
+        #  but messes up loads of tests
+				#odba_mock.__next(:odba_restore) { }
+				#odba_mock.__next(:odba_prefetch?) { true }
+				#odba_mock.__next(:odba_name) { nil }
+				#odba_mock.__next(:odba_id) { 2 }
 				ODBA.marshaller.__next(:load) { |dump|
-					odba_mock
+					odba_mock.instance_variable_set('@odba_id', 2)
+					odba_mock.instance_variable_set('@odba_prefetch', true)
+          odba_mock
 				}
 				ODBA.storage.__next(:restore_collection){|*args|
 					[]

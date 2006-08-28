@@ -155,8 +155,7 @@ module ODBA
 		end
 		def fetch_ids(search_term, meta=nil) # :nodoc:
 			exact = meta.respond_to?(:exact) && meta.exact
-			rows = ODBA.storage.retrieve_from_index(@index_name, 
-				search_term, exact)
+			rows = ODBA.storage.retrieve_from_index(@index_name, search_term, exact)
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
@@ -183,8 +182,9 @@ module ODBA
 				search_term, target_id)
 		end
 		def fetch_ids(conditions, meta=nil)  # :nodoc:
-			ODBA.storage.retrieve_from_condition_index(@index_name,
-																								 conditions).flatten
+			rows = ODBA.storage.retrieve_from_condition_index(@index_name, conditions)
+			set_relevance(meta, rows)
+      rows.collect { |row| row.at(0) }
 		end
 		def proc_resolve_search_term # :nodoc:
 			if(@proc_resolve_search_term.nil?)

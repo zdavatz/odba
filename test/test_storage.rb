@@ -262,7 +262,7 @@ module ODBA
 			sth = Mock.new
 			@storage.dbi = dbi
 			dbi.__next(:select_all) { |sql, search|
-				assert_not_nil(sql.index("SELECT DISTINCT target_id"))
+				assert_not_nil(sql.index("SELECT target_id, COUNT(target_id) AS relevance"))
 				sth	
 			}
 			@storage.retrieve_from_index("bar","foo")

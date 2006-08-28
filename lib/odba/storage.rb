@@ -343,7 +343,8 @@ module ODBA
 		end
 		def retrieve_from_condition_index(index_name, conditions)
 			sql = <<-EOQ
-				SELECT target_id FROM #{index_name}
+				SELECT target_id, COUNT(target_id) AS relevance
+        FROM #{index_name}
 				WHERE	TRUE
 			EOQ
 			values = []
@@ -361,6 +362,7 @@ module ODBA
 					AND #{name} #{condition || 'IS NULL'}
 				EOQ
 			}
+      sql << " GROUP BY target_id"
 			self.dbi.select_all(sql, *values)
 		end
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
