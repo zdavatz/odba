@@ -11,16 +11,21 @@ module ODBA
 		attr_writer :dbi
 		BULK_FETCH_STEP = 2500
 		TABLES = {
-			'object'						=> 'CREATE TABLE object ( odba_id integer NOT NULL, 
-															content text, name text, prefetchable boolean,
-															PRIMARY KEY(odba_id), UNIQUE(name));',
+			'object'						=> 'CREATE TABLE object ( odba_id INTEGER NOT NULL, 
+															content TEXT, name TEXT, prefetchable BOOLEAN,
+                              extent TEXT,
+                              PRIMARY KEY(odba_id), UNIQUE(name));
+                              CREATE INDEX prefetchable_index
+                              ON object(prefetchable);
+                              CREATE INDEX extent_index 
+                              ON object(extent);',
 			'object_connection'	=> 'CREATE TABLE object_connection ( origin_id integer,
 															target_id integer, 
 															PRIMARY KEY(origin_id, target_id));
 															CREATE INDEX target_id_index 
-															ON object_connection (target_id);
+															ON object_connection(target_id);
 															CREATE INDEX origin_id_index 
-															ON object_connection (origin_id);',
+															ON object_connection(origin_id);',
 			'collection'				=> 'CREATE TABLE collection ( odba_id integer NOT NULL,
 															key text, value text,
 															PRIMARY KEY(odba_id, key));', 
@@ -192,6 +197,11 @@ module ODBA
 				sth.execute(origin_id, id)
 			}
 		end
+    def extent_ids(klass)
+			self.dbi.select_all(<<-EOQ, klass.name).flatten
+				SELECT odba_id FROM object WHERE extent = ?
+			EOQ
+    end
 		def collection_fetch(odba_id, key_dump)
 			sql = <<-SQL
 				SELECT value FROM collection 
@@ -350,14 +360,20 @@ module ODBA
 			values = []
 			lines = conditions.collect { |name, info|
 				val = nil
-				condition = info['condition']
-				if(val = info['value']) 
-					if(/i?like/i.match(condition))
-						val += '%'
-					end
-					condition = "#{condition || '='} ?"
-					values.push(val)
-				end
+        condition = nil
+        if(info.is_a?(Hash))
+          condition = info['condition']
+          if(val = info['value']) 
+            if(/i?like/i.match(condition))
+              val += '%'
+            end
+            condition = "#{condition || '='} ?"
+            values.push(val)
+          end
+        else
+          condition = "#{condition || '='} ?"
+          values.push(info)
+        end
 				sql << <<-EOQ
 					AND #{name} #{condition || 'IS NULL'}
 				EOQ
@@ -419,9 +435,16 @@ module ODBA
 					rows = sth.execute
 				end
 			}
+      unless(self.dbi.columns('object').any? { |col| col.name == 'extent' })
+        sth = self.dbi.prepare <<-EOS
+          ALTER TABLE ADD COLUMN extent TEXT;
+          CREATE INDEX extent_index ON object(extent);
+        EOS
+        sth.execute
+      end
 			rows
 		end
-		def store(odba_id, dump, name, prefetchable)
+		def store(odba_id, dump, name, prefetchable, klass)
 			sql = "SELECT name FROM object WHERE odba_id = ?"
 			if(row = self.dbi.select_one(sql, odba_id))
 				name ||= row['name']
@@ -429,16 +452,17 @@ module ODBA
 					UPDATE object SET 
 					content = ?,
 					name = ?,
-					prefetchable = ?
+					prefetchable = ?,
+          extent = ?
 					WHERE odba_id = ?
 				SQL
-				sth.execute(dump, name, prefetchable, odba_id)
+				sth.execute(dump, name, prefetchable, klass.name, odba_id)
 			else
 				sth = self.dbi.prepare <<-SQL
-					INSERT INTO object (odba_id, content, name, prefetchable)
-					VALUES (?, ?, ?, ?)
+					INSERT INTO object (odba_id, content, name, prefetchable, extent)
+					VALUES (?, ?, ?, ?, ?)
 				SQL
-				sth.execute(odba_id, dump, name, prefetchable)
+				sth.execute(odba_id, dump, name, prefetchable, klass.name)
 			end
 		end
 		def transaction(&block)
@@ -461,22 +485,44 @@ module ODBA
 				keys.push(key)
 				vals.push(val)
 			}
-			sth_insert = self.dbi.prepare <<-SQL
-				INSERT INTO #{index_name} (origin_id, target_id, #{keys.join(', ')}) 
-				VALUES (?, ?#{', ?' * keys.size})
-			SQL
-			sth_insert.execute(origin_id, target_id, *vals)
+      if(target_id)
+        sth_insert = self.dbi.prepare <<-SQL
+          INSERT INTO #{index_name} (origin_id, target_id, #{keys.join(', ')}) 
+          VALUES (?, ?#{', ?' * keys.size})
+        SQL
+        sth_insert.execute(origin_id, target_id, *vals)
+      else
+        key_str = keys.collect { |key| "#{key}=?" }.join(', ')
+        sth_update = self.dbi.prepare <<-SQL
+          UPDATE #{index_name} SET #{key_str}
+          WHERE origin_id = ?
+        SQL
+        sth_update.execute(*(vals.push(origin_id)))
+      end
 		end
 		def update_fulltext_index(index_name, origin_id, search_term, target_id, dict)
-			sth_insert = self.dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector(?, ? ), ?)")
-			sth_insert.execute(origin_id, dict, search_term, target_id)
+      if(target_id)
+        sth_insert = self.dbi.prepare("INSERT INTO #{index_name} (origin_id, search_term, target_id) VALUES (?, to_tsvector(?, ? ), ?)")
+        sth_insert.execute(origin_id, dict, search_term, target_id)
+      else
+        sth_update = self.dbi.prepare("UPDATE #{index_name} SET search_term=to_tsvector(?, ? ) WHERE origin_id=?")
+        sth_update.execute(dict, search_term, origin_id)
+      end
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
-			sth_insert = self.dbi.prepare <<-SQL
-				INSERT INTO #{index_name} (origin_id, search_term, target_id) 
-				VALUES (?, ?, ?)
-			SQL
-			sth_insert.execute(origin_id, search_term.downcase, target_id)
+      if(target_id)
+        sth_insert = self.dbi.prepare <<-SQL
+          INSERT INTO #{index_name} (origin_id, search_term, target_id) 
+          VALUES (?, ?, ?)
+        SQL
+        sth_insert.execute(origin_id, search_term.downcase, target_id)
+      else
+        sth_update = self.dbi.prepare <<-SQL
+          UPDATE #{index_name} SET search_term=?
+          WHERE origin_id=?
+        SQL
+        sth_update.execute(search_term.downcase, origin_id)
+      end
 		end
 		private
 		def ensure_next_id_set

@@ -12,7 +12,7 @@ module ODBA
 			@odba_class = receiver.class unless receiver.nil? 
 		end
 		def class
-			@odba_class || odba_instance.class
+			@odba_class ||= odba_instance.class
 		end
 		def eql?(other)
 			@odba_id == other.odba_id ## defined in Object
@@ -27,13 +27,14 @@ module ODBA
 		def odba_clear_receiver
 			@receiver = nil
 		end
+    def odba_dup
+      odba_isolated_stub
+    end
 		def odba_instance
 			odba_receiver
 		end
 		def odba_isolated_stub
-			stub = dup
-			stub.odba_container = nil
-			stub
+			Stub.new(@odba_id, nil, nil)
 		end
 		def odba_receiver(name=nil)
 			@receiver || begin
@@ -61,10 +62,11 @@ module ODBA
 			val.each { |key, value| instance_variable_set("@#{key}", value) }
 		end
 		no_override = [
-			"class", "dup", "is_a?", "__id__", "__send__", "inspect", 
+			"class", "is_a?", "__id__", "__send__", "inspect", 
 			"eql?", "nil?", "respond_to?", "object_id", 
 			"instance_variables", "instance_variable_get",
 			"instance_variable_set", 
+      # "dup", 
 			## methods defined in persistable.rb:Object
 			"odba_id", "odba_instance", "odba_isolated_stub",
 			## yaml-methods

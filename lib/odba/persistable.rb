@@ -19,10 +19,97 @@ class Object # :nodoc: all
 			end
 		}
 	end
+  def metaclass; class << self; self; end; end
+  def meta_eval &blk; metaclass.instance_eval &blk; end
 end
 module ODBA
 	class Stub; end
 	module Persistable
+    meta = Struct.new(:exact).new
+    meta.exact = true
+    Exact = meta
+    # Classes which include Persistable have a class-method 'odba_index'
+    def Persistable.append_features(mod)
+      super
+      mod.module_eval {
+        class << self
+          def odba_index(*keys)
+            require 'odba/index_definition'
+            origin_klass = self
+            resolve_origin = nil
+            resolve = {}
+            if(keys.size > 1)
+              if(keys.last.is_a?(Symbol))
+                keys.each { |key|
+                  resolve.store(key, {'resolve', key})
+                }
+              elsif(keys.last.is_a?(Class))
+                origin_klass = keys.pop 
+                resolve = keys.pop
+                resolve_origin = keys.pop
+              else
+                resolve = keys.pop
+              end
+            else
+              resolve = keys.first
+            end
+            keys.each { |key| 
+              unless(instance_methods.include?(key.to_s))
+                attr_accessor key
+              end
+            }
+            index_prefix = self.name.downcase.gsub(/::/, '_')
+            index_suffix = Persistable.sanitize(keys.join('_and_'))
+            index_name = sprintf("%s_%s", index_prefix, index_suffix)
+            search_name = sprintf("search_by_%s", index_suffix)
+            find_name = sprintf("find_by_%s", index_suffix)
+            index_definition = IndexDefinition.new
+            index_definition.index_name = index_name
+            index_definition.origin_klass = origin_klass
+            index_definition.target_klass = self
+            index_definition.resolve_search_term = resolve
+            index_definition.resolve_origin = resolve_origin.to_s
+            ODBA.cache.ensure_index_deferred(index_definition)
+            meta_eval {
+              define_method(search_name) { |*vals| 
+                if(vals.size > 1) 
+                  args = {}
+                  vals.each_with_index { |val, idx|
+                    args.store(keys.at(idx), val)
+                  }
+                  ODBA.cache.retrieve_from_index(index_name, args)
+                else
+                  ODBA.cache.retrieve_from_index(index_name, vals.first)
+                end
+              }
+              define_method(find_name) {  |*vals|
+                if(vals.size > 1) 
+                  args = {}
+                  vals.each_with_index { |val, idx|
+                    args.store(keys.at(idx), val)
+                  }
+                  ODBA.cache.retrieve_from_index(index_name, args)
+                else
+                  ODBA.cache.retrieve_from_index(index_name, vals.first, Exact)
+                end.first
+              }
+            }
+          end
+          def odba_extent
+            all = ODBA.cache.extent(self) 
+            if(block_given?)
+              all.each { |instance| yield instance }
+              nil
+            else
+              all
+            end
+          end
+        end
+      }
+    end
+    def Persistable.sanitize(name)
+      name.gsub(/[^a-z0-9_]/i, '_')
+    end
 		attr_accessor :odba_name, :odba_prefetch
 		# Classes which include Persistable may override ODBA_EXCLUDE_VARS to 
 		# prevent data from being stored in the database (e.g. passwords, file
@@ -39,21 +126,11 @@ module ODBA
 		def ==(other) # :nodoc:
 			super(other.odba_instance)
 		end
-		def dup #:nodoc:
-			twin = super
-      unless(twin.is_a?(Persistable))
-        twin.extend(Persistable)
-      end
-			odba_potentials.each { |name|
-				var = twin.instance_variable_get(name)
-				if(var.is_a?(ODBA::Stub))
-					stub = var.dup
-					stub.odba_container = twin
-					twin.instance_variable_set(name, stub)
-				end
-			}
-			twin
-		end
+    def dup # :nodoc
+      twin = super
+      twin.odba_id = nil
+      twin
+    end
 		def odba_collection #:nodoc:
 			[]
 		end
@@ -71,6 +148,22 @@ module ODBA
 		# connections to it
 		def odba_delete
 			ODBA.cache.delete(self)
+		end
+		def odba_dup #:nodoc:
+			twin = dup
+      twin.odba_id = @odba_id
+      unless(twin.is_a?(Persistable))
+        twin.extend(Persistable)
+      end
+			odba_potentials.each { |name|
+				var = twin.instance_variable_get(name)
+				if(var.is_a?(ODBA::Stub))
+					stub = var.odba_dup
+					stub.odba_container = twin
+					twin.instance_variable_set(name, stub)
+				end
+			}
+			twin
 		end
     def odba_exclude_vars # :nodoc:
       if(defined?(self::class::ODBA_EXCLUDE_VARS))
@@ -102,7 +195,7 @@ module ODBA
 		def odba_isolated_twin
 			# ensure a valid odba_id
 			self.odba_id
-			twin = self.dup
+			twin = self.odba_dup
 			twin.odba_replace_persistables
 			twin.odba_replace_excluded!
 			twin
@@ -222,6 +315,7 @@ module ODBA
 					@odba_name = name
 				end
 				odba_store_unsaved
+        self
 			rescue DBI::ProgrammingError => e
 				@odba_name = old_name
 				raise
@@ -275,6 +369,7 @@ module ODBA
 			end
 		end
 		protected
+    attr_writer :odba_id
 		def odba_replace_excluded!
 			odba_exclude_vars.each { |name|
 				instance_variable_set(name, nil)
@@ -362,12 +457,12 @@ class Hash # :nodoc: all
 	end
 	def odba_replace(obj)
 		id = obj.odba_id
-		dup.each_key { |key|
+		odba_dup.each_key { |key|
 			if(key.odba_id == id)
 				store(obj, delete(key))
 			end
 		}
-		dup.each { |key, value|
+		odba_dup.each { |key, value|
 			if(value.odba_id == id)
 				store(key, obj)
 			end

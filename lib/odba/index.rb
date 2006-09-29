@@ -23,7 +23,7 @@ module ODBA
 			@resolve_search_term = index_definition.resolve_search_term
 			@dictionary = index_definition.dictionary
 		end
-		def do_update_index(origin_id, search_term, target_id) # :nodoc:
+		def do_update_index(origin_id, search_term, target_id=nil) # :nodoc:
 			if(search_term.is_a?(Array))
 				search_term.compact.each { |term|
 					do_update_index(origin_id, term, target_id)
@@ -73,7 +73,9 @@ module ODBA
 			if(@proc_target.nil?)
 				if(@resolve_target.to_s.empty?)
 					@proc_target = Proc.new { |odba_item|  [odba_item] }
-				else
+        elsif(@resolve_target == :odba_skip)
+          @proc_target = Proc.new { [] }
+        else
 					src =	 <<-EOS
 						Proc.new { |odba_item| 
 							res = [odba_item.#{@resolve_target}]
@@ -130,12 +132,15 @@ module ODBA
 		def update_origin(object) # :nodoc:
 			origin_id = object.odba_id
 			search_term = search_term(object)
+      do_update_index(origin_id, search_term)
+=begin ## should not be necessary?
 			target_objs = resolve_targets(object)		
 			ODBA.storage.delete_index_element(@index_name, origin_id)
 			target_objs.each { |target_obj|
 				target_id = target_obj.odba_id
 				do_update_index(origin_id, search_term, target_id)
 			}
+=end
 		end
 		def update_target(object) # :nodoc:
 			target_id = object.odba_id
@@ -177,7 +182,7 @@ module ODBA
 			}
 			ODBA.storage.create_condition_index(@index_name, definition)
 		end
-		def do_update_index(origin_id, search_term, target_id) # :nodoc:
+		def do_update_index(origin_id, search_term, target_id=nil) # :nodoc:
 			ODBA.storage.update_condition_index(@index_name, origin_id, 
 				search_term, target_id)
 		end
@@ -220,7 +225,7 @@ module ODBA
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
-		def do_update_index(origin_id, search_term, target_id) # :nodoc:
+		def do_update_index(origin_id, search_term, target_id=nil) # :nodoc:
 				ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id, @dictionary) 
 		end
 	end

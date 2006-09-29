@@ -17,6 +17,7 @@ module ODBA
 				#start_reaper # TODO Database Garbage-Collection.
 			end
 			@cache_mutex = Mutex.new
+      @deferred_indices = []
 			@fetched = Hash.new
 			@prefetched = Hash.new
 			@clean_prefetched = false
@@ -96,7 +97,7 @@ module ODBA
 			@prefetched.clear
 		end
 		# Creates a new index according to IndexDefinition
-		def create_index(index_definition, origin_module)
+		def create_index(index_definition, origin_module=Object)
 			transaction {
 				klass = if(index_definition.fulltext)
 									FulltextIndex
@@ -105,7 +106,7 @@ module ODBA
 								else
 									Index
 								end
-				index = klass.new(index_definition, origin_module=Object)
+				index = klass.new(index_definition, origin_module)
 				indices.store(index_definition.index_name, index)
 				indices.odba_store_unsaved
 				index
@@ -173,6 +174,14 @@ module ODBA
 					drop_index(key)
 				}
 		end
+    # Queue an index for creation by #setup
+    def ensure_index_deferred(index_definition)
+      @deferred_indices.push(index_definition)
+		end
+    # Get all instances of a class (- a limited extent)
+    def extent(klass, odba_caller=nil)
+			bulk_fetch(ODBA.storage.extent_ids(klass), odba_caller)
+    end
 		# Fetch a Persistable identified by _odba_id_. Registers _odba_caller_ with
 		# the CacheEntry. Loads the Persistable if it is not already loaded.
 		def fetch(odba_id, odba_caller=nil)
@@ -289,8 +298,7 @@ module ODBA
 		end
 		# Use this to load all prefetchable Persistables from the db at once
 		def prefetch
-			rows = ODBA.storage.restore_prefetchable
-			bulk_restore(rows)
+			bulk_restore(ODBA.storage.restore_prefetchable)
 		end
 		def reap_object_connections # :nodoc:
 			@reaper_min_id += REAPER_ID_STEP
@@ -312,6 +320,12 @@ module ODBA
 		# Create necessary DB-Structure / other storage-setup
 		def setup
 			ODBA.storage.setup
+      @deferred_indices.each { |definition|
+        unless(self.indices.include?(definition.index_name))
+          create_index(definition)
+        end
+      }
+      nil
 		end
 		def start_cleaner # :nodoc: 
 			@cleaner = Thread.new {
@@ -351,7 +365,7 @@ module ODBA
 			store_collection_elements(object)
 			name = object.odba_name
 			prefetchable = object.odba_prefetch?
-			ODBA.storage.store(odba_id, dump, name, prefetchable)
+			ODBA.storage.store(odba_id, dump, name, prefetchable, object.class)
 			target_ids = object.odba_target_ids
 			store_object_connections(odba_id, target_ids)
 			update_references(target_ids, object)

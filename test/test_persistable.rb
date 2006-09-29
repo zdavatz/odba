@@ -48,6 +48,11 @@ module ODBA
 				true
 			end
 		end
+    class IndexedStub
+      include Persistable
+      odba_index :name
+      odba_index :foo, :bar
+    end
 		def setup
 			ODBA.storage = Mock.new("storage")
 			ODBA.marshaller = Mock.new("marshaller")
@@ -399,6 +404,31 @@ module ODBA
         str.odba_store
       }
       ODBA.cache.__verify
+    end
+    def test_odba_index
+      stub = IndexedStub.new
+      assert_respond_to(stub, :name)
+      assert_respond_to(stub, :name=)
+      assert_respond_to(IndexedStub, :find_by_name)
+      assert_respond_to(stub, :foo)
+      assert_respond_to(stub, :bar)
+      assert_respond_to(IndexedStub, :find_by_foo_and_bar)
+      result = Mock.new('Result')
+      ODBA.cache.__next(:retrieve_from_index) { |name, args|
+        assert_equal('odba_testpersistable_indexedstub_foo_and_bar', name)
+        assert_equal({:foo, 'oof', :bar, 'rab'}, args)
+        [result]
+      }
+      assert_equal(result, IndexedStub.find_by_foo_and_bar('oof', 'rab'))
+    end
+    def test_odba_extent
+      stub = IndexedStub.new
+      assert_respond_to(IndexedStub, :odba_extent)
+      ODBA.cache.__next(:extent) { |klass|
+        assert_equal(IndexedStub, klass)
+        []
+      }
+      assert_equal([], IndexedStub.odba_extent)
     end
 	end	
 	class TestArrayReplaceStubs < Test::Unit::TestCase
