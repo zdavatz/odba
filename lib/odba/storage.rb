@@ -437,7 +437,7 @@ module ODBA
 			}
       unless(self.dbi.columns('object').any? { |col| col.name == 'extent' })
         sth = self.dbi.prepare <<-EOS
-          ALTER TABLE ADD COLUMN extent TEXT;
+          ALTER TABLE object ADD COLUMN extent TEXT;
           CREATE INDEX extent_index ON object(extent);
         EOS
         sth.execute
