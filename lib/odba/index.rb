@@ -132,15 +132,12 @@ module ODBA
 		def update_origin(object) # :nodoc:
 			origin_id = object.odba_id
 			search_term = search_term(object)
-      do_update_index(origin_id, search_term)
-=begin ## should not be necessary?
 			target_objs = resolve_targets(object)		
 			ODBA.storage.delete_index_element(@index_name, origin_id)
 			target_objs.each { |target_obj|
 				target_id = target_obj.odba_id
 				do_update_index(origin_id, search_term, target_id)
 			}
-=end
 		end
 		def update_target(object) # :nodoc:
 			target_id = object.odba_id
