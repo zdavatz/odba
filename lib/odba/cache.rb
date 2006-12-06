@@ -457,10 +457,10 @@ module ODBA
 		end
 		def restore(dump)
 			obj = ODBA.marshaller.load(dump)
-			collection = fetch_collection(obj)
       unless(obj.is_a?(Persistable))
         obj.extend(Persistable)
       end
+			collection = fetch_collection(obj)
 			obj.odba_restore(collection)
 			[obj, collection]
 		end
