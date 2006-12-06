@@ -44,7 +44,7 @@ module ODBA
 				end
 				@receiver
 			rescue OdbaError => e
-				warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id}"
+				warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id} from #{@odba_container.class}:#@odba_container"
 			end
 		end
 		# A stub always references a Persistable that has 
