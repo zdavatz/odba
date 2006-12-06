@@ -11,14 +11,13 @@ module ODBA
 	# Further, _search_term_ must be resolved in relation to _origin_.
 	class IndexCommon # :nodoc: all
 		include Persistable
-		ODBA_EXCLUDE_VARS = ['@proc_target', '@proc_origin']
-		attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
+		ODBA_EXCLUDE_VARS = ['@proc_origin']
+		attr_accessor :origin_klass, :target_klass, :resolve_origin,
 			:resolve_search_term, :index_name
 		def initialize(index_definition, origin_module)
 			@origin_klass = origin_module.instance_eval(index_definition.origin_klass.to_s)
 			@target_klass = origin_module.instance_eval(index_definition.target_klass.to_s)
 			@resolve_origin = index_definition.resolve_origin
-			@resolve_target = index_definition.resolve_target
 			@index_name = index_definition.index_name
 			@resolve_search_term = index_definition.resolve_search_term
 			@dictionary = index_definition.dictionary
@@ -69,26 +68,6 @@ module ODBA
 			end
 			@proc_origin
 		end
-		def proc_instance_target # :nodoc:
-			if(@proc_target.nil?)
-				if(@resolve_target.to_s.empty?)
-					@proc_target = Proc.new { |odba_item|  [odba_item] }
-        elsif(@resolve_target == :odba_skip)
-          @proc_target = Proc.new { [] }
-        else
-					src =	 <<-EOS
-						Proc.new { |odba_item| 
-							res = [odba_item.#{@resolve_target}]
-							res.flatten!
-							res.compact!
-							res
-						}
-					EOS
-					@proc_target = eval(src)
-				end
-			end
-			@proc_target
-		end
 		def proc_resolve_search_term # :nodoc:
 			if(@proc_resolve_search_term.nil?)
 				if(@resolve_search_term.to_s.empty?)
@@ -107,10 +86,6 @@ module ODBA
 				end
 			end
 			@proc_resolve_search_term
-		end
-		def resolve_targets(odba_obj) # :nodoc:
-			@proc_target = nil
-			proc_instance_target.call(odba_obj)
 		end
 		def search_term(odba_obj) # :nodoc:
 			proc_resolve_search_term.call(odba_obj)
@@ -132,10 +107,9 @@ module ODBA
 		def update_origin(object) # :nodoc:
 			origin_id = object.odba_id
 			search_term = search_term(object)
-			target_objs = resolve_targets(object)		
+      target_ids = ODBA.storage.index_target_ids(@index_name, origin_id)
 			ODBA.storage.delete_index_element(@index_name, origin_id)
-			target_objs.each { |target_obj|
-				target_id = target_obj.odba_id
+			target_ids.each { |target_id|
 				do_update_index(origin_id, search_term, target_id)
 			}
 		end

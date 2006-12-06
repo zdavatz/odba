@@ -279,6 +279,14 @@ module ODBA
 			SQL
 			self.dbi.select_all(sql).flatten
 		end
+    def index_target_ids(index_name, origin_id)
+			sql = <<-SQL
+				SELECT DISTINCT target_id
+				FROM #{index_name}
+        WHERE origin_id=?
+			SQL
+			self.dbi.select_all(sql, origin_id).flatten
+    end
 		def max_id
 			ensure_next_id_set
 			@next_id
