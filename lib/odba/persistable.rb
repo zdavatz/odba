@@ -63,6 +63,7 @@ module ODBA
             index_name = sprintf("%s_%s", index_prefix, index_suffix)
             search_name = sprintf("search_by_%s", index_suffix)
             find_name = sprintf("find_by_%s", index_suffix)
+            keys_name = sprintf("%s_keys", index_suffix)
             index_definition = IndexDefinition.new
             index_definition.index_name = index_name
             index_definition.origin_klass = origin_klass
@@ -92,6 +93,10 @@ module ODBA
                 else
                   ODBA.cache.retrieve_from_index(index_name, vals.first, Exact)
                 end.first
+              }
+              define_method(keys_name) { |*vals|
+                length, = vals
+                ODBA.cache.index_keys(index_name, length)
               }
             }
           end
