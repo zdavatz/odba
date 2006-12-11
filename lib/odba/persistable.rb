@@ -62,6 +62,7 @@ module ODBA
             index_suffix = Persistable.sanitize(keys.join('_and_'))
             index_name = sprintf("%s_%s", index_prefix, index_suffix)
             search_name = sprintf("search_by_%s", index_suffix)
+            exact_name = sprintf("search_by_exact_%s", index_suffix)
             find_name = sprintf("find_by_%s", index_suffix)
             keys_name = sprintf("%s_keys", index_suffix)
             index_definition = IndexDefinition.new
@@ -81,6 +82,17 @@ module ODBA
                   ODBA.cache.retrieve_from_index(index_name, args)
                 else
                   ODBA.cache.retrieve_from_index(index_name, vals.first)
+                end
+              }
+              define_method(exact_name) {  |*vals|
+                if(vals.size > 1) 
+                  args = {}
+                  vals.each_with_index { |val, idx|
+                    args.store(keys.at(idx), val)
+                  }
+                  ODBA.cache.retrieve_from_index(index_name, args)
+                else
+                  ODBA.cache.retrieve_from_index(index_name, vals.first, Exact)
                 end
               }
               define_method(find_name) {  |*vals|
