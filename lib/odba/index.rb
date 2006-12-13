@@ -27,7 +27,7 @@ module ODBA
 				search_term.compact.each { |term|
 					do_update_index(origin_id, term, target_id)
 				}
-			elsif(search_term && !search_term.empty?)
+			elsif(!search_term.to_s.empty?)
 				ODBA.storage.update_index(@index_name, origin_id, 
 					search_term, target_id)
 			end

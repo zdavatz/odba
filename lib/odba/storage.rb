@@ -408,6 +408,7 @@ module ODBA
 			[]
 		end
 		def retrieve_from_index(index_name, search_term, exact=nil)
+      search_term = search_term.to_s.downcase
 			unless(exact)
 				search_term = search_term + "%"
 			end
@@ -417,7 +418,7 @@ module ODBA
 				WHERE search_term LIKE ?
 				GROUP BY target_id
 			EOQ
-			self.dbi.select_all(sql, search_term.downcase)	 
+			self.dbi.select_all(sql, search_term)	 
 		end
 		def restore_collection(odba_id)
 			self.dbi.select_all <<-EOQ
@@ -518,18 +519,19 @@ module ODBA
       end
 		end
 		def update_index(index_name, origin_id, search_term, target_id)
+      search_term = search_term.to_s.downcase
       if(target_id)
         sth_insert = self.dbi.prepare <<-SQL
           INSERT INTO #{index_name} (origin_id, search_term, target_id) 
           VALUES (?, ?, ?)
         SQL
-        sth_insert.execute(origin_id, search_term.downcase, target_id)
+        sth_insert.execute(origin_id, search_term, target_id)
       else
         sth_update = self.dbi.prepare <<-SQL
           UPDATE #{index_name} SET search_term=?
           WHERE origin_id=?
         SQL
-        sth_update.execute(search_term.downcase, origin_id)
+        sth_update.execute(search_term, origin_id)
       end
 		end
 		private
