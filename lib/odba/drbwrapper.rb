@@ -6,7 +6,7 @@ require 'odba'
 require 'drb/timeridconv'
 
 module ODBA
-  class DRbIdConv < DRb::TimerIdConv
+  class DRbIdConv < DRb::DRbIdConv
     def to_obj(ref)
       if(ref.is_a?(String))
         ODBA.cache.fetch(ref.to_i)
