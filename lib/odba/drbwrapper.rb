@@ -6,24 +6,6 @@ require 'odba'
 require 'drb/timeridconv'
 
 module ODBA
-  class DRbIdConv < DRb::DRbIdConv
-    def to_obj(ref)
-      if(ref.is_a?(String))
-        ODBA.cache.fetch(ref.to_i)
-      else
-        super
-      end
-    rescue RuntimeError => e
-      raise RangeError, e.message
-    end
-    def to_id(obj)
-      if(!obj.is_a?(ODBA::Persistable) || obj.odba_unsaved?)
-        super
-      else
-        obj.odba_id.to_s
-      end
-    end
-  end
   class DRbWrapper 
     instance_methods.each { |m| 
       undef_method(m) unless m =~ /^(__)|(respond_to\?$)/ }
@@ -58,6 +40,24 @@ module ODBA
     end
     def __wrappee
       @obj
+    end
+  end
+  class DRbIdConv < DRb::TimerIdConv
+    def to_obj(ref)
+      if(ref.is_a?(String))
+        DRbWrapper.new(ODBA.cache.fetch(ref.to_i))
+      else
+        super
+      end
+    rescue RuntimeError => e
+      raise RangeError, e.message
+    end
+    def to_id(obj)
+      if(!obj.is_a?(ODBA::Persistable) || obj.odba_unsaved?)
+        super
+      else
+        obj.odba_id.to_s
+      end
     end
   end
 end
