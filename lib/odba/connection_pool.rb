@@ -45,9 +45,10 @@ module ODBA
 				end
 			end
 		end
-		def pool_size 
+		def size 
 			@connections.size
 		end
+    alias :pool_size :size
 		def connect # :nodoc:
 			@mutex.synchronize { _connect }
 		end
@@ -65,6 +66,7 @@ module ODBA
 					conn.disconnect
 				rescue DBI::InterfaceError, Exception
 					## we're not interested, since we are disconnecting anyway
+          nil
 				end
 			end
 		end

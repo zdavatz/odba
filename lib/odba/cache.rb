@@ -3,18 +3,21 @@
 
 require 'singleton'
 require 'date'
+begin
+  require 'rubygems'
+  gem 'fastthread', '>=0.6.3'
+rescue LoadError
+end
+require 'thread'
 
 module ODBA
 	class Cache
 		include Singleton
 		CLEANER_PRIORITY = 0   # :nodoc: 
 		CLEANING_INTERVAL = 120# :nodoc: 
-		REAPER_ID_STEP = 1000  # :nodoc: 
-		REAPER_INTERVAL = 900  # :nodoc: 
 		def initialize # :nodoc: 
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
-				#start_reaper # TODO Database Garbage-Collection.
 			end
 			@cache_mutex = Mutex.new
       @deferred_indices = []
@@ -61,21 +64,19 @@ module ODBA
 		end
 		def clean # :nodoc:
 			delete_old
-			#cleaned = 0
+			cleaned = 0
 			#puts "starting cleaning cycle"
-			#$stdout.flush
-			#start = Time.now
+			$stdout.flush
+			start = Time.now
 			@fetched.each_value { |value|
 				if(value.odba_old?)
-					#cleaned += 1
-					value.odba_retire
+					value.odba_retire #&& cleaned += 1
 				end
 			}
 			if(@clean_prefetched)
 				@prefetched.each_value { |value|
 					if(value.odba_old?)
-						#cleaned += 1
-						value.odba_retire
+						value.odba_retire #&& cleaned += 1
 					end
 				}
 			end
@@ -116,7 +117,8 @@ module ODBA
 		# Persistables 
 		def delete(object)
 			odba_id = object.odba_id
-			#require 'debug'
+      name = object.odba_name
+      object.odba_notify_observers(:delete, odba_id, object.object_id)
 			rows = ODBA.storage.retrieve_connected_objects(odba_id)
 			rows.each { |row|
 				id = row.first
@@ -131,36 +133,47 @@ module ODBA
 					warn "          ### while looking for connected object #{id}"
 				end
 			}
-			@fetched.delete(odba_id)
-			@fetched.delete(object.odba_name)
-			@prefetched.delete(odba_id)
-			@prefetched.delete(object.odba_name)
+      delete_cache_entry(odba_id)
+      delete_cache_entry(name)
 			ODBA.storage.delete_persistable(odba_id)
 			delete_index_element(object)
 			object
 		end
+    def delete_cache_entry(key)
+      @cache_mutex.synchronize {
+        @fetched.delete(key)
+        @prefetched.delete(key)
+      }
+    end
 		def delete_index_element(odba_object) # :nodoc:
 			klass = odba_object.class
+      odba_id = odba_object.odba_id
 			indices.each { |index_name, index|
 				if(index.origin_class?(klass))
-					ODBA.storage.delete_index_element(index_name, odba_object.odba_id)
+					ODBA.storage.delete_index_element(index_name, odba_id)
 				end
 			}
 		end
 		def delete_old # :nodoc:
-			#deleted = 0
-			#start = Time.now
-			@fetched.delete_if { |key, value|
-				value.ready_to_destroy?
-			}
+			start = Time.now
+      deleted = _delete_old(@fetched)
 			if(@clean_prefetched)
-				@prefetched.delete_if { |key, value|
-					value.ready_to_destroy?
-				}
+        deleted += _delete_old(@prefetched)
 			end
 			#puts "deleted: #{deleted} objects in #{Time.now - start} seconds"
 			#$stdout.flush
+      deleted
 		end
+    def _delete_old(holder) # :nodoc:
+      deleted = 0
+			holder.delete_if { |key, obj|
+        if(obj.ready_to_destroy?)
+          obj.odba_notify_observers(:clean, obj.odba_id, obj.object_id)
+          deleted += 1
+        end
+			}
+      deleted
+    end
 		# Permanently deletes the index named _index_name_
 		def drop_index(index_name)
 			transaction {
@@ -168,12 +181,12 @@ module ODBA
 				self.delete(self.indices[index_name]) 
 			}
 		end
-		def drop_indices # :nodoc:
-				keys = self.indices.keys
-				keys.each{ |key|
-					drop_index(key)
-				}
-		end
+    def drop_indices # :nodoc:
+      keys = self.indices.keys
+      keys.each{ |key|
+        drop_index(key)
+      }
+    end
     # Queue an index for creation by #setup
     def ensure_index_deferred(index_definition)
       @deferred_indices.push(index_definition)
@@ -300,17 +313,6 @@ module ODBA
 		def prefetch
 			bulk_restore(ODBA.storage.restore_prefetchable)
 		end
-		def reap_object_connections # :nodoc:
-			@reaper_min_id += REAPER_ID_STEP
-			@reaper_max_id = @reaper_min_id + REAPER_ID_STEP
-			if(@reaper_min_id > ODBA.storage.max_id)
-				@reaper_min_id = 0
-				@reaper_max_id = REAPER_ID_STEP
-			end
-			#puts "removing objects between #{@reaper_min_id} and #{@reaper_max_id}"
-			ODBA.storage.remove_dead_objects(@reaper_min_id, @reaper_max_id)
-			ODBA.storage.remove_dead_connections(@reaper_min_id, @reaper_max_id)
-		end
 		# Find objects in an index
 		def retrieve_from_index(index_name, search_term, meta=nil)
 			index = indices.fetch(index_name)
@@ -318,15 +320,19 @@ module ODBA
 			bulk_fetch(ids, nil)
 		end
 		# Create necessary DB-Structure / other storage-setup
-		def setup
-			ODBA.storage.setup
+    def setup
+      ODBA.storage.setup
       @deferred_indices.each { |definition|
         unless(self.indices.include?(definition.index_name))
           create_index(definition)
         end
       }
       nil
-		end
+    end
+    # Returns the total number of cached objects
+    def size
+      @prefetched.size + @fetched.size
+    end
 		def start_cleaner # :nodoc: 
 			@cleaner = Thread.new {
 				Thread.current.priority = self::class::CLEANER_PRIORITY
@@ -341,29 +347,16 @@ module ODBA
 				}
 			}
 		end
-		def start_reaper # :nodoc: 
-			@grim_reaper = Thread.new {
-				Thread.current.priority = -6
-				loop {
-					sleep(self::class::REAPER_INTERVAL)
-					begin
-						reap_object_connections 
-					rescue StandardError => e
-						puts e
-						puts e.backtrace
-					end
-				}
-			}
-		end
 		# Store a Persistable _object_ in the database
 		def store(object)
 			odba_id = object.odba_id
+			name = object.odba_name
+      object.odba_notify_observers(:store, odba_id, object.object_id)
 			if(ids = Thread.current[:txids])
-				ids.unshift(odba_id)
+				ids.unshift([odba_id,name])
 			end
 			dump = object.odba_isolated_dump
 			store_collection_elements(object)
-			name = object.odba_name
 			prefetchable = object.odba_prefetch?
 			ODBA.storage.store(odba_id, dump, name, prefetchable, object.class)
 			target_ids = object.odba_target_ids
@@ -423,7 +416,7 @@ module ODBA
 		end
 		def transaction_rollback # :nodoc:
 			if(ids = Thread.current[:txids])
-				ids.each { |id|
+				ids.each { |id, name|
 					if(entry = fetch_cache_entry(id))
 						if(dump = ODBA.storage.restore(id))
 							obj, collection = restore(dump)
@@ -431,6 +424,8 @@ module ODBA
 							entry.odba_replace!(obj)
 						else
 							entry.odba_cut_connections!
+              delete_cache_entry(id)
+              delete_cache_entry(name)
 						end
 					end
 				}

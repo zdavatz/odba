@@ -4,24 +4,24 @@
 module ODBA
 	class CacheEntry # :nodoc: all
 		RETIRE_TIME = 300
-		DESTROY_TIME =  600
+		DESTROY_TIME = 600
 		attr_accessor :last_access, :collection
 		attr_reader :accessed_by
 		def initialize(obj)
 			@last_access = Time.now
 			@odba_object = obj
 			@collection = []
-			@accessed_by = []
+			@accessed_by = {}
 		end	
 		def odba_add_reference(object)
 			if(object)
-				@accessed_by.push(object)	
+				@accessed_by.store(object, true)
 			end
 			object
 		end
 		def odba_cut_connections!
-			@accessed_by.each { |item|
-				if(item.is_a?(ODBA::Persistable))
+			@accessed_by.each_key { |item|
+				if(item.is_a?(Persistable))
 					item.odba_cut_connection(@odba_object) 
 				end
 			}
@@ -29,6 +29,9 @@ module ODBA
 		def odba_id
 			@odba_object.odba_id
 		end
+    def odba_notify_observers(*args)
+      @odba_object.odba_notify_observers(*args)
+    end
 		def odba_object
 			@last_access  = Time.now
 			@odba_object
@@ -39,24 +42,18 @@ module ODBA
 		end
 		def odba_retire
 			#replace with stubs in accessed_by 
-			keep = []
-			@accessed_by.each { |item|
-				if((item.is_a?(Enumerable) \
-					&& ODBA.cache.include?(item.odba_id)) \
-					|| (!item.is_a?(ODBA::Persistable)))
-					keep.push(item)
-				else
-					item.odba_replace_persistable(@odba_object)	
-				end
+			@accessed_by.delete_if { |item, key|
+        !(item.is_a?(Enumerable) \
+          && ODBA.cache.include?(item.odba_id)) \
+          && item.is_a?(ODBA::Persistable) \
+          && item.odba_replace_persistable(@odba_object)
 			}
-			@accessed_by = keep
+      @accessed_by.empty?
 		end
 		def odba_replace!(obj)
 			@odba_object = obj
-			@accessed_by.each { |item|
-				#if(item.is_a?(ODBA::Persistable))
-					item.odba_replace(obj)
-				#end
+			@accessed_by.each_key { |item|
+        item.odba_replace(obj)
 			}
 		end
 		def ready_to_destroy?

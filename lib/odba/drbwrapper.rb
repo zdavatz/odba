@@ -2,7 +2,9 @@
 # DRbWrapper -- ydim -- 11.01.2006 -- hwyss@ywesee.com
 
 require 'drb'
-require 'odba'
+require 'odba/persistable'
+require 'odba/stub'
+require 'odba/odba'
 require 'drb/timeridconv'
 
 module ODBA
@@ -42,10 +44,23 @@ module ODBA
       @obj
     end
   end
-  class DRbIdConv < DRb::TimerIdConv
+  class DRbIdConv < DRb::DRbIdConv
+    def initialize(*args)
+      super
+      @unsaved = {}
+    end
+    def odba_update(key, odba_id, object_id)
+      case key
+      when :store
+        @unsaved.store(object_id, odba_id)
+      when :clean, :delete
+        @unsaved.delete(object_id)
+      end
+    end
     def to_obj(ref)
-      if(ref.is_a?(String))
-        DRbWrapper.new(ODBA.cache.fetch(ref.to_i))
+      test = ref
+      if(test.is_a?(String) || (test = @unsaved[ref]))
+        DRbWrapper.new(ODBA.cache.fetch(test.to_i))
       else
         super
       end
@@ -53,10 +68,15 @@ module ODBA
       raise RangeError, e.message
     end
     def to_id(obj)
-      if(!obj.is_a?(ODBA::Persistable) || obj.odba_unsaved?)
-        super
+      if(obj.is_a?(ODBA::Persistable))
+        if(obj.odba_unsaved?)
+          obj.odba_add_observer(self)
+          super
+        else
+          obj.odba_id.to_s
+        end
       else
-        obj.odba_id.to_s
+        super
       end
     end
   end

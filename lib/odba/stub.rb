@@ -2,6 +2,7 @@
 #-- Stub -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'yaml'
+require 'odba/odba_error'
 
 module ODBA
 	class Stub # :nodoc: all
@@ -66,7 +67,6 @@ module ODBA
 			"eql?", "nil?", "respond_to?", "object_id", 
 			"instance_variables", "instance_variable_get",
 			"instance_variable_set", 
-      # "dup", 
 			## methods defined in persistable.rb:Object
 			"odba_id", "odba_instance", "odba_isolated_stub",
 			## yaml-methods

@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
 
-$: << File.expand_path('../lib/odba/', File.dirname(__FILE__))
+$: << File.expand_path('../lib', File.dirname(__FILE__))
 
 require 'test/unit'
-require 'marshal'
+require 'odba/marshal'
 
 module ODBA
 	class TestMarshal < Test::Unit::TestCase

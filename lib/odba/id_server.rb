@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 #-- IdServer -- odba -- 10.11.2004 -- hwyss@ywesee.com
 
-require 'odba'
+require 'odba/persistable'
+require 'thread'
 
 module ODBA
 	class IdServer

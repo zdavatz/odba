@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 #-- Index -- odba -- 13.05.2004 -- rwaltert@ywesee.com
 
+require 'odba/persistable'
+
 module ODBA
 	# Indices in ODBA are defined by origin and target (which may be identical)
 	# Any time a Persistable of class _target_klass_ or _origin_klass_ is stored,
@@ -87,8 +89,8 @@ module ODBA
 			end
 			@proc_resolve_search_term
 		end
-		def search_term(odba_obj) # :nodoc:
-			proc_resolve_search_term.call(odba_obj)
+		def search_term(origin) # :nodoc:
+			proc_resolve_search_term.call(origin)
 		end
 		def set_relevance(meta, rows) # :nodoc:
 			if(meta.respond_to?(:set_relevance))
@@ -196,8 +198,8 @@ module ODBA
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
-		def do_update_index(origin_id, search_term, target_id=nil) # :nodoc:
-				ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id, @dictionary) 
-		end
+    def do_update_index(origin_id, search_term, target_id=nil) # :nodoc:
+      ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id, @dictionary) 
+    end
 	end
 end

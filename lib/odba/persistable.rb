@@ -1,6 +1,9 @@
 #!/usr/bin/env ruby
 #-- Persistable -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
+require 'odba/stub'
+require 'observer'
+
 class Object # :nodoc: all
 	def odba_id
 	end
@@ -46,7 +49,7 @@ module ODBA
               elsif(keys.last.is_a?(Class))
                 origin_klass = keys.pop 
                 resolve = keys.pop
-                resolve_origin = keys.pop
+                resolve_origin = keys.last
               else
                 resolve = keys.pop
               end
@@ -99,7 +102,14 @@ module ODBA
                 if(vals.size > 1) 
                   args = {}
                   vals.each_with_index { |val, idx|
-                    args.store(keys.at(idx), val)
+                    cond = case val
+                           when Numeric, Date
+                             '='
+                           else
+                             'like'
+                           end
+                    args.store(keys.at(idx), 
+                               {'value',val,'condition',cond})
                   }
                   ODBA.cache.retrieve_from_index(index_name, args)
                 else
@@ -107,6 +117,7 @@ module ODBA
                 end.first
               }
               define_method(keys_name) { |*vals|
+                # TODO fix this for fulltext and condition indices
                 length, = vals
                 ODBA.cache.index_keys(index_name, length)
               }
@@ -128,14 +139,16 @@ module ODBA
       name.gsub(/[^a-z0-9_]/i, '_')
     end
 		attr_accessor :odba_name, :odba_prefetch
+    attr_reader :odba_observers
 		# Classes which include Persistable may override ODBA_EXCLUDE_VARS to 
 		# prevent data from being stored in the database (e.g. passwords, file
 		# descriptors). Simply redefine: ODBA_EXCLUDE_VARS = ['@foo']
 		ODBA_EXCLUDE_VARS = []
+		ODBA_PREDEFINE_EXCLUDE_VARS = ['@odba_observers'] # :nodoc:
 		ODBA_INDEXABLE = true # :nodoc:
 		# see odba_prefetch?
 		ODBA_PREFETCH = false
-		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids'] # :nodoc:
+		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids'] # :nodoc:, legacy
 		# If you want to prevent Persistables from being disconnected and stored 
 		# separately (Array and Hash are Persistable by default), redefine:
 		# ODBA_SERIALIZABLE = ['@bar']
@@ -144,9 +157,21 @@ module ODBA
 			super(other.odba_instance)
 		end
     def dup # :nodoc
+      Thread.critical = true
+      if(id = @odba_id)
+        remove_instance_variable('@odba_id')
+      end
       twin = super
-      twin.odba_id = nil
+      #twin.extend(Persistable)
+      @odba_id = id
+      Thread.critical = false
       twin
+    end
+    # Add an observer for Cache#store(self), Cache#delete(self) and
+    # Cache#clean removing the object from the Cache
+    def odba_add_observer(obj)
+      (@odba_observers ||= []).push(obj)
+      obj
     end
 		def odba_collection #:nodoc:
 			[]
@@ -161,17 +186,24 @@ module ODBA
 				end
 			}
 		end
-		# Permanently deletes this Persistable from the database and remove all 
-		# connections to it
+    # Permanently deletes this Persistable from the database and remove
+    # all connections to it
 		def odba_delete
 			ODBA.cache.delete(self)
 		end
+    # Delete _observer_ as an observer on this object. 
+    # It will no longer receive notifications.
+    def odba_delete_observer(observer)
+      @odba_observers.delete(observer) if(@odba_observers)
+    end
+    # Delete all observers associated with this object.
+    def odba_delete_observers
+      @odba_observers = nil
+    end
 		def odba_dup #:nodoc:
 			twin = dup
+      twin.extend(Persistable)
       twin.odba_id = @odba_id
-      unless(twin.is_a?(Persistable))
-        twin.extend(Persistable)
-      end
 			odba_potentials.each { |name|
 				var = twin.instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
@@ -183,14 +215,19 @@ module ODBA
 			twin
 		end
     def odba_exclude_vars # :nodoc:
-      if(defined?(self::class::ODBA_EXCLUDE_VARS))
-        self::class::ODBA_EXCLUDE_VARS
-      else
-        []
+			exc = if(defined?(self::class::ODBA_PREDEFINE_EXCLUDE_VARS))
+              self::class::ODBA_PREDEFINE_EXCLUDE_VARS
+            else
+              ODBA_PREDEFINE_EXCLUDE_VARS
+            end
+			if(defined?(self::class::ODBA_EXCLUDE_VARS))
+        exc += self::class::ODBA_EXCLUDE_VARS 
       end
+      exc
     end
-		# Returns the odba unique id of this Persistable. If no id had been assigned,
-		# this is now done. No attempt is made to store the Persistable in the db.
+		# Returns the odba unique id of this Persistable. 
+    # If no id had been assigned, this is now done. 
+    # No attempt is made to store the Persistable in the db.
 		def odba_id
 			@odba_id ||= ODBA.cache.next_id
 		end
@@ -230,6 +267,13 @@ module ODBA
 			@odba_indexable \
         || (defined?(self::class::ODBA_INDEXABLE) && self::class::ODBA_INDEXABLE)
 		end
+    # Invoke the update method in each currently associated observer 
+    # in turn, passing it the given arguments
+    def odba_notify_observers(*args) 
+      if(@odba_observers)
+        @odba_observers.each { |obs| obs.odba_update(*args) }
+      end
+    end
 		def odba_potentials # :nodoc:
 			instance_variables - odba_serializables - odba_exclude_vars
 		end
@@ -245,7 +289,7 @@ module ODBA
 		## should be called odba_stubize or similar
 		def odba_replace_persistable(obj) # :nodoc:
 			id = obj.odba_id
-			odba_potentials.each { |name|
+			odba_potentials.collect { |name|
 				var = instance_variable_get(name)
 				# must not be synchronized because of the following if
 				# statement (if an object has already been replaced by
@@ -276,17 +320,13 @@ module ODBA
 				end
 			}
 		end
-		def odba_replace_stubs(stub, substitution, name = nil) # :nodoc:
-			if(name)
-				instance_variable_set(name, substitution)
-			else
-				odba_potentials.each { |name|
-					var = instance_variable_get(name)
-					if(stub.eql?(var))
-						instance_variable_set(name, substitution)
-					end
-				}
-			end
+		def odba_replace_stubs(stub, substitution) # :nodoc:
+      odba_potentials.each { |name|
+        var = instance_variable_get(name)
+        if(stub.eql?(var))
+          instance_variable_set(name, substitution)
+        end
+      }
 		end
 		def odba_restore(collection=[]) # :nodoc:
 		end
@@ -333,7 +373,7 @@ module ODBA
 				end
 				odba_store_unsaved
         self
-			rescue DBI::ProgrammingError => e
+			rescue 
 				@odba_name = old_name
 				raise
 			end

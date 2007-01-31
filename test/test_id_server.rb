@@ -5,43 +5,33 @@ $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
 require 'test/unit'
-require 'mock'
+require 'flexmock'
 require 'odba/id_server'
+require 'odba/odba'
+require 'odba/marshal'
 
 module ODBA
 	class TestIdServer < Test::Unit::TestCase
+    include FlexMock::TestCase
 		def setup
-			ODBA.cache = Mock.new('cache')
+			@cache = ODBA.cache = flexmock('cache')
 			@id_server = IdServer.new
 			@id_server.instance_variable_set('@odba_id', 1)
 		end
-		def teardown
-			ODBA.cache.__verify
-		end
 		def test_first
-			3.times { 
-				ODBA.cache.__next(:store) { |obj|
-					assert_equal(@id_server, obj)
-				}
-			}
+      @cache.should_receive(:store).with(@id_server).times(3)
 			assert_equal(1, @id_server.next_id(:foo))
 			assert_equal(1, @id_server.next_id(:bar))
 			assert_equal(1, @id_server.next_id(:baz))
 		end
 		def test_consecutive
-			3.times { 
-				ODBA.cache.__next(:store) { |obj|
-					assert_equal(@id_server, obj)
-				}
-			}
+      @cache.should_receive(:store).with(@id_server).times(3)
 			assert_equal(1, @id_server.next_id(:foo))
 			assert_equal(2, @id_server.next_id(:foo))
 			assert_equal(3, @id_server.next_id(:foo))
 		end
 		def test_dumpable
-			ODBA.cache.__next(:store) { |obj|
-				assert_equal(@id_server, obj)
-			}
+      @cache.should_receive(:store).with(@id_server).times(1)
 			@id_server.next_id(:foo)
 			dump = nil
 			assert_nothing_raised { 
