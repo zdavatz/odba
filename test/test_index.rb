@@ -64,11 +64,14 @@ module ODBA
     end
     def test_keys
       @storage.should_receive(:index_fetch_keys).with('index', nil)\
-        .and_return { ['key1', 'key2'] }
+        .and_return { ['key1', 'key2', ''] }
       assert_equal(%w{key1 key2}, @index.keys)
       @storage.should_receive(:index_fetch_keys).with('index', 2)\
-        .and_return { ['k1', 'k2'] }
+        .and_return { ['k1', 'k2', ''] }
       assert_equal(%w{k1 k2}, @index.keys(2))
+      @storage.should_receive(:index_fetch_keys).with('index', 1)\
+        .and_return { ['1', '2', ''] }
+      assert_equal(%w{1 2}, @index.keys(1))
     end
     def test_origin_class
       df = IndexDefinition.new

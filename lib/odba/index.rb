@@ -47,7 +47,8 @@ module ODBA
 			}
 		end
 		def keys(length=nil)
-			ODBA.storage.index_fetch_keys(@index_name, length)
+			ODBA.storage.index_fetch_keys(@index_name, length).delete_if { |k|
+        k.empty? }
 		end
 		def origin_class?(klass)
 			(@origin_klass == klass)
