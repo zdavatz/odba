@@ -101,9 +101,9 @@ module ODBA
 			end
 		end
 		def update(object)
-			if(object.is_a?(@target_klass))
+			if(object.instance_of?(@target_klass))
 				update_target(object)
-			elsif(object.is_a?(@origin_klass))
+			elsif(object.instance_of?(@origin_klass))
 				update_origin(object)
 			end
 		end

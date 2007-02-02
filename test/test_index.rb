@@ -14,8 +14,12 @@ module ODBA
   class Origin
     attr_accessor :term, :odba_id
   end
+  class OriginSubclass < Origin
+  end
   class Target
     attr_accessor :origin, :odba_id
+  end
+  class TargetSubclass < Target
   end
   class TestIndexCommon < Test::Unit::TestCase
     include FlexMock::TestCase
@@ -142,6 +146,16 @@ module ODBA
         .with('index', 1, 'search-term', 2).and_return { 
         assert(true) }
       @index.update(target)
+    end
+    def test_update__subclass
+      origin = OriginSubclass.new
+      target = TargetSubclass.new
+      assert_nothing_raised { 
+        @index.update(origin)
+      }
+      assert_nothing_raised { 
+        @index.update(target)
+      }
     end
   end
   class TestIndex < Test::Unit::TestCase

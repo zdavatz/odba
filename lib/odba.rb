@@ -57,7 +57,6 @@
 #
 # :main:lib/odba.rb
 
-puts __FILE__
 require 'odba/persistable'
 require 'odba/storage'
 require 'odba/cache'
