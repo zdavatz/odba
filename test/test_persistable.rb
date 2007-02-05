@@ -43,7 +43,7 @@ module ODBA
       #attr_accessor :origin
       odba_index :name
       odba_index :foo, :bar
-      odba_index :origin, :non_replaceable, ODBAContainer
+      odba_index :origin, :origin, :non_replaceable, ODBAContainer
       odba_index :redirect, 'redirect.name'
     end
 		def setup

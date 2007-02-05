@@ -49,7 +49,7 @@ module ODBA
               elsif(keys.last.is_a?(Class))
                 origin_klass = keys.pop 
                 resolve = keys.pop
-                resolve_origin = keys.last
+                resolve_origin = keys.pop
               else
                 resolve = keys.pop
               end
