@@ -57,6 +57,54 @@ CREATE TABLE collection (
 				rows
 			end
 		end
+    def collection_fetch(odba_id, key_dump)
+      sql = <<-SQL
+        SELECT value FROM collection 
+        WHERE odba_id = ? AND key = ?
+      SQL
+      row = self.dbi.select_one(sql, odba_id, key_dump)
+      row.first unless row.nil?
+    end
+    def collection_remove(odba_id, key_dump)
+      sth = self.dbi.prepare <<-SQL
+        DELETE FROM collection
+        WHERE odba_id = ? AND key = ?
+      SQL
+      sth.execute(odba_id, key_dump)
+    end
+    def collection_store(odba_id, key_dump, value_dump)
+      sth = self.dbi.prepare <<-SQL 
+        INSERT INTO collection (odba_id, key, value)
+        VALUES (?, ?, ?)
+      SQL
+      sth.execute(odba_id, key_dump, value_dump)
+    end
+    def condition_index_delete(index_name, origin_id, 
+                               search_terms, target_id=nil)
+      values = []
+      sql = <<-SQL
+        DELETE FROM #{index_name}
+        WHERE origin_id = ?
+      SQL
+      search_terms.each { |key, value|
+        sql << " AND %s = ?" % key
+        values << value
+      }
+      if(target_id)
+        sql << " AND target_id = ?"
+        values << target_id
+      end
+      sth = self.dbi.prepare(sql)
+      sth.execute(origin_id, *values)
+    end
+    def condition_index_ids(index_name, id, id_name)
+      sql = <<-SQL
+        SELECT DISTINCT *
+        FROM #{index_name}
+        WHERE #{id_name}=?
+      SQL
+      self.dbi.select_all(sql, id)
+    end
     def create_dictionary_map(language)
       %w{lhword lpart_hword lword}.each { |token|
         self.dbi.execute <<-SQL
@@ -93,6 +141,10 @@ CREATE INDEX origin_id_#{table_name} ON #{table_name}(origin_id);
 CREATE INDEX #{name}_#{table_name} ON #{table_name}(#{name});
         SQL
       }
+      #index target_id
+      self.dbi.prepare(<<-SQL).execute
+CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
+      SQL
     end
     def create_fulltext_index(table_name)
       self.dbi.prepare(<<-SQL).execute
@@ -110,6 +162,10 @@ CREATE INDEX origin_id_#{table_name} ON #{table_name}(origin_id);
       self.dbi.prepare(<<-SQL).execute
 CREATE INDEX search_term_#{table_name}
 ON #{table_name} USING gist(search_term);
+      SQL
+      #index target_id
+      self.dbi.prepare(<<-SQL).execute
+CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       SQL
     end
     def create_index(table_name)
@@ -130,17 +186,17 @@ ON #{table_name} USING gist(search_term);
         CREATE INDEX search_term_#{table_name}
         ON #{table_name}(search_term)
       SQL
+      #index target_id
+      self.dbi.prepare(<<-SQL).execute
+        CREATE INDEX target_id_#{table_name}
+        ON #{table_name}(target_id)
+      SQL
     end
 		def dbi
 			Thread.current[:txn] || @dbi
 		end
 		def drop_index(index_name)
 			self.dbi.prepare("DROP TABLE #{index_name}").execute
-		end
-		def delete_index_element(index_name, odba_id)
-			self.dbi.prepare(<<-SQL).execute(odba_id)
-				DELETE FROM #{index_name} WHERE origin_id = ?
-			SQL
 		end
 		def delete_persistable(odba_id)
       # delete from connections
@@ -189,32 +245,32 @@ ON #{table_name} USING gist(search_term);
         sth.execute(origin_id, id)
       }
     end
+    def ensure_target_id_index(table_name)
+      #index target_id
+      self.dbi.execute(<<-SQL)
+        CREATE INDEX target_id_#{table_name}
+        ON #{table_name}(target_id)
+      SQL
+    rescue
+    end
     def extent_ids(klass)
       self.dbi.select_all(<<-EOQ, klass.name).flatten
         SELECT odba_id FROM object WHERE extent = ?
       EOQ
     end
-    def collection_fetch(odba_id, key_dump)
+    def fulltext_index_delete(index_name, id, id_name)
+      self.dbi.execute(<<-SQL, id)
+        DELETE FROM #{index_name}
+        WHERE #{id_name} = ?
+      SQL
+    end
+    def fulltext_index_target_ids(index_name, origin_id)
       sql = <<-SQL
-        SELECT value FROM collection 
-        WHERE odba_id = ? AND key = ?
+        SELECT DISTINCT target_id
+        FROM #{index_name}
+        WHERE origin_id=?
       SQL
-      row = self.dbi.select_one(sql, odba_id, key_dump)
-      row.first unless row.nil?
-    end
-    def collection_remove(odba_id, key_dump)
-      sth = self.dbi.prepare <<-SQL
-        DELETE FROM collection
-        WHERE odba_id = ? AND key = ?
-      SQL
-      sth.execute(odba_id, key_dump)
-    end
-    def collection_store(odba_id, key_dump, value_dump)
-      sth = self.dbi.prepare <<-SQL 
-        INSERT INTO collection (odba_id, key, value)
-        VALUES (?, ?, ?)
-      SQL
-      sth.execute(odba_id, key_dump, value_dump)
+      self.dbi.select_all(sql, origin_id)
     end
     def generate_dictionary(language, locale, dict_dir)
       # setup configuration
@@ -246,11 +302,21 @@ ON #{table_name} USING gist(search_term);
         );
       SQL
     end
-    def index_delete_target(index_name, target_id)
-      sth = self.dbi.prepare <<-SQL
-        DELETE FROM #{index_name} WHERE target_id = ?
+    def index_delete_origin(index_name, odba_id, term)
+      self.dbi.prepare(<<-SQL).execute(odba_id, term)
+        DELETE FROM #{index_name} 
+        WHERE origin_id = ?
+        AND search_term = ?
       SQL
-      sth.execute(target_id)
+    end
+    def index_delete_target(index_name, origin_id, search_term, target_id)
+      sth = self.dbi.prepare <<-SQL
+        DELETE FROM #{index_name} 
+        WHERE origin_id = ?
+        AND search_term = ?
+        AND target_id = ?
+      SQL
+      sth.execute(origin_id, search_term, target_id)
     end
     def index_fetch_keys(index_name, length=nil)
       expr = if(length)
@@ -265,13 +331,21 @@ ON #{table_name} USING gist(search_term);
       SQL
       self.dbi.select_all(sql).flatten
     end
+    def index_origin_ids(index_name, target_id)
+      sql = <<-SQL
+        SELECT DISTINCT origin_id, search_term
+        FROM #{index_name}
+        WHERE target_id=?
+      SQL
+      self.dbi.select_all(sql, target_id)
+    end
     def index_target_ids(index_name, origin_id)
       sql = <<-SQL
-        SELECT DISTINCT target_id
+        SELECT DISTINCT target_id, search_term
         FROM #{index_name}
         WHERE origin_id=?
       SQL
-      self.dbi.select_all(sql, origin_id).flatten
+      self.dbi.select_all(sql, origin_id)
     end
 		def max_id
 			ensure_next_id_set
@@ -361,7 +435,6 @@ ON #{table_name} USING gist(search_term);
 			[]
 		end
 		def retrieve_from_index(index_name, search_term, exact=nil)
-      search_term = search_term.to_s.downcase
 			unless(exact)
 				search_term = search_term + "%"
 			end
@@ -475,7 +548,6 @@ WHERE origin_id=?
       end
     end
 		def update_index(index_name, origin_id, search_term, target_id)
-      search_term = search_term.to_s.downcase
       if(target_id)
         sth_insert = self.dbi.prepare <<-SQL
           INSERT INTO #{index_name} (origin_id, search_term, target_id) 

@@ -76,7 +76,7 @@ module ODBA
 		def test_create_index
 			dbi = flexmock('dbi')
 			sth = flexmock('sth')
-      sth.should_receive(:execute).times(3).and_return { assert(true) }
+      sth.should_receive(:execute).times(4).and_return { assert(true) }
 			@storage.dbi = dbi
       sql = <<-SQL
         CREATE TABLE index_name (
@@ -94,6 +94,11 @@ module ODBA
       sql = <<-SQL
         CREATE INDEX search_term_index_name
         ON index_name(search_term)
+      SQL
+      dbi.should_receive(:prepare).with(sql).and_return(sth)
+      sql = <<-SQL
+        CREATE INDEX target_id_index_name
+        ON index_name(target_id)
       SQL
       dbi.should_receive(:prepare).with(sql).and_return(sth)
 			@storage.create_index("index_name")
@@ -281,24 +286,27 @@ module ODBA
         assert(true) }
       @storage.update_index("index", 2, "term", nil)
     end
-		def test_delete_index_element
-			dbi = flexmock("dbi")
-			sth = flexmock
-			@storage.dbi = dbi
-			expected = <<-SQL
-				DELETE FROM foo WHERE origin_id = ?
-			SQL
-			dbi.mock_handle(:prepare) { |sql|
-				assert_equal(expected, sql)
-				sth
-			}
-			sth.mock_handle(:execute) { |id|
-				assert_equal(2, id)
-			}
-			@storage.delete_index_element("foo", 2)
-			dbi.mock_verify
-			sth.mock_verify
-		end
+    def test_delete_index_origin
+      dbi = flexmock("dbi")
+      sth = flexmock
+      @storage.dbi = dbi
+      expected = <<-SQL
+        DELETE FROM foo 
+        WHERE origin_id = ?
+        AND search_term = ?
+      SQL
+      dbi.mock_handle(:prepare) { |sql|
+        assert_equal(expected, sql)
+        sth
+      }
+      sth.mock_handle(:execute) { |id, term|
+        assert_equal(2, id)
+        assert_equal('search-term', term)
+      }
+      @storage.index_delete_origin("foo", 2, 'search-term')
+      dbi.mock_verify
+      sth.mock_verify
+    end
 		def test_retrieve_connected_objects
 			dbi = flexmock("dbi")
 			@storage.dbi = dbi
@@ -313,12 +321,16 @@ module ODBA
 			sth = flexmock("sth")
 			@storage.dbi = dbi
       sql = <<-SQL
-        DELETE FROM foo_index WHERE target_id = ?
+        DELETE FROM foo_index 
+        WHERE origin_id = ?
+        AND search_term = ?
+        AND target_id = ?
       SQL
 			dbi.should_receive(:prepare).with(sql).times(1).and_return(sth)
-			sth.should_receive(:execute).with(6).times(1).and_return {
+			sth.should_receive(:execute).with(6, 'search-term', 5)\
+        .times(1).and_return {
         assert(true) }
-			@storage.index_delete_target("foo_index", 6)
+			@storage.index_delete_target("foo_index", 6, 'search-term', 5)
 		end
 		def test_drop_index
 			dbi = flexmock("dbi")
@@ -417,7 +429,7 @@ CREATE TABLE conditions (
       SQL
       statement = flexmock('StatementHandle')
       @dbi.should_receive(:prepare).with(sql).and_return(statement)
-      statement.should_receive(:execute).times(4).and_return { 
+      statement.should_receive(:execute).times(5).and_return { 
         assert(true)
       }
       sql = <<-'SQL'
@@ -432,6 +444,10 @@ CREATE INDEX foo_conditions ON conditions(foo);
 CREATE INDEX bar_conditions ON conditions(bar);
       SQL
       @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      sql = <<-'SQL'
+CREATE INDEX target_id_conditions ON conditions(target_id);
+      SQL
+      @dbi.should_receive(:prepare).with(sql).and_return(statement)
       @storage.create_condition_index('conditions', definition)
     end
     def test_create_fulltext_index
@@ -444,7 +460,7 @@ CREATE TABLE fulltext (
       SQL
       statement = flexmock('StatementHandle')
       @dbi.should_receive(:prepare).with(sql).and_return(statement)
-      statement.should_receive(:execute).times(3).and_return {
+      statement.should_receive(:execute).times(4).and_return {
         assert(true)
       }
       sql = <<-'SQL'
@@ -454,6 +470,10 @@ CREATE INDEX origin_id_fulltext ON fulltext(origin_id);
       sql = <<-'SQL'
 CREATE INDEX search_term_fulltext
 ON fulltext USING gist(search_term);
+      SQL
+      @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      sql = <<-'SQL'
+CREATE INDEX target_id_fulltext ON fulltext(target_id);
       SQL
       @dbi.should_receive(:prepare).with(sql).and_return(statement)
       @storage.create_fulltext_index('fulltext')
@@ -567,14 +587,15 @@ ON fulltext USING gist(search_term);
     end
     def test_index_target_ids
       sql = <<-'SQL'
-        SELECT DISTINCT target_id
+        SELECT DISTINCT target_id, search_term
         FROM index
         WHERE origin_id=?
       SQL
       @dbi.should_receive(:select_all).with(sql, 5).and_return { 
-        [[1], [2], [3]]
+        [[1, 'search-term'], [2, 'search-term'], [3, 'search-term']]
       }
-      assert_equal([1,2,3], @storage.index_target_ids('index', 5))
+      expected = [[1, 'search-term'], [2, 'search-term'], [3, 'search-term']]
+      assert_equal(expected, @storage.index_target_ids('index', 5))
     end
     def test_remove_dictionary
       sql = <<-'SQL'
@@ -747,6 +768,99 @@ WHERE origin_id=?
       }
       @storage.update_fulltext_index('index', 12, "some  text", nil,
                                      'german')
+    end
+    def test_condition_index_delete
+      sql = <<-SQL
+        DELETE FROM index
+        WHERE origin_id = ?\n AND c1 = ? AND c2 = ?
+      SQL
+      handle = flexmock('DBHandle')
+      @dbi.should_receive(:prepare).with(sql.chomp)\
+        .times(1).and_return(handle)
+      handle.should_receive(:execute).with(3, 'f', 7)\
+        .times(1).and_return { assert(true) }
+      @storage.condition_index_delete('index', 3, {'c1','f','c2',7})
+    end
+    def test_condition_index_delete__with_target_id
+      sql = <<-SQL
+        DELETE FROM index
+        WHERE origin_id = ?\n AND c1 = ? AND c2 = ? AND target_id = ?
+      SQL
+      handle = flexmock('DBHandle')
+      @dbi.should_receive(:prepare).with(sql.chomp)\
+        .times(1).and_return(handle)
+      handle.should_receive(:execute).with(3, 'f', 7, 4)\
+        .times(1).and_return { assert(true) }
+      @storage.condition_index_delete('index', 3, {'c1','f','c2',7}, 4)
+    end
+    def test_condition_index_ids__origin_id
+      sql = <<-SQL
+        SELECT DISTINCT *
+        FROM index
+        WHERE origin_id=?
+      SQL
+      @dbi.should_receive(:select_all).with(sql, 5)\
+        .times(1).and_return { assert(true) }
+      @storage.condition_index_ids('index', 5, 'origin_id')
+    end
+    def test_condition_index_ids__target_id
+      sql = <<-SQL
+        SELECT DISTINCT *
+        FROM index
+        WHERE target_id=?
+      SQL
+      @dbi.should_receive(:select_all).with(sql, 5)\
+        .times(1).and_return { assert(true) }
+      @storage.condition_index_ids('index', 5, 'target_id')
+    end
+    def test_ensure_target_id_index
+      sql = <<-SQL
+        CREATE INDEX target_id_index
+        ON index(target_id)
+      SQL
+      @dbi.should_receive(:execute).with(sql).and_return { 
+        raise DBI::Error }
+      assert_nothing_raised {
+        @storage.ensure_target_id_index('index')   
+      }
+    end
+    def test_fulltext_index_delete__origin
+      sql = <<-SQL
+        DELETE FROM index
+        WHERE origin_id = ?
+      SQL
+      @dbi.should_receive(:execute).with(sql, 4)\
+        .times(1).and_return { assert(true) }
+      @storage.fulltext_index_delete('index', 4, 'origin_id')
+    end
+    def test_fulltext_index_delete__target
+      sql = <<-SQL
+        DELETE FROM index
+        WHERE target_id = ?
+      SQL
+      @dbi.should_receive(:execute).with(sql, 4)\
+        .times(1).and_return { assert(true) }
+      @storage.fulltext_index_delete('index', 4, 'target_id')
+    end
+    def test_fulltext_index_target_ids
+      sql = <<-SQL
+        SELECT DISTINCT target_id
+        FROM index
+        WHERE origin_id=?
+      SQL
+      @dbi.should_receive(:select_all).with(sql, 4)\
+        .times(1).and_return { assert(true) }
+      @storage.fulltext_index_target_ids('index', 4)
+    end
+    def test_index_origin_ids
+      sql = <<-SQL
+        SELECT DISTINCT origin_id, search_term
+        FROM index
+        WHERE target_id=?
+      SQL
+      @dbi.should_receive(:select_all).with(sql, 4)\
+        .times(1).and_return { assert(true) }
+      @storage.index_origin_ids('index', 4)
     end
 	end
 end

@@ -34,7 +34,9 @@ module ODBA
 				next_connection { |conn|
 					conn.send(method, *args, &block)
 				}
-			rescue NoMethodError, DBI::DatabaseError
+      rescue DBI::ProgrammingError
+        raise
+			rescue NoMethodError, DBI::Error
 				if(tries > 0)
 					sleep(SETUP_RETRIES - tries)
 					tries -= 1

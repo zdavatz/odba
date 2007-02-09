@@ -39,11 +39,7 @@ module ODBA
         .with('index', 12, 'foo', nil).and_return {
         assert(true)
       }
-      @storage.should_receive(:update_index)\
-        .with('index', 12, 'bar', nil).and_return {
-        assert(true)
-      }
-      @index.do_update_index(12, %w{foo bar})
+      @index.do_update_index(12, 'foo')
     end
     def test_fill
       df = IndexDefinition.new
@@ -99,7 +95,7 @@ module ODBA
       index = IndexCommon.new(df, self)
       pr = index.proc_resolve_search_term
       stub = Object.new
-      assert_equal(stub.to_s, pr.call(stub))
+      assert_equal(stub.to_s.downcase, pr.call(stub))
     end
     def test_search_term
       idf = IndexDefinition.new
@@ -124,8 +120,8 @@ module ODBA
       origin.odba_id = 1
       origin.term = "search-term"
       @storage.should_receive(:index_target_ids).with('index', 1)\
-        .and_return([3, 4])
-      @storage.should_receive(:delete_index_element).with('index', 1)
+        .and_return([[3, 'old-term'], [4, 'old-term']])
+      @storage.should_receive(:index_delete_origin).with('index', 1, "old-term")
       @storage.should_receive(:update_index)\
         .with('index', 1, 'search-term', 3).and_return { 
         assert(true) }
@@ -141,7 +137,12 @@ module ODBA
       target = Target.new
       target.odba_id = 2
       target.origin = origin
-      @storage.should_receive(:index_delete_target).with('index', 2)
+      @storage.should_receive(:index_origin_ids).with('index', 2)\
+        .and_return([[1, 'old-term'], [4, 'obsolete-term']])
+      @storage.should_receive(:index_delete_target)\
+        .with('index', 1, 'old-term', 2).and_return { assert(true) }
+      @storage.should_receive(:index_delete_target)\
+        .with('index', 4, 'obsolete-term', 2).and_return { assert(true) }
       @storage.should_receive(:update_index)\
         .with('index', 1, 'search-term', 2).and_return { 
         assert(true) }
@@ -178,6 +179,13 @@ module ODBA
         .with('index', 'search-term', false).and_return rows
       assert_equal([1,2,3], @index.fetch_ids('search-term'))
     end
+    def test_search_terms
+      origin = Origin.new
+      origin.term = 'resolved'
+      assert_equal(['resolved'], @index.search_terms(origin))
+      origin.term = ['resolved']
+      assert_equal(['resolved'], @index.search_terms(origin))
+    end
   end
   class TestConditionIndex < Test::Unit::TestCase
     include FlexMock::TestCase
@@ -188,12 +196,12 @@ module ODBA
       ODBA.storage = @storage
       df = IndexDefinition.new
       df.index_name = 'index'
-      #df.origin_klass = :Origin
-      #df.target_klass = :Target
-      #df.resolve_origin = :origin
+      df.origin_klass = :Origin
+      df.target_klass = :Target
+      df.resolve_origin = :origin
       df.resolve_search_term = [
         ['crit1', 'term'],
-        ['crit2', {'type' => 'Integer', 'resolve' => 'term'}],
+        ['crit2', {'type' => 'Integer', 'resolve' => 'odba_id'}],
       ]
       @index = ConditionIndex.new(df, self)
     end
@@ -214,11 +222,66 @@ module ODBA
       pr = @index.proc_resolve_search_term
       origin = Origin.new
       origin.term = 'search_term'
+      origin.odba_id = 15
       expected = {
-        'crit1' => 'search_term',
-        'crit2' => 'search_term',
+        'crit1', 'search_term',
+        'crit2', 15,
       }
       assert_equal(expected, pr.call(origin))
+    end
+    def test_update_target
+      @storage.should_receive(:condition_index_ids)\
+        .with('index', 4, 'target_id').and_return {
+        [
+          {'origin_id' => 1, 'crit1' => '1st', 
+          'crit2' => 1, 'target_id' => 5},
+          {'origin_id' => 1, 'crit1' => '1st', 
+          'crit2' => 2, 'target_id' => 5},
+        ]
+      }
+      target = Target.new
+      target.odba_id = 4
+      origin1 = Origin.new
+      origin1.odba_id = 1
+      origin1.term = '1st'
+      origin2 = Origin.new
+      origin2.term = '2nd'
+      origin2.odba_id = 2
+      target.origin = [origin1, origin2]
+      @storage.should_receive(:condition_index_delete)\
+        .with('index', 1, [['crit1', '1st'], ['crit2', 2]], 4)\
+        .and_return { assert(true) }
+      @storage.should_receive(:update_condition_index)\
+        .with('index', 2, [['crit1', '2nd'], ['crit2', 2]], 4)\
+        .and_return { assert(true) }
+      @index.update_target(target)
+    end
+    def test_update_origin
+      @storage.should_receive(:condition_index_ids)\
+        .with('index', 1, 'origin_id').and_return {
+        [
+          {'origin_id' => 1, 'crit1' => '1st', 
+          'crit2' => 1, 'target_id' => 5},
+          {'origin_id' => 1, 'crit1' => '1st', 
+          'crit2' => 2, 'target_id' => 5},
+        ]
+      }
+      target = Target.new
+      target.odba_id = 4
+      origin1 = Origin.new
+      origin1.odba_id = 1
+      origin1.term = '1st'
+      origin2 = Origin.new
+      origin2.term = '2nd'
+      origin2.odba_id = 2
+      target.origin = [origin1, origin2]
+      @storage.should_receive(:condition_index_delete)\
+        .with('index', 1, [['crit1', '1st'], ['crit2', 2]])\
+        .and_return { assert(true) }
+      @storage.should_receive(:update_condition_index)\
+        .with('index', 2, [['crit1', '2nd'], ['crit2', 2]])\
+        .and_return { assert(true) }
+      @index.update_origin(origin1)
     end
   end
   class TestFulltextIndex < Test::Unit::TestCase
@@ -230,6 +293,10 @@ module ODBA
       df = IndexDefinition.new
       df.index_name = 'index'
       df.dictionary = 'german'
+      df.origin_klass = :Origin
+      df.target_klass = :Target
+      df.resolve_origin = :origin
+      df.resolve_search_term = 'term'
       @index = FulltextIndex.new(df, self)
     end
     def test_fetch_ids
@@ -242,6 +309,48 @@ module ODBA
       @storage.should_receive(:update_fulltext_index)\
         .with('index', 3, 'some full text', 4, 'german')
       @index.do_update_index(3, 'some full text', 4)
+    end
+    def test_update_target
+      ## only deletes entries for the current target, and inserts from
+      #  all origins
+      @storage.should_receive(:fulltext_index_delete)\
+        .with('index', 4, 'target_id')
+      @storage.should_receive(:update_fulltext_index)\
+        .with('index', 1, 'fulltext term', 4, 'german')
+      @storage.should_receive(:update_fulltext_index)\
+        .with('index', 2, 'fulltext term', 4, 'german')
+      target = Target.new
+      target.odba_id = 4
+      origin1 = Origin.new
+      origin1.odba_id = 1
+      origin1.term = ['fulltext term']
+      origin2 = Origin.new
+      origin2.term = ['fulltext term']
+      origin2.odba_id = 2
+      target.origin = [origin1, origin2]
+      @index.update(target)
+    end
+    def test_update_origin
+      ## deletes all entries for the current origin and must restore
+      #  entries for all targets!
+      @storage.should_receive(:fulltext_index_target_ids)\
+        .times(1).with('index', 1).and_return([[4],[5]])
+      @storage.should_receive(:fulltext_index_delete)\
+        .times(1).with('index', 1, 'origin_id')
+      @storage.should_receive(:update_fulltext_index)\
+        .times(1).with('index', 1, 'fulltext term', 4, 'german')
+      @storage.should_receive(:update_fulltext_index)\
+        .times(1).with('index', 1, 'fulltext term', 5, 'german')
+      target = Target.new
+      target.odba_id = 4
+      origin1 = Origin.new
+      origin1.odba_id = 1
+      origin1.term = ['fulltext term']
+      origin2 = Origin.new
+      origin2.term = ['fulltext term']
+      origin2.odba_id = 2
+      target.origin = [origin1, origin2]
+      @index.update(origin1)
     end
   end
 end

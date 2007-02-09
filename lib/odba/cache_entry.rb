@@ -5,7 +5,7 @@ module ODBA
 	class CacheEntry # :nodoc: all
 		RETIRE_TIME = 300
 		DESTROY_TIME = 600
-		attr_accessor :last_access, :collection
+		attr_accessor :last_access, :collection, :stored_version
 		attr_reader :accessed_by
 		def initialize(obj)
 			@last_access = Time.now

@@ -24,6 +24,7 @@ class Object # :nodoc: all
 	end
   def metaclass; class << self; self; end; end
   def meta_eval &blk; metaclass.instance_eval &blk; end
+  alias :odba_hash :hash
 end
 module ODBA
 	class Stub; end
@@ -225,6 +226,11 @@ module ODBA
       end
       exc
     end
+    def odba_hash # :nodoc:
+      (instance_variables - odba_exclude_vars).collect { |name|
+        [name, instance_variable_get(name).odba_hash]
+      }.sort.hash
+    end
 		# Returns the odba unique id of this Persistable. 
     # If no id had been assigned, this is now done. 
     # No attempt is made to store the Persistable in the db.
@@ -232,7 +238,8 @@ module ODBA
 			@odba_id ||= ODBA.cache.next_id
 		end
 		def odba_isolated_dump # :nodoc:
-			ODBA.marshaller.dump(odba_isolated_twin)
+      twin = odba_isolated_twin
+			[ ODBA.marshaller.dump(twin), twin.odba_hash ]
 		end
 		# Convenience method equivalent to ODBA.cache.store(self)
 		def odba_isolated_store 

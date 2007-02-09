@@ -24,7 +24,7 @@ module ODBA
       pool = ConnectionPool.new()
       pool.connections.each { |conn|
         conn.should_receive(:execute).and_return { 
-          raise DBI::ProgrammingError.new 
+          raise DBI::InterfaceError.new 
           ## after the first error is raised, ConnectionPool reconnects.
         }
       }
@@ -34,12 +34,12 @@ module ODBA
       flexstub(DBI).should_receive(:connect).times(20).and_return { 
         conn = FlexMock.new("Connection")
         conn.should_receive(:execute).and_return { 
-          raise DBI::ProgrammingError.new 
+          raise DBI::InterfaceError.new 
         }
         conn
       }
       pool = ConnectionPool.new()
-      assert_raises(DBI::ProgrammingError) { pool.execute('statement') }
+      assert_raises(DBI::InterfaceError) { pool.execute('statement') }
     end
     def test_size
       flexstub(DBI).should_receive(:connect).times(5).and_return { 

@@ -266,8 +266,9 @@ module ODBA
 		end
 		def fetch_or_restore(obj_id, dump, odba_caller) # :nodoc:
 			fetch_or_do(obj_id, odba_caller) { 
-				obj, collection = restore(dump)
+				obj, collection, hash = restore(dump)
 				cache_entry = CacheEntry.new(obj)
+        cache_entry.stored_version = hash
 				cache_entry.odba_add_reference(odba_caller)
 				## only add collection elements that exist in the collection
 				## table
@@ -322,6 +323,9 @@ module ODBA
 		# Create necessary DB-Structure / other storage-setup
     def setup
       ODBA.storage.setup
+      self.indices.each_key { |index_name|
+        ODBA.storage.ensure_target_id_index(index_name)
+      }
       @deferred_indices.each { |definition|
         unless(self.indices.include?(definition.index_name))
           create_index(definition)
@@ -355,17 +359,25 @@ module ODBA
 			if(ids = Thread.current[:txids])
 				ids.unshift([odba_id,name])
 			end
-			dump = object.odba_isolated_dump
-			store_collection_elements(object)
+			changes = store_collection_elements(object)
 			prefetchable = object.odba_prefetch?
-			ODBA.storage.store(odba_id, dump, name, prefetchable, object.class)
-			target_ids = object.odba_target_ids
-			store_object_connections(odba_id, target_ids)
-			update_references(target_ids, object)
-			update_indices(object)
-			store_cache_entry(odba_id, object, name)
+      dump, hash = object.odba_isolated_dump
+      unless((cache_entry = fetch_cache_entry(odba_id)) \
+            && cache_entry.stored_version == hash)
+        ODBA.storage.store(odba_id, dump, name, prefetchable,
+                           object.class)
+        changes += 1
+      end
+      if(changes > 0)
+        target_ids = object.odba_target_ids
+        store_object_connections(odba_id, target_ids)
+        update_references(target_ids, object)
+        object = store_cache_entry(odba_id, object, name, hash)
+      end
+      update_indices(object)
+      object
 		end
-		def store_cache_entry(odba_id, object, name=nil) # :nodoc:
+		def store_cache_entry(odba_id, object, name=nil, hash=nil) # :nodoc:
 			@cache_mutex.synchronize {
 				cache_entry = fetch_cache_entry(odba_id)
 				if(cache_entry.nil?)
@@ -377,6 +389,7 @@ module ODBA
 					end
 				end
 				cache_entry.collection = object.odba_collection
+        cache_entry.stored_version = hash
 				cache_entry.odba_object
 			}
 		end
@@ -389,15 +402,15 @@ module ODBA
 			else
 				old_collection = fetch_collection(obj)
 			end
-			(old_collection - collection).each { |key, value|
+			changes = (old_collection - collection).each { |key, value|
 				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
 				ODBA.storage.collection_remove(odba_id, key_dump)
-			}
-			(collection - old_collection).each { |key, value|
+			}.size
+			changes + (collection - old_collection).each { |key, value|
 				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
 				value_dump = ODBA.marshaller.dump(value.odba_isolated_stub)
 				ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
-			}
+			}.size
 		end
 		def store_object_connections(odba_id, target_ids) # :nodoc:
 			ODBA.storage.ensure_object_connections(odba_id, target_ids)
@@ -452,12 +465,13 @@ module ODBA
 		end
 		def restore(dump)
 			obj = ODBA.marshaller.load(dump)
+      hash = obj.odba_hash
       unless(obj.is_a?(Persistable))
         obj.extend(Persistable)
       end
 			collection = fetch_collection(obj)
 			obj.odba_restore(collection)
-			[obj, collection]
+			[obj, collection, hash]
 		end
 		def restore_object(odba_id, dump, odba_caller)
 			if(dump.nil?)

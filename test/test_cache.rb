@@ -731,11 +731,16 @@ module ODBA
     end
     def test_setup
       @storage.should_receive(:setup).times(1).and_return { assert(true)}
+      @storage.should_receive(:ensure_target_id_index)\
+        .with('index').times(1).and_return { assert(true)}
       df1 = IndexDefinition.new
       df1.index_name = 'deferred'
       df2 = IndexDefinition.new
       df2.index_name = 'index'
 			indices = flexmock('indices')
+      indices.should_receive(:each_key).and_return { |block|
+        block.call('index')
+      }
       indices.should_receive(:include?).with('index')\
         .times(1).and_return(true)
       indices.should_receive(:include?).with('deferred')\

@@ -310,10 +310,11 @@ module ODBA
         assert(twin.replaceable2.is_a?(ODBA::Stub))
 				"TheDump"
 			}
-			result = @odba.odba_isolated_dump
+			result,hash = @odba.odba_isolated_dump
 			assert_equal(replaceable, @odba.replaceable)
 			assert_equal(replaceable2, @odba.replaceable2)
 			assert_equal("TheDump", result)
+      assert_instance_of(Fixnum, hash)
 			replaceable.mock_verify
 			replaceable2.mock_verify
 		end
@@ -324,7 +325,7 @@ module ODBA
 			odba.excluded = "foo"
 			odba.included = "baz"
 			ODBA.cache.mock_handle(:next_id) { 1 }
-			dump = odba.odba_isolated_dump
+			dump, hash = odba.odba_isolated_dump
 			obj = ODBA.marshaller.load(dump)
 			assert_equal(nil, obj.excluded)
 			assert_equal("baz", obj.included)

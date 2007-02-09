@@ -24,15 +24,21 @@ module ODBA
 			@resolve_search_term = index_definition.resolve_search_term
 			@dictionary = index_definition.dictionary
 		end
-		def do_update_index(origin_id, search_term, target_id=nil) # :nodoc:
-			if(search_term.is_a?(Array))
-				search_term.compact.each { |term|
-					do_update_index(origin_id, term, target_id)
-				}
-			elsif(!search_term.to_s.empty?)
-				ODBA.storage.update_index(@index_name, origin_id, 
-					search_term, target_id)
-			end
+    def current_origin_ids(target_id) # :nodoc:
+      ODBA.storage.index_origin_ids(@index_name, target_id)
+    end
+    def current_target_ids(origin_id) # :nodoc:
+      ODBA.storage.index_target_ids(@index_name, origin_id)
+    end
+    def delete_origin(origin_id, term) # :nodoc:
+      ODBA.storage.index_delete_origin(@index_name, origin_id, term)
+    end
+    def delete_target(origin_id, old_term, target_id) # :nodoc:
+      ODBA.storage.index_delete_target(@index_name, origin_id,
+                                       old_term, target_id)
+    end
+		def do_update_index(origin_id, term, target_id=nil) # :nodoc:
+      ODBA.storage.update_index(@index_name, origin_id, term, target_id)
 		end
 		def fill(targets)
 			@proc_origin = nil
@@ -41,8 +47,9 @@ module ODBA
 				target_id = target.odba_id
 				origins = proc_instance_origin.call(target)
 				origins.each { |origin|
-					do_update_index( origin.odba_id, 
-						self.search_term(origin), target_id)
+          search_terms(origin).each { |term|
+            do_update_index( origin.odba_id, term, target_id)
+          }
 				}
 			}
 		end
@@ -74,13 +81,15 @@ module ODBA
 		def proc_resolve_search_term # :nodoc:
 			if(@proc_resolve_search_term.nil?)
 				if(@resolve_search_term.to_s.empty?)
-					@proc_resolve_search_term = Proc.new { |origin| origin.to_s }
+					@proc_resolve_search_term = Proc.new { |origin| 
+            origin.to_s.downcase
+          }
 				else
 					src = <<-EOS
 						Proc.new { |origin| 
 							begin
 								origin.#{@resolve_search_term}
-							rescue NameError
+							rescue NameError => e
 								nil
 							end
 						}
@@ -93,6 +102,9 @@ module ODBA
 		def search_term(origin) # :nodoc:
 			proc_resolve_search_term.call(origin)
 		end
+    def search_terms(origin)
+      [search_term(origin)].flatten.compact.uniq
+    end
 		def set_relevance(meta, rows) # :nodoc:
 			if(meta.respond_to?(:set_relevance))
 				rows.each { |row|
@@ -109,17 +121,48 @@ module ODBA
 		end
 		def update_origin(object) # :nodoc:
 			origin_id = object.odba_id
-			search_term = search_term(object)
-      target_ids = ODBA.storage.index_target_ids(@index_name, origin_id)
-			ODBA.storage.delete_index_element(@index_name, origin_id)
-			target_ids.each { |target_id|
-				do_update_index(origin_id, search_term, target_id)
-			}
+			search_terms = search_terms(object)
+      current = current_target_ids(origin_id)
+      target_ids = []
+      current_terms = []
+      current.each { |row|
+        target_ids.push(row[0])
+        current_terms.push(row[1])
+      }
+      current_terms.uniq!
+      target_ids.uniq!
+      (current_terms - search_terms).each { |term|
+        delete_origin(origin_id, term)
+      }
+      new_terms = search_terms - current_terms
+      unless(new_terms.empty?)
+        target_ids.each { |target_id|
+          new_terms.each { |term|
+            do_update_index(origin_id, term, target_id)
+          }
+        }
+      end
 		end
-		def update_target(object) # :nodoc:
-			target_id = object.odba_id
-			ODBA.storage.index_delete_target(@index_name, target_id)
-			fill([object])
+		def update_target(target) # :nodoc:
+      target_id = target.odba_id
+      current = current_origin_ids(target_id)
+      old_terms = current.collect { |row|
+        [row[0], row[1]]
+      }
+      origins = proc_instance_origin.call(target)
+      new_terms = []
+      origins.each { |origin|
+        origin_id = origin.odba_id
+        search_terms(origin).each { |term|
+          new_terms.push([origin_id, term])
+        }
+      }
+      (old_terms - new_terms).each { |origin_id, terms|
+        delete_target(origin_id, terms, target_id)
+      }
+      (new_terms - old_terms).each { |origin_id, terms|
+        do_update_index(origin_id, terms, target_id)
+      }
 		end
 	end
 	# Currently there are 3 predefined Index-classes
@@ -134,10 +177,15 @@ module ODBA
 		end
 		def fetch_ids(search_term, meta=nil) # :nodoc:
 			exact = meta.respond_to?(:exact) && meta.exact
-			rows = ODBA.storage.retrieve_from_index(@index_name, search_term, exact)
+			rows = ODBA.storage.retrieve_from_index(@index_name, 
+                                              search_term.to_s.downcase,
+                                              exact)
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
+    def search_terms(origin)
+      super.collect { |term| term.downcase }.uniq
+    end
 	end
 	class ConditionIndex < IndexCommon # :nodoc: all  
 		def initialize(index_definition, origin_module) # :nodoc:
@@ -156,10 +204,39 @@ module ODBA
 			}
 			ODBA.storage.create_condition_index(@index_name, definition)
 		end
-		def do_update_index(origin_id, search_term, target_id=nil) # :nodoc:
-			ODBA.storage.update_condition_index(@index_name, origin_id, 
-				search_term, target_id)
-		end
+    def current_ids(rows, id_name)
+      rows.collect { |row| 
+        [
+          row[id_name], 
+          @resolve_search_term.keys.collect { |key|
+            [key.to_s, row[key]] }.sort,
+        ]
+      }
+    end
+    def current_origin_ids(target_id)
+      current_ids(ODBA.storage.condition_index_ids(@index_name,
+                                                   target_id,
+                                                   'target_id'), 
+                 'origin_id')
+    end
+    def current_target_ids(origin_id)
+      current_ids(ODBA.storage.condition_index_ids(@index_name,
+                                                   origin_id,
+                                                   'origin_id'),
+                  'target_id')
+    end
+    def delete_origin(origin_id, search_terms)
+      ODBA.storage.condition_index_delete(@index_name, origin_id,
+                                          search_terms)
+    end
+    def delete_target(origin_id, search_terms, target_id)
+      ODBA.storage.condition_index_delete(@index_name, origin_id,
+                                          search_terms, target_id)
+    end
+    def do_update_index(origin_id, search_terms, target_id=nil) # :nodoc:
+      ODBA.storage.update_condition_index(@index_name, origin_id, 
+                                          search_terms, target_id)
+    end
 		def fetch_ids(conditions, meta=nil)  # :nodoc:
 			rows = ODBA.storage.retrieve_from_condition_index(@index_name, conditions)
 			set_relevance(meta, rows)
@@ -187,20 +264,37 @@ module ODBA
 			end
 			@proc_resolve_search_term
 		end
+    def search_terms(origin)
+      super.collect { |data| data.to_a.sort }
+    end
 	end
 	class FulltextIndex < IndexCommon # :nodoc: all
 		def initialize(index_definition, origin_module)  # :nodoc:
 			super(index_definition, origin_module)
 			ODBA.storage.create_fulltext_index(@index_name)
 		end
+    def current_origin_ids(target_id)
+      ODBA.storage.fulltext_index_delete(@index_name, target_id,
+                                         'target_id')
+      []
+    end
+    def current_target_ids(origin_id)
+      ODBA.storage.fulltext_index_target_ids(@index_name, origin_id)
+    end
+    def delete_origin(origin_id, term)
+      ODBA.storage.fulltext_index_delete(@index_name, origin_id, 
+                                         'origin_id')
+    end
 		def fetch_ids(search_term, meta=nil)  # :nodoc:
 			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, 
 				search_term, @dictionary)
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
-    def do_update_index(origin_id, search_term, target_id=nil) # :nodoc:
-      ODBA.storage.update_fulltext_index(@index_name, origin_id, search_term, target_id, @dictionary) 
+    def do_update_index(origin_id, search_text, target_id=nil) # :nodoc:
+      ODBA.storage.update_fulltext_index(@index_name, origin_id,
+                                         search_text, target_id, 
+                                         @dictionary)
     end
-	end
+  end
 end
