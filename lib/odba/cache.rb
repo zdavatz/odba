@@ -147,11 +147,8 @@ module ODBA
     end
 		def delete_index_element(odba_object) # :nodoc:
 			klass = odba_object.class
-      odba_id = odba_object.odba_id
-			indices.each { |index_name, index|
-				if(index.origin_class?(klass))
-					ODBA.storage.delete_index_element(index_name, odba_id)
-				end
+			indices.each_value { |index|
+        index.delete(odba_object)
 			}
 		end
 		def delete_old # :nodoc:

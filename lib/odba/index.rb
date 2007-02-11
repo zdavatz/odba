@@ -30,6 +30,12 @@ module ODBA
     def current_target_ids(origin_id) # :nodoc:
       ODBA.storage.index_target_ids(@index_name, origin_id)
     end
+    def delete(object) # :nodoc:
+      if(object.instance_of?(@origin_klass))
+        ODBA.storage.delete_index_element(@index_name, object.odba_id, 
+                                          term)
+      end
+    end
     def delete_origin(origin_id, term) # :nodoc:
       ODBA.storage.index_delete_origin(@index_name, origin_id, term)
     end

@@ -574,12 +574,9 @@ module ODBA
 			@cache.indices = {
 				"foo" => foo
 			}
-			foo.mock_handle(:origin_class?) { |klass| true }
-			bar.mock_handle(:odba_id) { 1 }
-			@storage.mock_handle(:delete_index_element) { |name, id|
-				assert_equal(name, "foo")
-				assert_equal(id, 1)
-			}
+			foo.should_receive(:delete).with(bar).times(1).and_return {
+        assert(true)
+      }
 			@cache.delete_index_element(bar)
 		end
 		def test_drop_index
@@ -588,6 +585,7 @@ module ODBA
 				assert_equal("foo_index", index_name)
 			}
 			index = flexmock("index")
+      index.should_receive(:delete).with(index)
 			prepare_delete(index, "foo", 2)
 			@cache.indices.store("foo_index", index)
 			@cache.drop_index("foo_index")
@@ -599,6 +597,7 @@ module ODBA
 				assert_equal("foo_index", index_name)
 			}
 			index = flexmock("index")
+      index.should_receive(:delete).with(index)
 			prepare_delete(index, "foo", 2)
 			@cache.indices.store("foo_index", index)
 			@cache.drop_indices
