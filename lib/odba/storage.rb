@@ -198,9 +198,9 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
 		def drop_index(index_name)
 			self.dbi.prepare("DROP TABLE #{index_name}").execute
 		end
-    def delete_index_element(index_name, odba_id)
+    def delete_index_element(index_name, odba_id, id_name)
       self.dbi.prepare(<<-SQL).execute(odba_id)
-        DELETE FROM #{index_name} WHERE origin_id = ?
+        DELETE FROM #{index_name} WHERE #{id_name} = ?
       SQL
     end
 		def delete_persistable(odba_id)

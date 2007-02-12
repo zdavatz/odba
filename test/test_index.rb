@@ -34,6 +34,21 @@ module ODBA
       df.resolve_search_term = :term
       @index = IndexCommon.new(df, ODBA)
     end
+    def test_delete
+      handle = flexmock('DB-Handle')
+      @storage.should_receive(:delete_index_element)\
+        .with('index', 15, 'origin_id')\
+        .times(1).and_return {assert(true) }
+      origin = Origin.new
+      origin.odba_id = 15
+      @index.delete(origin)
+      @storage.should_receive(:delete_index_element)\
+        .with('index', 16, 'target_id')\
+        .times(1).and_return {assert(true) }
+      target = Target.new
+      target.odba_id = 16
+      @index.delete(target)
+    end
     def test_do_update_index
       @storage.should_receive(:update_index)\
         .with('index', 12, 'foo', nil).and_return {

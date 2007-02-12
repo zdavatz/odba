@@ -862,5 +862,23 @@ WHERE origin_id=?
         .times(1).and_return { assert(true) }
       @storage.index_origin_ids('index', 4)
     end
+    def test_delete_index_element__origin
+      handle = flexmock('DB-Handle')
+      @dbi.should_receive(:prepare).with(<<-SQL).and_return(handle)
+        DELETE FROM index WHERE origin_id = ?
+      SQL
+      handle.should_receive(:execute).with(15).times(1).and_return { 
+        assert(true)}
+      @storage.delete_index_element('index', 15, 'origin_id')
+    end
+    def test_delete_index_element__target
+      handle = flexmock('DB-Handle')
+      @dbi.should_receive(:prepare).with(<<-SQL).and_return(handle)
+        DELETE FROM index WHERE target_id = ?
+      SQL
+      handle.should_receive(:execute).with(15).times(1).and_return { 
+        assert(true)}
+      @storage.delete_index_element('index', 15, 'target_id')
+    end
 	end
 end
