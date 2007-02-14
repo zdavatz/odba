@@ -31,9 +31,6 @@ module ODBA
     def odba_dup
       odba_isolated_stub
     end
-    def odba_hash
-      @odba_id
-    end
 		def odba_instance
 			odba_receiver
 		end
@@ -71,7 +68,7 @@ module ODBA
 			"instance_variables", "instance_variable_get",
 			"instance_variable_set", 
 			## methods defined in persistable.rb:Object
-			"odba_id", "odba_instance", "odba_isolated_stub", "odba_hash",
+			"odba_id", "odba_instance", "odba_isolated_stub",
 			## yaml-methods
 			"to_yaml", "taguri", "to_yaml_style", "to_yaml_type",
 			"to_yaml_properties", "yaml_initialize",

@@ -24,14 +24,15 @@ class Object # :nodoc: all
 	end
   def metaclass; class << self; self; end; end
   def meta_eval &blk; metaclass.instance_eval &blk; end
-  alias :odba_hash :hash
 end
 module ODBA
 	class Stub; end
 	module Persistable
-    meta = Struct.new(:exact).new
-    meta.exact = true
-    Exact = meta
+    meta = Struct.new(:exact, :limit)
+    Exact = meta.new
+    Exact.exact = true
+    Find = Exact.dup
+    Find.limit = 1
     # Classes which include Persistable have a class-method 'odba_index'
     def Persistable.append_features(mod)
       super
@@ -94,9 +95,11 @@ module ODBA
                   vals.each_with_index { |val, idx|
                     args.store(keys.at(idx), val)
                   }
-                  ODBA.cache.retrieve_from_index(index_name, args)
+                  ODBA.cache.retrieve_from_index(index_name, args, 
+                                                 Exact)
                 else
-                  ODBA.cache.retrieve_from_index(index_name, vals.first, Exact)
+                  ODBA.cache.retrieve_from_index(index_name, vals.first,
+                                                 Exact)
                 end
               }
               define_method(find_name) {  |*vals|
@@ -112,9 +115,10 @@ module ODBA
                     args.store(keys.at(idx), 
                                {'value',val,'condition',cond})
                   }
-                  ODBA.cache.retrieve_from_index(index_name, args)
+                  ODBA.cache.retrieve_from_index(index_name, args, Find)
                 else
-                  ODBA.cache.retrieve_from_index(index_name, vals.first, Exact)
+                  ODBA.cache.retrieve_from_index(index_name, vals.first,
+                                                 Find)
                 end.first
               }
               define_method(keys_name) { |*vals|
@@ -226,11 +230,6 @@ module ODBA
       end
       exc
     end
-    def odba_hash # :nodoc:
-      (instance_variables - odba_exclude_vars).collect { |name|
-        [name, instance_variable_get(name).odba_hash]
-      }.sort.hash
-    end
 		# Returns the odba unique id of this Persistable. 
     # If no id had been assigned, this is now done. 
     # No attempt is made to store the Persistable in the db.
@@ -238,8 +237,7 @@ module ODBA
 			@odba_id ||= ODBA.cache.next_id
 		end
 		def odba_isolated_dump # :nodoc:
-      twin = odba_isolated_twin
-			[ ODBA.marshaller.dump(twin), twin.odba_hash ]
+			ODBA.marshaller.dump(odba_isolated_twin)
 		end
 		# Convenience method equivalent to ODBA.cache.store(self)
 		def odba_isolated_store 

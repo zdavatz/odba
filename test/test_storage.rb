@@ -244,18 +244,48 @@ module ODBA
 			dbi.mock_verify
 			row.mock_verify
 		end
-		def test_retrieve_named
-			dbi = flexmock("dbi")
-			sth = flexmock
-			@storage.dbi = dbi
-			dbi.mock_handle(:select_all) { |sql, search|
-				assert_not_nil(sql.index("SELECT target_id, COUNT(target_id) AS relevance"))
-				sth	
-			}
-			@storage.retrieve_from_index("bar","foo")
-			dbi.mock_verify
-			sth.mock_verify
-		end
+    def test_retrieve
+      dbi = flexmock("dbi")
+      sth = flexmock
+      @storage.dbi = dbi
+      sql = <<-SQL
+        SELECT target_id, COUNT(target_id) AS relevance
+        FROM index
+        WHERE search_term LIKE ?
+        GROUP BY target_id
+      SQL
+      dbi.should_receive(:select_all).with(sql, 'foo%')\
+        .and_return { assert(true) }
+      @storage.retrieve_from_index("index","foo")
+    end
+    def test_retrieve_exact
+      dbi = flexmock("dbi")
+      sth = flexmock
+      @storage.dbi = dbi
+      sql = <<-SQL
+        SELECT target_id, COUNT(target_id) AS relevance
+        FROM index
+        WHERE search_term LIKE ?
+        GROUP BY target_id
+      SQL
+      dbi.should_receive(:select_all).with(sql, 'foo')\
+        .and_return { assert(true) }
+      @storage.retrieve_from_index("index","foo", true)
+    end
+    def test_retrieve_one
+      dbi = flexmock("dbi")
+      sth = flexmock
+      @storage.dbi = dbi
+      sql = <<-SQL << " LIMIT 1"
+        SELECT target_id, COUNT(target_id) AS relevance
+        FROM index
+        WHERE search_term LIKE ?
+        GROUP BY target_id
+      SQL
+      dbi.should_receive(:select_all).with(sql, 'foo%')\
+        .and_return { assert(true) }
+      @storage.retrieve_from_index("index","foo", false, 1)
+    end
 		def test_update_index
 			dbi = flexmock("dbi")
 			rows = [3]
@@ -630,7 +660,7 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
           AND cond2 IS NULL
           AND cond3 LIKE ?
           AND cond4 > ?
-        GROUP BY target_id;
+        GROUP BY target_id
       SQL
       @dbi.should_receive(:select_all)\
         .with(sql, 'foo', 'bar%', 5).and_return {
@@ -643,6 +673,12 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
         ['cond4', {'condition' => '>', 'value' => 5}],
       ]
       @storage.retrieve_from_condition_index('index', conds)
+      sql << ' LIMIT 1'
+      @dbi.should_receive(:select_all)\
+        .with(sql, 'foo', 'bar%', 5).and_return {
+        assert(true)
+      }
+      @storage.retrieve_from_condition_index('index', conds, 1)
     end
     def test_setup__object
       tables = %w{object_connection collection}

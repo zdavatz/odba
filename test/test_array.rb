@@ -17,6 +17,9 @@ module ODBA
      include ODBA::Persistable
      attr_accessor	:non_replaceable, :replaceable, :array, :odba_id
     end
+    class Container
+      attr_accessor :content
+    end
     def setup
       @array = Array.new
       ODBA.storage = flexmock("storage")

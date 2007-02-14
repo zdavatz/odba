@@ -17,6 +17,9 @@ module ODBA
 			include Persistable
 			attr_accessor	:non_replaceable, :replaceable, :odba_id
 		end
+    class Container
+      attr_accessor :content
+    end
 		class TestStub
 			attr_accessor :receiver, :odba_replace
 			def is_a?(arg)

@@ -310,11 +310,10 @@ module ODBA
         assert(twin.replaceable2.is_a?(ODBA::Stub))
 				"TheDump"
 			}
-			result,hash = @odba.odba_isolated_dump
+			result = @odba.odba_isolated_dump
 			assert_equal(replaceable, @odba.replaceable)
 			assert_equal(replaceable2, @odba.replaceable2)
 			assert_equal("TheDump", result)
-      assert_instance_of(Fixnum, hash)
 			replaceable.mock_verify
 			replaceable2.mock_verify
 		end
@@ -413,7 +412,7 @@ module ODBA
 
       ## find by one key
       ODBA.cache.should_receive(:retrieve_from_index)\
-        .with(name, args, ODBA::Persistable::Exact)\
+        .with(name, args, ODBA::Persistable::Find)\
         .times(1).and_return([result])
       assert_equal(result, IndexedStub.find_by_name('xan'))
 
@@ -441,7 +440,8 @@ module ODBA
                    IndexedStub.search_by_foo_and_bar('oof', 'rab'))
 
       ## exact search by multiple keys
-      ODBA.cache.should_receive(:retrieve_from_index).with(name, args)\
+      ODBA.cache.should_receive(:retrieve_from_index)\
+        .with(name, args, Persistable::Exact)\
         .times(1).and_return([result])
       assert_equal([result], 
                    IndexedStub.search_by_exact_foo_and_bar('oof', 'rab'))
@@ -449,7 +449,8 @@ module ODBA
       ## find by multiple keys
       args = {:foo, {'value',7,'condition','='}, 
               :bar, {'value','rab','condition','like'}}
-      ODBA.cache.should_receive(:retrieve_from_index).with(name, args)\
+      ODBA.cache.should_receive(:retrieve_from_index)\
+        .with(name, args, Persistable::Find)\
         .times(1).and_return([result])
       assert_equal(result, IndexedStub.find_by_foo_and_bar(7, 'rab'))
     end
@@ -475,7 +476,7 @@ module ODBA
 
       ## find by one key
       ODBA.cache.should_receive(:retrieve_from_index)\
-        .with(name, args, ODBA::Persistable::Exact)\
+        .with(name, args, ODBA::Persistable::Find)\
         .times(1).and_return([result])
       assert_equal(result, IndexedStub.find_by_origin('xan'))
 
@@ -509,7 +510,7 @@ module ODBA
 
       ## find by one key
       ODBA.cache.should_receive(:retrieve_from_index)\
-        .with(name, args, ODBA::Persistable::Exact)\
+        .with(name, args, ODBA::Persistable::Find)\
         .times(1).and_return([result])
       assert_equal(result, IndexedStub.find_by_redirect('xan'))
 

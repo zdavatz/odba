@@ -34,11 +34,9 @@ module ODBA
       @cache.should_receive(:store).with(@id_server).times(1)
 			@id_server.next_id(:foo)
 			dump = nil
-      hash = nil
 			assert_nothing_raised { 
-				dump, hash = @id_server.odba_isolated_dump 
+				dump = @id_server.odba_isolated_dump 
 			}
-      assert_instance_of(Fixnum, hash)
 			assert_instance_of(ODBA::IdServer, ODBA.marshaller.load(dump))
 		end
 	end

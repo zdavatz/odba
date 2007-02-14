@@ -230,7 +230,7 @@ module ODBA
       rows = [[1,3], [2,2], [3,1]]
       data = {'crit1' => 'foo', 'condition' => 'like'}
       @storage.should_receive(:retrieve_from_condition_index)\
-        .with('index', data).and_return rows
+        .with('index', data, false).and_return rows
       assert_equal([1,2,3], @index.fetch_ids(data))
     end
     def test_proc_resolve_search_term

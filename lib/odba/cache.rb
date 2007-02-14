@@ -263,9 +263,8 @@ module ODBA
 		end
 		def fetch_or_restore(obj_id, dump, odba_caller) # :nodoc:
 			fetch_or_do(obj_id, odba_caller) { 
-				obj, collection, hash = restore(dump)
+				obj, collection = restore(dump)
 				cache_entry = CacheEntry.new(obj)
-        cache_entry.stored_version = hash
 				cache_entry.odba_add_reference(odba_caller)
 				## only add collection elements that exist in the collection
 				## table
@@ -358,23 +357,16 @@ module ODBA
 			end
 			changes = store_collection_elements(object)
 			prefetchable = object.odba_prefetch?
-      dump, hash = object.odba_isolated_dump
-      unless((cache_entry = fetch_cache_entry(odba_id)) \
-            && cache_entry.stored_version == hash)
-        ODBA.storage.store(odba_id, dump, name, prefetchable,
-                           object.class)
-        changes += 1
-      end
-      if(changes > 0)
-        target_ids = object.odba_target_ids
-        store_object_connections(odba_id, target_ids)
-        update_references(target_ids, object)
-        object = store_cache_entry(odba_id, object, name, hash)
-      end
+      dump = object.odba_isolated_dump
+      ODBA.storage.store(odba_id, dump, name, prefetchable, object.class)
+      target_ids = object.odba_target_ids
+      store_object_connections(odba_id, target_ids)
+      update_references(target_ids, object)
+      object = store_cache_entry(odba_id, object, name)
       update_indices(object)
       object
 		end
-		def store_cache_entry(odba_id, object, name=nil, hash=nil) # :nodoc:
+		def store_cache_entry(odba_id, object, name=nil) # :nodoc:
 			@cache_mutex.synchronize {
 				cache_entry = fetch_cache_entry(odba_id)
 				if(cache_entry.nil?)
@@ -386,7 +378,6 @@ module ODBA
 					end
 				end
 				cache_entry.collection = object.odba_collection
-        cache_entry.stored_version = hash
 				cache_entry.odba_object
 			}
 		end
@@ -462,13 +453,12 @@ module ODBA
 		end
 		def restore(dump)
 			obj = ODBA.marshaller.load(dump)
-      hash = obj.odba_hash
       unless(obj.is_a?(Persistable))
         obj.extend(Persistable)
       end
 			collection = fetch_collection(obj)
 			obj.odba_restore(collection)
-			[obj, collection, hash]
+			[obj, collection]
 		end
 		def restore_object(odba_id, dump, odba_caller)
 			if(dump.nil?)

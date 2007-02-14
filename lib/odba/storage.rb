@@ -388,7 +388,7 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
 			SQL
 			self.dbi.select_all(sql, target_id)
 		end
-    def retrieve_from_condition_index(index_name, conditions)
+    def retrieve_from_condition_index(index_name, conditions, limit=nil)
       sql = <<-EOQ
         SELECT target_id, COUNT(target_id) AS relevance
         FROM #{index_name}
@@ -415,7 +415,10 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
           AND #{name} #{condition || 'IS NULL'}
         EOQ
       }
-      sql << "        GROUP BY target_id;\n"
+      sql << "        GROUP BY target_id\n"
+      if(limit)
+        sql << " LIMIT #{limit}"
+      end
       self.dbi.select_all(sql, *values)
     end
 		def retrieve_from_fulltext_index(index_name, search_term, dict)
@@ -439,18 +442,22 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
 			warn("returning empty result")
 			[]
 		end
-		def retrieve_from_index(index_name, search_term, exact=nil)
-			unless(exact)
-				search_term = search_term + "%"
-			end
-			sql = <<-EOQ
-				SELECT target_id, COUNT(target_id) AS relevance
-				FROM #{index_name} 
-				WHERE search_term LIKE ?
-				GROUP BY target_id
-			EOQ
-			self.dbi.select_all(sql, search_term)	 
-		end
+    def retrieve_from_index(index_name, search_term, 
+                            exact=nil, limit=nil)
+      unless(exact)
+        search_term = search_term + "%"
+      end
+      sql = <<-EOQ
+        SELECT target_id, COUNT(target_id) AS relevance
+        FROM #{index_name}
+        WHERE search_term LIKE ?
+        GROUP BY target_id
+      EOQ
+      if(limit)
+        sql << " LIMIT #{limit}"
+      end
+      self.dbi.select_all(sql, search_term)	 
+    end
 		def restore_collection(odba_id)
 			self.dbi.select_all <<-EOQ
 				SELECT key, value FROM collection WHERE odba_id = #{odba_id}
