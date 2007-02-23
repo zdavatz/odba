@@ -36,7 +36,8 @@ module ODBA
 				}
       rescue DBI::ProgrammingError
         raise
-			rescue NoMethodError, DBI::Error
+			rescue NoMethodError, DBI::Error => e
+        warn e
 				if(tries > 0)
 					sleep(SETUP_RETRIES - tries)
 					tries -= 1

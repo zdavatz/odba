@@ -124,7 +124,8 @@ module ODBA
 				id = row.first
 				# Self-Referencing objects don't have to be resaved
 				begin
-					if(connected_object = fetch(id, nil))
+					if((connected_object = fetch(id, nil)) \
+             && !connected_object.odba_deleting?)
 						connected_object.odba_cut_connection(object)
 						connected_object.odba_isolated_store
 					end

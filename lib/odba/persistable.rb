@@ -178,7 +178,7 @@ module ODBA
       (@odba_observers ||= []).push(obj)
       obj
     end
-		def odba_collection #:nodoc:
+		def odba_collection # :nodoc:
 			[]
 		end
 		# Removes all connections to another persistable. This method is called
@@ -194,8 +194,12 @@ module ODBA
     # Permanently deletes this Persistable from the database and remove
     # all connections to it
 		def odba_delete
+      @deleting = true
 			ODBA.cache.delete(self)
 		end
+    def odba_deleting? # :nodoc:
+      @deleting
+    end
     # Delete _observer_ as an observer on this object. 
     # It will no longer receive notifications.
     def odba_delete_observer(observer)
