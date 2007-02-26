@@ -236,9 +236,9 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
           while(!(ids = delete_ids.slice!(0, BULK_FETCH_STEP)).empty?)
             sql = <<-SQL
               DELETE FROM object_connection
-              WHERE target_id IN (#{ids.join(',')})
+              WHERE origin_id = ? AND target_id IN (#{ids.join(',')})
             SQL
-            self.dbi.execute(sql)
+            self.dbi.execute(sql, origin_id)
           end
         end
       end

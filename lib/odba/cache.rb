@@ -13,7 +13,7 @@ require 'thread'
 module ODBA
 	class Cache
 		include Singleton
-		CLEANER_PRIORITY = 0   # :nodoc: 
+		CLEANER_PRIORITY =  0  # :nodoc: 
 		CLEANING_INTERVAL = 120# :nodoc: 
 		def initialize # :nodoc: 
 			if(self::class::CLEANING_INTERVAL > 0)
@@ -66,8 +66,8 @@ module ODBA
 			delete_old
 			cleaned = 0
 			#puts "starting cleaning cycle"
-			$stdout.flush
-			start = Time.now
+			#$stdout.flush
+			#start = Time.now
 			@fetched.each_value { |value|
 				if(value.odba_old?)
 					value.odba_retire #&& cleaned += 1
@@ -124,8 +124,7 @@ module ODBA
 				id = row.first
 				# Self-Referencing objects don't have to be resaved
 				begin
-					if((connected_object = fetch(id, nil)) \
-             && !connected_object.odba_deleting?)
+					if(connected_object = fetch(id, nil))
 						connected_object.odba_cut_connection(object)
 						connected_object.odba_isolated_store
 					end
@@ -356,11 +355,12 @@ module ODBA
 			if(ids = Thread.current[:txids])
 				ids.unshift([odba_id,name])
 			end
+      ## get target_ids before anything else
+      target_ids = object.odba_target_ids
 			changes = store_collection_elements(object)
 			prefetchable = object.odba_prefetch?
       dump = object.odba_isolated_dump
       ODBA.storage.store(odba_id, dump, name, prefetchable, object.class)
-      target_ids = object.odba_target_ids
       store_object_connections(odba_id, target_ids)
       update_references(target_ids, object)
       object = store_cache_entry(odba_id, object, name)
