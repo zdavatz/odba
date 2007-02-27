@@ -28,7 +28,6 @@ CREATE TABLE object_connection (
   PRIMARY KEY(origin_id, target_id)
 );
 CREATE INDEX target_id_index ON object_connection(target_id);
-CREATE INDEX origin_id_index ON object_connection(origin_id);
       SQL
       # helper table 'collection'
       'collection'        => <<-'SQL',
@@ -204,9 +203,13 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       SQL
     end
 		def delete_persistable(odba_id)
-      # delete from connections
+      # delete origin from connections
 			self.dbi.prepare(<<-SQL).execute(odba_id)
-				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
+				DELETE FROM object_connection WHERE origin_id = ?
+			SQL
+      # delete target from connections
+			self.dbi.prepare(<<-SQL).execute(odba_id)
+				DELETE FROM object_connection WHERE target_id = ?
 			SQL
       # delete from collections
 			self.dbi.prepare(<<-SQL).execute(odba_id)

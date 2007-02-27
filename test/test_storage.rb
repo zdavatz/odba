@@ -36,20 +36,24 @@ module ODBA
 			sth = flexmock("sth")
 			@storage.dbi = dbi
 			expected1 = <<-SQL
-				DELETE FROM object_connection WHERE ? IN (origin_id, target_id)
+				DELETE FROM object_connection WHERE origin_id = ?
 			SQL
 			dbi.should_receive(:prepare).with(expected1).and_return(sth)
-			sth.should_receive(:execute).with(2).times(3).and_return { 
+			sth.should_receive(:execute).with(2).times(4).and_return { 
         assert(true)
       }
 			expected2 = <<-SQL
-				DELETE FROM collection WHERE odba_id = ?
+				DELETE FROM object_connection WHERE target_id = ?
 			SQL
 			dbi.should_receive(:prepare).with(expected2).and_return(sth)
 			expected3 = <<-SQL
-				DELETE FROM object WHERE odba_id = ?
+				DELETE FROM collection WHERE odba_id = ?
 			SQL
 			dbi.should_receive(:prepare).with(expected3).and_return(sth)
+			expected4 = <<-SQL
+				DELETE FROM object WHERE odba_id = ?
+			SQL
+			dbi.should_receive(:prepare).with(expected4).and_return(sth)
 			@storage.delete_persistable(2)
 		end
 		def test_restore_prefetchable
@@ -414,9 +418,9 @@ module ODBA
 			}
       sql = <<-SQL
               DELETE FROM object_connection
-              WHERE target_id IN (7,9)
+              WHERE origin_id = ? AND target_id IN (7,9)
       SQL
-      dbi.should_receive(:execute).with(sql).and_return {
+      dbi.should_receive(:execute).with(sql, 123).and_return {
         assert(true)
       }
       sql = <<-SQL
@@ -708,7 +712,6 @@ CREATE TABLE object_connection (
   PRIMARY KEY(origin_id, target_id)
 );
 CREATE INDEX target_id_index ON object_connection(target_id);
-CREATE INDEX origin_id_index ON object_connection(origin_id);
       SQL
       @dbi.should_receive(:execute).with(sql).and_return {
         assert(true) }

@@ -24,8 +24,6 @@ module ODBA
 			@fetched = Hash.new
 			@prefetched = Hash.new
 			@clean_prefetched = false
-			@reaper_min_id = 0
-			@reaper_max_id = 0
 		end
 		# Returns all objects designated by _bulk_fetch_ids_ and registers 
 		# _odba_caller_ for each of them. Objects which are not yet loaded are loaded
