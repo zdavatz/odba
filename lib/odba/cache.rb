@@ -85,16 +85,15 @@ module ODBA
 			#$stdout.flush
 		end
     def _clean(retire_time, holder, offset) # :nodoc: 
+      if(offset > holder.size) 
+        offset = 0
+      end
       holder.values[offset, @cleaner_step].each { |value|
 				if(value.odba_old?(retire_time))
 					value.odba_retire #&& @cleaned += 1
 				end
       }
-      offset += @cleaner_step
-      if(offset > holder.size) 
-        offset = 0
-      end
-      offset
+      offset + @cleaner_step
     end
 		# overrides the ODBA_PREFETCH constant and @odba_prefetch instance variable
 		# in Persistable. Use this if a secondary client is more memory-bound than 
