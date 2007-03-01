@@ -294,7 +294,7 @@ module ODBA
 		## should be called odba_stubize or similar
 		def odba_replace_persistable(obj) # :nodoc:
 			id = obj.odba_id
-			odba_potentials.collect { |name|
+			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				# must not be synchronized because of the following if
 				# statement (if an object has already been replaced by
@@ -306,6 +306,8 @@ module ODBA
 					instance_variable_set(name, stub) 
 				end
 			}
+      ## allow CacheEntry to retire
+      true
 		end
 		def odba_replace_persistables # :nodoc:
 			odba_potentials.each { |name|

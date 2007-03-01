@@ -13,17 +13,23 @@ require 'thread'
 module ODBA
 	class Cache
 		include Singleton
-		CLEANER_PRIORITY =  0  # :nodoc: 
-		CLEANING_INTERVAL = 120# :nodoc: 
+		CLEANER_PRIORITY = -1  # :nodoc: 
+		CLEANING_INTERVAL = 10 # :nodoc: 
+    attr_accessor :cleaner_step, :destroy_age, :retire_age
 		def initialize # :nodoc: 
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
 			end
+      @destroy_age = 600
+      @retire_age = 300
 			@cache_mutex = Mutex.new
       @deferred_indices = []
 			@fetched = Hash.new
 			@prefetched = Hash.new
 			@clean_prefetched = false
+      @cleaner_offset = 0
+      @prefetched_offset = 0
+      @cleaner_step = 500
 		end
 		# Returns all objects designated by _bulk_fetch_ids_ and registers 
 		# _odba_caller_ for each of them. Objects which are not yet loaded are loaded
@@ -61,28 +67,35 @@ module ODBA
 			retrieved_objects
 		end
 		def clean # :nodoc:
-			delete_old
-			cleaned = 0
+      now = Time.now
+			delete_old(now - @destroy_age)
+			#@cleaned = 0
 			#puts "starting cleaning cycle"
 			#$stdout.flush
 			#start = Time.now
-			@fetched.each_value { |value|
-				if(value.odba_old?)
-					value.odba_retire #&& cleaned += 1
-				end
-			}
+      retire_horizon = now - @retire_age
+      @cleaner_offset = _clean(retire_horizon, @fetched, @cleaner_offset)
 			if(@clean_prefetched)
-				@prefetched.each_value { |value|
-					if(value.odba_old?)
-						value.odba_retire #&& cleaned += 1
-					end
-				}
+        @prefetched_offset = _clean(retire_horizon, @prefetched, 
+                                    @prefetched_offset)
 			end
-			#puts "cleaned: #{cleaned} objects in #{Time.now - start} seconds"
+			#puts "cleaned: #{@cleaned} objects in #{Time.now - start} seconds"
 			#puts "remaining objects in @fetched:    #{@fetched.size}"
 			#puts "remaining objects in @prefetched: #{@prefetched.size}"
 			#$stdout.flush
 		end
+    def _clean(retire_time, holder, offset) # :nodoc: 
+      holder.values[offset, @cleaner_step].each { |value|
+				if(value.odba_old?(retire_time))
+					value.odba_retire #&& @cleaned += 1
+				end
+      }
+      offset += @cleaner_step
+      if(offset > holder.size) 
+        offset = 0
+      end
+      offset
+    end
 		# overrides the ODBA_PREFETCH constant and @odba_prefetch instance variable
 		# in Persistable. Use this if a secondary client is more memory-bound than 
 		# performance-bound.
@@ -149,25 +162,27 @@ module ODBA
         index.delete(odba_object)
 			}
 		end
-		def delete_old # :nodoc:
-			start = Time.now
-      deleted = _delete_old(@fetched)
+		def delete_old(destroy_horizon) # :nodoc:
+			#start = Time.now
+      #deleted = 
+      _delete_old(destroy_horizon, @fetched)
 			if(@clean_prefetched)
-        deleted += _delete_old(@prefetched)
+        #deleted += 
+        _delete_old(destroy_horizon, @prefetched)
 			end
 			#puts "deleted: #{deleted} objects in #{Time.now - start} seconds"
 			#$stdout.flush
-      deleted
+      #deleted
 		end
-    def _delete_old(holder) # :nodoc:
-      deleted = 0
+    def _delete_old(destroy_horizon, holder) # :nodoc:
+      #deleted = 0
 			holder.delete_if { |key, obj|
-        if(obj.ready_to_destroy?)
+        if(obj.ready_to_destroy?(destroy_horizon))
           obj.odba_notify_observers(:clean, obj.odba_id, obj.object_id)
-          deleted += 1
+          #deleted += 1
         end
 			}
-      deleted
+      #deleted
     end
 		# Permanently deletes the index named _index_name_
 		def drop_index(index_name)

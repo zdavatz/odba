@@ -3,8 +3,6 @@
 
 module ODBA
 	class CacheEntry # :nodoc: all
-		RETIRE_TIME = 300
-		DESTROY_TIME = 600
 		attr_accessor :last_access, :collection
 		attr_reader :accessed_by
 		def initialize(obj)
@@ -36,19 +34,19 @@ module ODBA
 			@last_access  = Time.now
 			@odba_object
 		end
-		def odba_old?
+		def odba_old?(retire_horizon)
 			!@odba_object.odba_unsaved? \
-				&& Time.now - @last_access > self::class::RETIRE_TIME
+				&& (retire_horizon > @last_access)
 		end
 		def odba_retire
-			#replace with stubs in accessed_by 
+			# replace with stubs in accessed_by 
+      # @accessed_by needs to be rehashed in some cases
+      @accessed_by.rehash
 			@accessed_by.delete_if { |item, key|
-        !(item.is_a?(Enumerable) \
-          && ODBA.cache.include?(item.odba_id)) \
+        !(item.is_a?(Enumerable) && ODBA.cache.include?(item.odba_id)) \
           && item.is_a?(ODBA::Persistable) \
           && item.odba_replace_persistable(@odba_object)
 			}
-      @accessed_by.empty?
 		end
 		def odba_replace!(obj)
 			@odba_object = obj
@@ -56,10 +54,10 @@ module ODBA
         item.odba_replace(obj)
 			}
 		end
-		def ready_to_destroy?
+		def ready_to_destroy?(destroy_horizon)
 			!@odba_object.odba_unsaved? \
 				&& @accessed_by.empty? \
-				&& ((Time.now - @last_access) > self::class::DESTROY_TIME) 
+				&& (destroy_horizon > @last_access) 
 		end
 	end
 end
