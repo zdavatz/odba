@@ -98,7 +98,7 @@ module ODBA
 					src = <<-EOS
 						Proc.new { |origin| 
 							begin
-								origin.#{@resolve_search_term}
+								origin.#{@resolve_search_term}.to_s
 							rescue NameError => e
 								nil
 							end
