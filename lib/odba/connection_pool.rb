@@ -34,9 +34,10 @@ module ODBA
 				next_connection { |conn|
 					conn.send(method, *args, &block)
 				}
-      rescue DBI::ProgrammingError
-        raise
 			rescue NoMethodError, DBI::Error => e
+        if(e.message == 'no connection to the server')
+          raise
+        end
         warn e
 				if(tries > 0)
 					sleep(SETUP_RETRIES - tries)

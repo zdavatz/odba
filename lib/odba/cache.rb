@@ -174,14 +174,14 @@ module ODBA
       #deleted
 		end
     def _delete_old(destroy_horizon, holder) # :nodoc:
-      #deleted = 0
+      deleted = 0
 			holder.delete_if { |key, obj|
         if(obj.ready_to_destroy?(destroy_horizon))
           obj.odba_notify_observers(:clean, obj.odba_id, obj.object_id)
-          #deleted += 1
+          deleted += 1
         end
 			}
-      #deleted
+      deleted
     end
 		# Permanently deletes the index named _index_name_
 		def drop_index(index_name)
@@ -336,7 +336,10 @@ module ODBA
       }
       @deferred_indices.each { |definition|
         unless(self.indices.include?(definition.index_name))
-          create_index(definition)
+          index = create_index(definition)
+          if(index.target_klass.respond_to?(:odba_extent))
+            index.fill(index.target_klass.odba_extent)
+          end
         end
       }
       nil

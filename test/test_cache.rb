@@ -198,7 +198,7 @@ module ODBA
 			value.mock_handle(:odba_id) { 12 }
       value.mock_handle(:odba_notify_observers) { }
       @cache.clean_prefetched(false)
-			@cache.delete_old
+			@cache.delete_old(Time.now - 2)
 			value.mock_verify
 			obj.mock_verify
 			assert_equal(1, @cache.size)
@@ -217,7 +217,7 @@ module ODBA
 			prefetched.mock_handle(:ready_to_destroy?) { true }
 			prefetched.mock_handle(:odba_id) { 13 }
       prefetched.mock_handle(:odba_notify_observers) { }
-			@cache.delete_old
+			@cache.delete_old(Time.now - 2)
 			value.mock_verify
 			obj.mock_verify
 			assert_equal(0, @cache.size)

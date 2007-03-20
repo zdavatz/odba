@@ -12,8 +12,6 @@ require 'odba/persistable'
 module ODBA
 	class CacheEntry
 		attr_accessor :accessed_by
-		RETIRE_TIME = 0.9
-		DESTROY_TIME = 0.9 
 	end
 	class TestCacheEntry < Test::Unit::TestCase
     include FlexMock::TestCase
@@ -21,6 +19,8 @@ module ODBA
 			@mock = flexmock
 			@cache_entry = ODBA::CacheEntry.new(@mock)
 			ODBA.cache = flexmock("cache")
+      ODBA.cache.should_receive(:retire_age).and_return(0.9)
+      ODBA.cache.should_receive(:destroy_age).and_return(0.9)
 		end
 		def test_retire_check
 			@mock.mock_handle(:odba_unsaved?) { false }

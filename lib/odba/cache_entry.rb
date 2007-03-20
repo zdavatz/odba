@@ -34,7 +34,7 @@ module ODBA
 			@last_access  = Time.now
 			@odba_object
 		end
-		def odba_old?(retire_horizon)
+		def odba_old?(retire_horizon = Time.now - ODBA.cache.retire_age)
 			!@odba_object.odba_unsaved? \
 				&& (retire_horizon > @last_access)
 		end
@@ -54,7 +54,7 @@ module ODBA
         item.odba_replace(obj)
 			}
 		end
-		def ready_to_destroy?(destroy_horizon)
+		def ready_to_destroy?(destroy_horizon = Time.now - ODBA.cache.destroy_age)
 			!@odba_object.odba_unsaved? \
 				&& @accessed_by.empty? \
 				&& (destroy_horizon > @last_access) 
