@@ -36,7 +36,8 @@ module ODBA
 				}
 			rescue NoMethodError, DBI::Error => e
         warn e
-				if(tries > 0)
+				if(tries > 0 && (!e.is_a?(DBI::ProgrammingError) \
+           || e.message == 'no connection to the server'))
 					sleep(SETUP_RETRIES - tries)
 					tries -= 1
 					reconnect
