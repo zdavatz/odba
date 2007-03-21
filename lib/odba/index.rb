@@ -98,7 +98,7 @@ module ODBA
 					src = <<-EOS
 						Proc.new { |origin| 
 							begin
-								origin.#{@resolve_search_term}.to_s
+								origin.#{@resolve_search_term}
 							rescue NameError => e
 								nil
 							end
@@ -195,7 +195,7 @@ module ODBA
 			rows.collect { |row| row.at(0) }
 		end
     def search_terms(origin)
-      super.collect { |term| term.downcase }.uniq
+      super.collect { |term| term.to_s.downcase }.uniq
     end
 	end
 	class ConditionIndex < IndexCommon # :nodoc: all  
