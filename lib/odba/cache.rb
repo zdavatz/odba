@@ -13,9 +13,9 @@ require 'thread'
 module ODBA
 	class Cache
 		include Singleton
-		CLEANER_PRIORITY = -1  # :nodoc: 
-		CLEANING_INTERVAL = 10 # :nodoc: 
-    attr_accessor :cleaner_step, :destroy_age, :retire_age
+		CLEANER_PRIORITY = 0  # :nodoc: 
+		CLEANING_INTERVAL = 5 # :nodoc: 
+    attr_accessor :cleaner_step, :destroy_age, :retire_age, :debug
 		def initialize # :nodoc: 
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
@@ -30,6 +30,7 @@ module ODBA
       @cleaner_offset = 0
       @prefetched_offset = 0
       @cleaner_step = 500
+      @loading_stats = {}
 		end
 		# Returns all objects designated by _bulk_fetch_ids_ and registers 
 		# _odba_caller_ for each of them. Objects which are not yet loaded are loaded
@@ -56,12 +57,7 @@ module ODBA
 			rows.each { |row|
 				obj_id = row.at(0)
 				dump = row.at(1)
-				if(cache_entry = fetch_cache_entry(obj_id))
-					obj = cache_entry.odba_object
-					cache_entry.odba_add_reference(odba_caller)
-				else
-					obj = restore_object(obj_id, dump, odba_caller)
-				end
+        obj = fetch_or_restore(obj_id, dump, odba_caller)
 				retrieved_objects.push(obj)
 			}
 			retrieved_objects
@@ -69,20 +65,28 @@ module ODBA
 		def clean # :nodoc:
       now = Time.now
 			delete_old(now - @destroy_age)
-			#@cleaned = 0
-			#puts "starting cleaning cycle"
-			#$stdout.flush
-			#start = Time.now
+      start = Time.now if(@debug)
+			@cleaned = 0
+      if(@debug)
+        puts "starting cleaning cycle"
+        $stdout.flush
+      end
       retire_horizon = now - @retire_age
       @cleaner_offset = _clean(retire_horizon, @fetched, @cleaner_offset)
 			if(@clean_prefetched)
         @prefetched_offset = _clean(retire_horizon, @prefetched, 
                                     @prefetched_offset)
 			end
-			#puts "cleaned: #{@cleaned} objects in #{Time.now - start} seconds"
-			#puts "remaining objects in @fetched:    #{@fetched.size}"
-			#puts "remaining objects in @prefetched: #{@prefetched.size}"
-			#$stdout.flush
+      if(@debug)
+        puts "cleaned: #{@cleaned} objects in #{Time.now - start} seconds"
+        puts "remaining objects in @fetched:    #{@fetched.size}"
+        puts "remaining objects in @prefetched: #{@prefetched.size}"
+        mbytes = File.read("/proc/#{$$}/stat").split(' ').at(22).to_i / (2**20)
+        GC.start
+        puts "remaining objects in ObjectSpace: #{ObjectSpace.each_object {}}"
+        puts "memory-usage:                     #{mbytes}MB"
+        $stdout.flush
+      end
 		end
     def _clean(retire_time, holder, offset) # :nodoc: 
       if(offset > holder.size) 
@@ -90,7 +94,7 @@ module ODBA
       end
       holder.values[offset, @cleaner_step].each { |value|
 				if(value.odba_old?(retire_time))
-					value.odba_retire #&& @cleaned += 1
+					value.odba_retire && @cleaned += 1
 				end
       }
       offset + @cleaner_step
@@ -162,25 +166,29 @@ module ODBA
 			}
 		end
 		def delete_old(destroy_horizon) # :nodoc:
-			#start = Time.now
-      #deleted = 
-      _delete_old(destroy_horizon, @fetched)
+			start = Time.now if @debug
+      deleted = _delete_old(destroy_horizon, @fetched)
+      if(@debug)
+        puts "deleted: #{deleted} objects from @fetched in #{Time.now - start} seconds"
+        $stdout.flush
+      end
 			if(@clean_prefetched)
-        #deleted += 
-        _delete_old(destroy_horizon, @prefetched)
+        start = Time.now if @debug
+        deleted = _delete_old(destroy_horizon, @prefetched)
+        if(@debug)
+          puts "deleted: #{deleted} objects from @prefetched in #{Time.now - start} seconds"
+          $stdout.flush
+        end
 			end
-			#puts "deleted: #{deleted} objects in #{Time.now - start} seconds"
-			#$stdout.flush
-      #deleted
 		end
     def _delete_old(destroy_horizon, holder) # :nodoc:
       deleted = 0
-			holder.delete_if { |key, obj|
+      holder.delete_if { |key, obj|
         if(obj.ready_to_destroy?(destroy_horizon))
           obj.odba_notify_observers(:clean, obj.odba_id, obj.object_id)
           deleted += 1
         end
-			}
+      }
       deleted
     end
 		# Permanently deletes the index named _index_name_
@@ -207,12 +215,9 @@ module ODBA
 		# Fetch a Persistable identified by _odba_id_. Registers _odba_caller_ with
 		# the CacheEntry. Loads the Persistable if it is not already loaded.
 		def fetch(odba_id, odba_caller=nil)
-			if(cache_entry = fetch_cache_entry(odba_id))
-				cache_entry.odba_add_reference(odba_caller)
-				cache_entry.odba_object
-			else
-				load_object(odba_id, odba_caller)
-			end
+			fetch_or_do(odba_id, odba_caller) { 
+        load_object(odba_id, odba_caller)
+			}
 		end
 		def fetch_cache_entry(odba_id_or_name) # :nodoc:
 			@prefetched[odba_id_or_name] || @fetched[odba_id_or_name]
@@ -224,19 +229,34 @@ module ODBA
 			rows.each { |row|
 				key = ODBA.marshaller.load(row[0])
 				value = ODBA.marshaller.load(row[1])
+        item = nil
+        if([key, value].any? { |item| item.instance_variable_get('@receiver') })
+          odba_id = obj.odba_id
+          warn "stub for #{item.class}:#{item.odba_id} was saved with receiver in collection of #{obj.class}:#{odba_id}"
+          warn "repair: remove [#{odba_id}, #{row[0]}, #{row[1].length}]"
+          ODBA.storage.collection_remove(odba_id, row[0])	
+          key = key.odba_isolated_stub
+          key_dump = ODBA.marshaller.dump(key)
+          value = value.odba_isolated_stub
+          value_dump = ODBA.marshaller.dump(value)
+          warn "repair: insert [#{odba_id}, #{key_dump}, #{value_dump.length}]"
+          ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
+        end
 				bulk_fetch_ids.push(key.odba_id)
 				bulk_fetch_ids.push(value.odba_id)
 				collection.push([key, value])
 			}
 			bulk_fetch_ids.compact!
+			bulk_fetch_ids.uniq!
 			bulk_fetch(bulk_fetch_ids, obj)
 			collection.each { |pair| 
 				pair.collect! { |item| 
-					if(item.is_a?(Stub))
-						## replace any stubized instance_variables in obj with item
-						## independent of odba_restore
-						item.odba_container = obj
-						item.odba_instance
+					if(item.is_a?(ODBA::Stub))
+            fetch(item.odba_id, obj)
+          elsif(ce = fetch_cache_entry(item.odba_id))
+            warn "collection loaded unstubbed object: #{item.odba_id}"
+            ce.odba_add_reference(obj)
+            ce.odba_object
 					else
 						item 
 					end
@@ -249,7 +269,17 @@ module ODBA
 			## for backward-compatibility and robustness we only attempt
 			## to load if there was a dump stored in the collection table
 			if(dump = ODBA.storage.collection_fetch(odba_id, key_dump))
-				ODBA.marshaller.load(dump)
+				item = ODBA.marshaller.load(dump)
+        if(item.is_a?(ODBA::Persistable))
+          if(item.is_a?(ODBA::Stub))
+            fetch(item.odba_id)
+          else
+            warn "collection_element was unstubbed object: #{item.odba_id}"
+            fetch_or_restore(item.odba_id, dump, nil)
+          end
+        else
+          item
+        end
 			end
 		end
 		def fetch_named(name, odba_caller, &block) # :nodoc:
@@ -278,9 +308,6 @@ module ODBA
 				obj, collection = restore(dump)
 				cache_entry = CacheEntry.new(obj)
 				cache_entry.odba_add_reference(odba_caller)
-				## only add collection elements that exist in the collection
-				## table
-				cache_entry.collection = collection
 				obj = cache_entry.odba_object
 				hash = obj.odba_prefetch? ? @prefetched : @fetched
 				name = obj.odba_name
@@ -322,6 +349,35 @@ module ODBA
 		def prefetch
 			bulk_restore(ODBA.storage.restore_prefetchable)
 		end
+    # prints loading statistics to $stdout
+    def print_stats
+      fmh = " %-20s | %10s | %5s | %6s | %6s | %6s | %-20s\n"
+      fmt = " %-20s | %10.3f | %5i | %6.3f | %6.3f | %6.3f | %s\n"
+      head = sprintf(fmh, 
+                     "class", "total", "count", "min", "max", "avg", "callers")
+      line = "-" * head.length  
+      puts line
+      print head
+      puts line
+      @loading_stats.sort_by { |key, val| 
+        val[:total_time] 
+      }.reverse.each { |key, val|
+        key = key.to_s
+        if(key.length > 20)
+          key = key[-20,20]
+        end
+        avg = val[:total_time] / val[:count]
+        printf(fmt, key, val[:total_time], val[:count],
+               val[:times].min, val[:times].max, avg,
+               val[:callers].join(','))
+      }
+      puts line
+      $stdout.flush
+    end
+    # Clears the loading statistics
+    def reset_stats
+      @loading_stats.clear
+    end
 		# Find objects in an index
 		def retrieve_from_index(index_name, search_term, meta=nil)
 			index = indices.fetch(index_name)
@@ -393,19 +449,13 @@ module ODBA
 						hash.store(name, cache_entry)
 					end
 				end
-				cache_entry.collection = object.odba_collection
 				cache_entry.odba_object
 			}
 		end
 		def store_collection_elements(obj) # :nodoc:
 			odba_id = obj.odba_id
 			collection = obj.odba_collection
-			old_collection = []
-			if(cache_entry = fetch_cache_entry(odba_id))
-				old_collection = cache_entry.collection
-			else
-				old_collection = fetch_collection(obj)
-			end
+      old_collection = fetch_collection(obj)
 			changes = (old_collection - collection).each { |key, value|
 				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
 				ODBA.storage.collection_remove(odba_id, key_dump)
@@ -437,7 +487,6 @@ module ODBA
 					if(entry = fetch_cache_entry(id))
 						if(dump = ODBA.storage.restore(id))
 							obj, collection = restore(dump)
-							entry.collection = collection
 							entry.odba_replace!(obj)
 						else
 							entry.odba_cut_connections!
@@ -463,10 +512,31 @@ module ODBA
 			}
 		end
 		private
-		def load_object(odba_id, odba_caller)
-			dump = ODBA.storage.restore(odba_id)
-			restore_object(odba_id, dump, odba_caller)
-		end
+    def load_object(odba_id, odba_caller)
+      start = Time.now if(@debug)
+      dump = ODBA.storage.restore(odba_id)
+      obj = restore_object(odba_id, dump, odba_caller)
+      return obj unless(@debug)
+      stats = (@loading_stats[obj.class] ||= { 
+        :count => 0, :times => [], :total_time => 0, :callers => [],
+      })
+      stats[:count] += 1
+      time = Time.now - start
+      stats[:times].push(time)
+      stats[:total_time] += time
+      stats[:callers].push(odba_caller.class).uniq!
+      if(time > 2)
+        names = []
+        odba_caller.instance_variables.each { |name|
+          if(odba_caller.instance_variable_get(name).odba_id == odba_id)
+            names.push(name)
+          end
+        }
+        printf("long load-time (%4.2fs) for odba_id %i: %s#%s\n",
+               time, odba_id, odba_caller, names.join(','))
+      end
+      obj
+    end
 		def restore(dump)
 			obj = ODBA.marshaller.load(dump)
       unless(obj.is_a?(Persistable))

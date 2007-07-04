@@ -3,24 +3,29 @@
 
 module ODBA
 	class CacheEntry # :nodoc: all
-		attr_accessor :last_access, :collection
+		attr_accessor :last_access
 		attr_reader :accessed_by
 		def initialize(obj)
 			@last_access = Time.now
 			@odba_object = obj
-			@collection = []
 			@accessed_by = {}
 		end	
+    def object_id2ref(object_id)
+      ObjectSpace._id2ref(object_id) 
+    rescue Exception
+    end
+    def odba_id2ref(odba_id)
+      odba_id && ODBA.cache.include?(odba_id) && ODBA.cache.fetch(odba_id)
+    end
 		def odba_add_reference(object)
-			if(object)
-				@accessed_by.store(object, true)
-			end
+      @accessed_by.store(object.object_id, object.odba_id)
 			object
 		end
 		def odba_cut_connections!
-			@accessed_by.each_key { |item|
-				if(item.is_a?(Persistable))
-					item.odba_cut_connection(@odba_object) 
+			@accessed_by.each { |object_id, odba_id|
+        if((item = odba_id2ref(odba_id) || object_id2ref(object_id)) \
+          && item.respond_to?(:odba_cut_connection))
+					item.odba_cut_connection(@odba_object)
 				end
 			}
 		end
@@ -40,19 +45,31 @@ module ODBA
 		end
 		def odba_retire
 			# replace with stubs in accessed_by 
-      # @accessed_by needs to be rehashed in some cases
-      @accessed_by.rehash
-			@accessed_by.delete_if { |item, key|
-        !(item.is_a?(Enumerable) && ODBA.cache.include?(item.odba_id)) \
-          && item.is_a?(ODBA::Persistable) \
-          && item.odba_replace_persistable(@odba_object)
+			@accessed_by.delete_if { |object_id, odba_id|
+        if(item = odba_id2ref(odba_id))
+          item.odba_stubize(@odba_object)
+        elsif(item = object_id2ref(object_id))
+          case item
+          when Stub
+            true
+          when Persistable
+            item.odba_stubize(@odba_object)
+          end
+        else
+          true
+        end
 			}
 		end
 		def odba_replace!(obj)
-			@odba_object = obj
-			@accessed_by.each_key { |item|
-        item.odba_replace(obj)
-			}
+      oldhash = @odba_object.hash
+			@odba_object.odba_replace!(obj)
+      if(@odba_object.hash != oldhash)
+        @accessed_by.each { |object_id, odba_id|
+          if(item = odba_id2ref(odba_id) || object_id2ref(object_id))
+            item.rehash if(item.respond_to? :rehash)
+          end
+        }
+      end
 		end
 		def ready_to_destroy?(destroy_horizon = Time.now - ODBA.cache.destroy_age)
 			!@odba_object.odba_unsaved? \

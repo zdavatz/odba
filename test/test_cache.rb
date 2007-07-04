@@ -301,11 +301,11 @@ module ODBA
 			res = @cache.fetch(23, callr)
 			cache_entry = @cache.fetched[23]
 			assert_instance_of(CacheEntry, cache_entry)
-			assert_equal({callr => true}, cache_entry.accessed_by)
+      assert_equal([callr.object_id], cache_entry.accessed_by.keys)
 			assert_equal(obj, res)
       ## test for duplicates
 			@cache.fetch(23, callr)
-			assert_equal({callr => true}, cache_entry.accessed_by)
+      assert_equal([callr.object_id], cache_entry.accessed_by.keys)
 		end
 		def test_store
       cont = flexmock('CacheEntry')
@@ -313,6 +313,7 @@ module ODBA
 			save_obj = flexmock("save_obj")
       save_obj.should_receive(:odba_target_ids).and_return([3])
 			prepare_store([save_obj])
+      save_obj.should_receive(:odba_add_observer)
       cont.should_receive(:odba_add_reference).with(save_obj)\
         .times(1).and_return { assert(true) }
 			@cache.store(save_obj)
@@ -330,6 +331,12 @@ module ODBA
 				assert_equal(new_collection, col)
 			}
 
+      @storage.mock_handle(:restore_collection) { 
+        old_collection.collect { |key, val|
+          [Marshal.dump(key.odba_isolated_stub), 
+            Marshal.dump(val.odba_isolated_stub)]
+        }
+      }
 			@storage.mock_handle(:collection_remove) { |odba_id, key| 
 				assert_equal(54, odba_id)
 				assert_equal(Marshal.dump('key1'.odba_isolated_stub), key)
@@ -348,6 +355,7 @@ module ODBA
 			obj.mock_handle(:odba_id) { 54 }
 			obj.mock_handle(:odba_collection) { new_collection }
 			@cache.store_collection_elements(obj)
+    ensure
 			ODBA.marshaller = old_mar
 		end
 		def test_store_object_connections
@@ -667,7 +675,7 @@ module ODBA
       @storage.should_receive(:restore).with(1)\
         .times(1).and_return('dump1')
       @storage.should_receive(:restore_collection).with(1)\
-        .times(1).and_return([])
+        .times(2).and_return([])
       @marshal.should_receive(:load).with('dump1')\
         .times(1).and_return(o4)
       @cache.fetched.store(1, ODBA::CacheEntry.new(o1))
@@ -679,6 +687,7 @@ module ODBA
         }
       }
       assert_equal(1, @cache.size)
+      assert_nil(o1.instance_variable_get('@other'))
     end
     def test_extent
       o1 = flexmock('O1')
@@ -699,18 +708,23 @@ module ODBA
     def test_fetch_collection
       obj = flexmock('Object')
       obj.should_receive(:odba_id).and_return(1)
+      restored = flexmock('Restored')
+      restored.should_receive(:odba_id).and_return(7)
       i1 = flexmock('Item1')
       i2 = flexmock('Item2')
+      i1.should_receive(:is_a?).with(Stub).and_return(false)
       i2.should_receive(:is_a?).with(Stub).and_return(true)
-      i2.should_receive(:odba_container=).with(obj).times(1)
-      i2.should_receive(:odba_instance).times(1).and_return('instance')
+      i2.should_receive(:odba_id).and_return(7)
       @storage.should_receive(:restore_collection).with(1)\
         .times(1).and_return([['keydump1','dump1'],['keydump2','dump2']])
+      @storage.should_receive(:restore_collection).with(7).times(1).and_return([])
+      @storage.should_receive(:bulk_restore).with([7]).and_return([[7,'inst']])
       @marshal.should_receive(:load).with('keydump1').and_return(0)
       @marshal.should_receive(:load).with('keydump2').and_return(1)
       @marshal.should_receive(:load).with('dump1').and_return(i1)
       @marshal.should_receive(:load).with('dump2').and_return(i2)
-      assert_equal([[0,i1],[1,'instance']], @cache.fetch_collection(obj))
+      @marshal.should_receive(:load).with('inst').and_return(restored)
+      assert_equal([[0,i1],[1,restored]], @cache.fetch_collection(obj))
     end
     def test_include
       assert(!@cache.include?(1))

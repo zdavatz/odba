@@ -13,15 +13,6 @@ class Object # :nodoc: all
 	def odba_isolated_stub
 		self
 	end
-	def odba_replace(obj)
-		rep_id = obj.odba_id
-		instance_variables.each { |name|
-			var = instance_variable_get(name) 
-			if(var.odba_id == rep_id)
-				instance_variable_set(name, obj)
-			end
-		}
-	end
   def metaclass; class << self; self; end; end
   def meta_eval &blk; metaclass.instance_eval &blk; end
 end
@@ -161,16 +152,21 @@ module ODBA
 		def ==(other) # :nodoc:
 			super(other.odba_instance)
 		end
-    def dup # :nodoc
-      Thread.critical = true
-      if(id = @odba_id)
-        remove_instance_variable('@odba_id')
-      end
-      twin = super
-      #twin.extend(Persistable)
-      @odba_id = id
-      Thread.critical = false
-      twin
+    def dup # :nodoc:
+      Thread.exclusive {
+        ## since twin may not be a Persistable, we need to do some magic here to 
+        #  ensure that it does not have the same odba_id
+        if(id = @odba_id)
+          remove_instance_variable('@odba_id')
+        end
+        twin = super
+        @odba_id = id
+        twin
+      }
+    end
+    def eql?(other) # :nodoc:
+      (other.is_a?(Stub) && other.odba_id == @odba_id) \
+        || super(other.odba_instance)
     end
     # Add an observer for Cache#store(self), Cache#delete(self) and
     # Cache#clean removing the object from the Cache
@@ -282,38 +278,17 @@ module ODBA
 		def odba_potentials # :nodoc:
 			instance_variables - odba_serializables - odba_exclude_vars
 		end
-		def odba_replace(obj) # :nodoc:
-			id = obj.odba_id
-			odba_potentials.each { |name|
-				var = instance_variable_get(name)
-				if(var.odba_id == id)
-					instance_variable_set(name, obj)
-				end
-			}
-		end
-		## should be called odba_stubize or similar
-		def odba_replace_persistable(obj) # :nodoc:
-			id = obj.odba_id
-			odba_potentials.each { |name|
-				var = instance_variable_get(name)
-				# must not be synchronized because of the following if
-				# statement (if an object has already been replaced by
-				# a	stub, it will have the correct id and it
-				# will be ignored) 
-				if(var.is_a?(Persistable) \
-					&& var.odba_id == id) 
-					stub = ODBA::Stub.new(id, self, obj)
-					instance_variable_set(name, stub) 
-				end
-			}
-      ## allow CacheEntry to retire
-      true
-		end
+    def odba_replace!(obj) # :nodoc:
+      instance_variables.each { |name|
+        instance_variable_set(name, obj.instance_variable_get(name))
+      }
+    end
 		def odba_replace_persistables # :nodoc:
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
-					var.odba_clear_receiver
+          var.odba_clear_receiver   # ensure we don't leak into the db
+          var.odba_container = self # ensure we don't leak into memory
 				elsif(var.is_a?(ODBA::Persistable))
 					odba_id = var.odba_id
 					stub = ODBA::Stub.new(odba_id, self, var)
@@ -327,10 +302,10 @@ module ODBA
 				end
 			}
 		end
-		def odba_replace_stubs(stub, substitution) # :nodoc:
+		def odba_replace_stubs(odba_id, substitution) # :nodoc:
       odba_potentials.each { |name|
         var = instance_variable_get(name)
-        if(stub.eql?(var))
+        if(var.is_a?(Stub) && odba_id == var.odba_id)
           instance_variable_set(name, substitution)
         end
       }
@@ -347,20 +322,6 @@ module ODBA
         srs += self::class::ODBA_SERIALIZABLE 
       end
       srs
-		end
-		def odba_store_unsaved # :nodoc:
-			@odba_persistent = false
-			current_level = [self]
-			while(!current_level.empty?)
-				next_level = []
-				current_level.each { |item|
-					if(item.odba_unsaved?)
-						next_level += item.odba_unsaved_neighbors
-						item.odba_isolated_store
-					end
-				}
-				current_level = next_level
-			end
 		end
 		def odba_snapshot(snapshot_level) # :nodoc:
 			if(snapshot_level > @odba_snapshot_level.to_i)
@@ -384,6 +345,42 @@ module ODBA
 				@odba_name = old_name
 				raise
 			end
+		end
+		def odba_store_unsaved # :nodoc:
+			@odba_persistent = false
+			current_level = [self]
+			while(!current_level.empty?)
+				next_level = []
+				current_level.each { |item|
+					if(item.odba_unsaved?)
+						next_level += item.odba_unsaved_neighbors
+						item.odba_isolated_store
+					end
+				}
+				current_level = next_level
+			end
+		end
+		def odba_stubize(obj) # :nodoc:
+			id = obj.odba_id
+			odba_potentials.each { |name|
+				var = instance_variable_get(name)
+				# must not be synchronized because of the following if
+				# statement (if an object has already been replaced by
+				# a	stub, it will have the correct id and it
+				# will be ignored) 
+        case var
+        when Stub
+          # no need to make a new stub
+        when Persistable
+					if(var.odba_id == id) 
+            stub = ODBA::Stub.new(id, self, obj)
+            instance_variable_set(name, stub) 
+          end
+				end
+			}
+      odba_notify_observers(:stubize, obj)
+      ## allow CacheEntry to retire
+      true
 		end
 		# Recursively stores all connected Persistables.
 		def odba_take_snapshot
@@ -460,13 +457,10 @@ class Array # :nodoc: all
 				&& item.odba_prefetch? 
 		}
 	end
-	def odba_replace(obj)
-		id = obj.odba_id
-		collect! { |item|
-			item.odba_id == id ? obj : item
-		}
-		super
-	end
+  def odba_replace!(obj) # :nodoc:
+    super
+    replace(obj)
+  end
 	def odba_replace_persistables
 		clear
 		super
@@ -476,6 +470,27 @@ class Array # :nodoc: all
 			self[key] = val
 		}
 	end
+  def odba_stubize!(obj) # :nodoc:
+    id = obj.odba_id
+    collect! { |var|
+      case var
+      when ODBA::Stub
+        # no need to make a new stub
+      when ODBA::Persistable
+        if(var.odba_id == id) 
+          ODBA::Stub.new(id, self, obj)
+        end
+      end || var
+    }
+    self
+  rescue StackError
+    self
+  end
+  def odba_stubize(obj) # :nodoc:
+    super
+    odba_stubize!(obj)
+    true ## allow CacheEntry to retire
+  end
 	def odba_unsaved_neighbors(snapshot_level = nil)
 		unsaved = super
 		each { |item|
@@ -519,20 +534,10 @@ class Hash # :nodoc: all
 				&& item.odba_prefetch?
 		}
 	end
-	def odba_replace(obj)
-		id = obj.odba_id
-		odba_dup.each_key { |key|
-			if(key.odba_id == id)
-				store(obj, delete(key))
-			end
-		}
-		odba_dup.each { |key, value|
-			if(value.odba_id == id)
-				store(key, obj)
-			end
-		}
-		super
-	end
+  def odba_replace!(obj) # :nodoc:
+    super
+    replace(obj)
+  end
 	def odba_replace_persistables
 		clear
 		super
@@ -542,6 +547,17 @@ class Hash # :nodoc: all
 			self[key] = val
 		}
 	end
+  def odba_stubize(obj) # :nodoc:
+    super
+    id = obj.odba_id
+    stubs = dup.clear
+    each { |pair|
+      stubs.store(*pair.odba_stubize!(obj))
+    }
+    replace(stubs)
+    ## allow CacheEntry to retire
+    true
+  end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved? \

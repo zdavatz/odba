@@ -78,15 +78,11 @@ module ODBA
       assert_equal([[0,'foo'], [1, 'bar']], @array.odba_collection)
     end
     def test_odba_replace
-      p = ODBAContainer.new
-      p.odba_id = 2
-      q = ODBAContainer.new
-      q.odba_id = 2
-      @array.push(p)
-      @array.instance_variable_set('@var', p)
-      @array.odba_replace(q)
-      assert_equal([q], @array)
-      assert_equal(q, @array.instance_variable_get('@var'))
+      modified = ['foo']
+      reloaded = modified.dup
+      modified.push('bar')
+      modified.odba_replace!(reloaded)
+      assert_equal(reloaded, modified)
     end
     def test_odba_target_ids
       o = ODBAContainer.new
@@ -98,6 +94,15 @@ module ODBA
       @array.push(p, q)
       @array.instance_variable_set('@foo', o)
       assert_equal([1,2,3], @array.odba_target_ids)
+    end
+    def test_stubize
+      item = ODBAContainer.new
+      @array.push(item)
+      @array.odba_stubize(item)
+      first = @array.first
+      assert first.is_a?(ODBA::Stub)
+      assert @array.include?(item)
+      assert first.is_a?(ODBA::Stub)
     end
   end
 end

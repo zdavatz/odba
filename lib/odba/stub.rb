@@ -11,15 +11,16 @@ module ODBA
 			@odba_id = odba_id
 			@odba_container = odba_container
 			@odba_class = receiver.class unless receiver.nil? 
+      @receiver_loaded = true
 		end
 		def class
 			@odba_class ||= odba_instance.class
 		end
 		def eql?(other)
-			@odba_id == other.odba_id ## defined in Object
+			@odba_id == other.odba_id || odba_instance.eql?(other)
 		end
 		def inspect
-			"#<ODBA::Stub:#{object_id}##@odba_id @odba_class=#@odba_class @odba_container=#{@odba_container.object_id}>"
+			"#<ODBA::Stub:#{object_id}##@odba_id @odba_class=#@odba_class @odba_container=#{@odba_container.object_id}##{@odba_container.odba_id}>"
 		end
 		def is_a?(klass)
 			[Stub, Persistable, @odba_class].include?(klass) \
@@ -38,16 +39,24 @@ module ODBA
 			Stub.new(@odba_id, nil, nil)
 		end
 		def odba_receiver(name=nil)
+      if(@receiver && !@receiver_loaded)
+        warn "stub for #{@receiver.class}:#{@odba_id} was saved with receiver"
+        @receiver = nil
+      end
 			@receiver || begin
 				@receiver = ODBA.cache.fetch(@odba_id, @odba_container)
+        @receiver_loaded = true
 				if(@odba_container)
-					@odba_container.odba_replace_stubs(self, @receiver)
+					@odba_container.odba_replace_stubs(@odba_id, @receiver)
+        else 
+          warn "Potential Memory-Leak: stub for #{@receiver.class}##{@odba_id} was saved without container"
 				end
 				@receiver
 			rescue OdbaError => e
-				warn "ODBA::Stub was unable to replace #{@odba_class}:#{@odba_id} from #{@odba_container.class}:#@odba_container"
+				warn "ODBA::Stub was unable to replace #{@odba_class}##{@odba_id} from #{@odba_container.class}:##{@odba_container.odba_id}"
 			end
 		end
+  alias :odba_instance :odba_receiver
 		# A stub always references a Persistable that has 
 		# already been saved.
 		def odba_unsaved?(snapshot_level=nil)
@@ -66,7 +75,7 @@ module ODBA
 			"class", "is_a?", "__id__", "__send__", "inspect", 
 			"eql?", "nil?", "respond_to?", "object_id", 
 			"instance_variables", "instance_variable_get",
-			"instance_variable_set", 
+			"instance_variable_set", "==",
 			## methods defined in persistable.rb:Object
 			"odba_id", "odba_instance", "odba_isolated_stub",
 			## yaml-methods
@@ -112,6 +121,9 @@ module ODBA
 				ODBA.cache.fetch_collection_element(@odba_id, args.first)
 			end || method_missing(:[], *args, &block)
 		end
+    def ==(other)
+      @odba_id == other.odba_id || odba_instance == other
+    end
 	end
 end
 
@@ -141,6 +153,7 @@ class Array # :nodoc: all
 		self._odba_union(stub.odba_instance)
 	end
 	['concat', 'replace', 'include?'].each { |method|
+	#['concat', 'replace'].each { |method|
 		eval <<-EOS
 			alias :_odba_#{method} :#{method}
 			def #{method}(stub)

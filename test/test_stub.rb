@@ -31,7 +31,7 @@ module ODBA
 			receiver.mock_handle(:foo_method){ |number|
 				assert_equal(3, number)
 			}
-			@odba_container.mock_handle(:odba_replace_stubs) { |stub, rec| 
+			@odba_container.mock_handle(:odba_replace_stubs) { |id, rec| 
 				assert_equal(receiver, rec)
 			}
 			@stub.foo_method(3)
@@ -48,7 +48,7 @@ module ODBA
 			receiver.mock_handle(:foo_method) { |number|
 				assert_equal(3, number)
 			}
-			@odba_container.mock_handle(:odba_replace_stubs) { |stub,receiver| }
+			@odba_container.mock_handle(:odba_replace_stubs) { |id,receiver| }
 			assert_nothing_raised { @stub.foo_method(3) }
 			@odba_container.mock_verify
 			cache.mock_verify
@@ -62,7 +62,7 @@ module ODBA
 			receiver.mock_handle(:foo_method) { |number|
 				assert_equal(3, number)
 			}
-			@odba_container.mock_handle(:odba_replace_stubs) { |stub, receiver| }
+			@odba_container.mock_handle(:odba_replace_stubs) { |id, receiver| }
 			assert_nothing_raised { @stub.foo_method(3) }
 			@odba_container.mock_verify
 			ODBA.cache.mock_verify
@@ -71,7 +71,7 @@ module ODBA
 			@cache.should_receive(:fetch).with(9, @odba_container)\
         .and_return('odba_instance')
 			@odba_container.should_receive(:odba_replace_stubs)\
-        .with(@stub, 'odba_instance').and_return { assert(true) }
+        .with(@stub.odba_id, 'odba_instance').and_return { assert(true) }
 			@stub.odba_receiver
 		end
 		def test_send_instance_methods
@@ -87,7 +87,7 @@ module ODBA
 		end
 		def test_send_class
 			receiver = flexmock
-			@odba_container.mock_handle(:odba_replace_stubs) { |obj, rec|}
+			@odba_container.mock_handle(:odba_replace_stubs) { |id, rec|}
 			@cache.mock_handle(:fetch) { |id,container|
 				receiver
 			}
@@ -95,12 +95,12 @@ module ODBA
 		end
 		def test_respond_to
 			receiver = flexmock('receiver')
-			@odba_container.mock_handle(:odba_replace_stubs) { |obj, rec|}
+			@odba_container.mock_handle(:odba_replace_stubs) { |id, rec|}
 			@cache.mock_handle(:fetch) { |id,container|
 				receiver
 			}
 			receiver.mock_verify
-			assert_equal(true, @stub.respond_to?(:odba_replace))
+			assert_equal(false, @stub.respond_to?(:odba_replace))
 		end
 		def test_array_methods
 			stub = Stub.new(9, [], [])
@@ -209,17 +209,18 @@ module ODBA
     def test_odba_unsaved
       assert_equal(false, @stub.odba_unsaved?)
     end
-=begin # FIXME
 		def test_hash_key__2
+      receiver = Object.new
+      receiver.extend(Persistable)
+      receiver.instance_variable_set('@odba_id', 9)
+      stub = Stub.new(9, nil, nil)
 			@cache.mock_handle(:fetch) { |odba_id, caller|
 				assert_equal(9, odba_id)
-				@receiver
+				receiver
 			}
-			@odba_container.mock_handle(:odba_replace_stubs) {}
-			hash = {@stub => 'success'}
-			@cache.mock_verify
-			assert_equal('success', hash[@receiver])
+			hash = {stub => 'success'}
+			assert_equal('success', hash[stub])
+			assert_equal('success', hash[receiver])
 		end
-=end
 	end
 end

@@ -92,9 +92,12 @@ module ODBA
 		end
 		def test_odba_replace_stubs
 			stub = flexmock
+      stub.should_receive(:odba_id).and_return(6)
+      stub.should_receive(:is_a?).with(Stub).and_return(true)
 			@odba.replaceable = stub
 			substitution = flexmock
-			@odba.odba_replace_stubs(stub, substitution)
+      substitution.should_receive(:odba_id).and_return(6)
+			@odba.odba_replace_stubs(6, substitution)
 			assert_equal(@odba.replaceable, substitution)
 		end
 		def test_odba_take_snapshot
@@ -164,14 +167,14 @@ module ODBA
 			assert_equal(true, hash.is_a?(Persistable))
 			assert_equal(true, array.is_a?(Persistable))
 		end
-		def test_odba_replace_persistable
+		def test_odba_stubize
 			replaceable = ODBAContainer.new
 			non_rep = ODBAContainer.new
 			non_rep.odba_id = 32
 			replaceable.odba_id = 24
 			@odba.replaceable = replaceable
 			@odba.non_replaceable = non_rep
-			@odba.odba_replace_persistable(replaceable)
+			@odba.odba_stubize(replaceable)
 			assert_equal(24, @odba.replaceable.odba_id)
 			assert_equal(true, @odba.replaceable.is_a?(Stub))
 			assert_equal(true, @odba.non_replaceable.is_a?(ODBAContainer))
@@ -306,6 +309,7 @@ module ODBA
 			replaceable.should_receive(:is_a?).with(Stub)\
         .times(2).and_return { responses.shift }
 			replaceable.should_receive(:odba_clear_receiver).times(1)
+			replaceable.should_receive(:odba_container=).with(@odba.class).times(1)
 			ODBA.marshaller.mock_handle(:dump) { |twin|
         assert(twin.replaceable2.is_a?(ODBA::Stub))
 				"TheDump"
@@ -543,26 +547,19 @@ module ODBA
       }
     end
     def test_odba_replace__in_object
-      ## in rollback, replace modified instances with newly loaded
-      #  unmodified ones
-      o = Object.new
-      p = ODBAContainer.new
-      p.odba_id = 2
-      q = ODBAContainer.new
-      q.odba_id = 2
-      o.instance_variable_set('@foo', p)
-      o.odba_replace(q)
-      assert_equal(q, o.instance_variable_get('@foo'))
-    end
-    def test_odba_replace__in_persistable
-      o = ODBAContainer.new
-      p = ODBAContainer.new
-      p.odba_id = 2
-      q = ODBAContainer.new
-      q.odba_id = 2
-      o.replaceable = p
-      o.odba_replace(q)
-      assert_equal(q, o.replaceable)
+      ## in rollback, replace instance_variables of modified instances with
+      #  newly loaded unmodified ones
+      modified = Object.new
+      modified.extend(ODBA::Persistable)
+      modified.instance_variable_set('@data', 'foo')
+
+      reloaded = modified.dup
+
+      modified.instance_variable_set('@data', 'bar')
+      assert_equal('bar', modified.instance_variable_get('@data'))
+      
+      modified.odba_replace!(reloaded)
+      assert_equal('foo', modified.instance_variable_get('@data'))
     end
     def test_odba_add_observer
       assert_nil(@odba.instance_variable_get('@odba_observers'))

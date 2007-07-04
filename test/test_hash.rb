@@ -92,16 +92,13 @@ module ODBA
                    @hash.odba_collection.sort)
     end
     def test_odba_replace
-      p = ODBAContainer.new
-      p.odba_id = 2
-      q = ODBAContainer.new
-      q.odba_id = 2
-      @hash.store('foo', p)
-      @hash.store(p, 'bar')
-      @hash.instance_variable_set('@var', p)
-      @hash.odba_replace(q)
-      assert_equal({'foo' => q, q => 'bar'}, @hash)
-      assert_equal(q, @hash.instance_variable_get('@var'))
+      modified = { 'foo' => 'bar' }
+      reloaded = modified.dup
+      modified.update('foo' => 'baz', 'han' => 'solo')
+
+      modified.odba_replace!(reloaded)
+
+      assert_equal(reloaded, modified)
     end
     def test_odba_restore
       collection = [[:foo, 'bar'],[:trouble, 'not']]
