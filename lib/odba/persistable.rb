@@ -361,6 +361,7 @@ module ODBA
 			end
 		end
 		def odba_stubize(obj) # :nodoc:
+      return false if(frozen?)
 			id = obj.odba_id
 			odba_potentials.each { |name|
 				var = instance_variable_get(name)
@@ -482,14 +483,13 @@ class Array # :nodoc: all
         end
       end || var
     }
-    self
-  rescue StackError
-    self
+    self ## allow CacheEntry to retire
+  rescue StandardError => e
+    warn e.message
+    self ## allow CacheEntry to retire
   end
   def odba_stubize(obj) # :nodoc:
-    super
-    odba_stubize!(obj)
-    true ## allow CacheEntry to retire
+    super && odba_stubize!(obj)
   end
 	def odba_unsaved_neighbors(snapshot_level = nil)
 		unsaved = super
@@ -548,15 +548,27 @@ class Hash # :nodoc: all
 		}
 	end
   def odba_stubize(obj) # :nodoc:
-    super
+    super or return false
     id = obj.odba_id
     stubs = dup.clear
-    each { |pair|
-      stubs.store(*pair.odba_stubize!(obj))
+    success = true
+    each { |key, value|
+      if(key.is_a?(ODBA::Persistable))
+        success = false
+      end
+      val = case value
+            when ODBA::Stub
+              # no need to make a new stub
+            when ODBA::Persistable
+              if(value.odba_id == id) 
+                ODBA::Stub.new(id, self, obj)
+              end
+            end || value
+      stubs.store(key, val)
     }
     replace(stubs)
     ## allow CacheEntry to retire
-    true
+    success
   end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|

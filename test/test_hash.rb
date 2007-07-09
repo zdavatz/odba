@@ -119,5 +119,28 @@ module ODBA
       @hash.instance_variable_set('@var', o)
       assert_equal([1,2,3], @hash.odba_target_ids.sort)
     end
+    def test_odba_stubize
+      obj = Object.new
+      obj.extend(ODBA::Persistable)
+      id = 10
+      ODBA.cache.should_receive(:next_id).times(2).and_return { id += 1 }
+      assert_equal(11, obj.odba_id)
+      hash = {1 => obj}
+      assert_equal(12, hash.odba_id)
+      assert_equal(true, hash.odba_stubize(obj))
+      assert_equal([1], hash.keys)
+      assert hash.values.first.is_a?(ODBA::Stub)
+    end
+    def test_odba_stubize__key
+      obj = Object.new
+      obj.extend(ODBA::Persistable)
+      id = 10
+      ODBA.cache.should_receive(:next_id).times(2).and_return { id += 1 }
+      assert_equal(11, obj.odba_id)
+      hash = {obj => 'foo'}
+      assert_equal(12, hash.odba_id)
+      assert_equal(false, hash.odba_stubize(obj))
+      assert_equal({obj => 'foo'}, hash)
+    end
 	end
 end
