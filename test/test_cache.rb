@@ -197,6 +197,7 @@ module ODBA
 			value.mock_handle(:ready_to_destroy?) { true }
 			value.mock_handle(:odba_id) { 12 }
       value.mock_handle(:odba_notify_observers) { }
+      value.mock_handle(:odba_destroy!) { assert true }
       @cache.clean_prefetched(false)
 			@cache.delete_old(Time.now - 2)
 			value.mock_verify
@@ -214,9 +215,11 @@ module ODBA
 			value.mock_handle(:ready_to_destroy?) { true }
 			value.mock_handle(:odba_id) { 12 }
       value.mock_handle(:odba_notify_observers) { }
+      value.mock_handle(:odba_destroy!) { assert true }
 			prefetched.mock_handle(:ready_to_destroy?) { true }
 			prefetched.mock_handle(:odba_id) { 13 }
       prefetched.mock_handle(:odba_notify_observers) { }
+      prefetched.mock_handle(:odba_destroy!) { assert true }
 			@cache.delete_old(Time.now - 2)
 			value.mock_verify
 			obj.mock_verify
@@ -715,6 +718,7 @@ module ODBA
       i1.should_receive(:is_a?).with(Stub).and_return(false)
       i2.should_receive(:is_a?).with(Stub).and_return(true)
       i2.should_receive(:odba_id).and_return(7)
+      i2.should_receive(:odba_container=).with(obj).times(1)
       @storage.should_receive(:restore_collection).with(1)\
         .times(1).and_return([['keydump1','dump1'],['keydump2','dump2']])
       @storage.should_receive(:restore_collection).with(7).times(1).and_return([])
@@ -724,7 +728,7 @@ module ODBA
       @marshal.should_receive(:load).with('dump1').and_return(i1)
       @marshal.should_receive(:load).with('dump2').and_return(i2)
       @marshal.should_receive(:load).with('inst').and_return(restored)
-      assert_equal([[0,i1],[1,restored]], @cache.fetch_collection(obj))
+      assert_equal([[0,i1],[1,i2]], @cache.fetch_collection(obj))
     end
     def test_include
       assert(!@cache.include?(1))

@@ -456,20 +456,22 @@ module ODBA
 				cache_entry.odba_object
 			}
 		end
-		def store_collection_elements(obj) # :nodoc:
-			odba_id = obj.odba_id
-			collection = obj.odba_collection
-      old_collection = fetch_collection(obj)
-			changes = (old_collection - collection).each { |key, value|
-				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
-				ODBA.storage.collection_remove(odba_id, key_dump)
-			}.size
-			changes + (collection - old_collection).each { |key, value|
-				key_dump = ODBA.marshaller.dump(key.odba_isolated_stub)
-				value_dump = ODBA.marshaller.dump(value.odba_isolated_stub)
-				ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
-			}.size
-		end
+    def store_collection_elements(obj) # :nodoc:
+      odba_id = obj.odba_id
+      collection = obj.odba_collection.collect { |key, value|
+        [ ODBA.marshaller.dump(key.odba_isolated_stub),
+          ODBA.marshaller.dump(value.odba_isolated_stub) ]
+      }
+      old_collection = ODBA.storage.restore_collection(odba_id).collect { |row|
+        [row[0], row [1]]
+      }
+      changes = (old_collection - collection).each { |key_dump, _|
+        ODBA.storage.collection_remove(odba_id, key_dump)
+      }.size
+      changes + (collection - old_collection).each { |key_dump, value_dump|
+        ODBA.storage.collection_store(odba_id, key_dump, value_dump)	
+      }.size
+    end
 		def store_object_connections(odba_id, target_ids) # :nodoc:
 			ODBA.storage.ensure_object_connections(odba_id, target_ids)
 		end
