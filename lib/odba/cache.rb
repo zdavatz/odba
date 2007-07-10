@@ -186,6 +186,7 @@ module ODBA
       holder.delete_if { |key, obj|
         if(obj.ready_to_destroy?(destroy_horizon))
           obj.odba_notify_observers(:clean, obj.odba_id, obj.object_id)
+          obj.odba_destroy!
           deleted += 1
         end
       }

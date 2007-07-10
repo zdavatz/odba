@@ -29,6 +29,11 @@ module ODBA
 				end
 			}
 		end
+    def odba_destroy!
+      @odba_object = nil
+      @accessed_by = nil
+      true
+    end
 		def odba_id
 			@odba_object.odba_id
 		end
@@ -52,6 +57,8 @@ module ODBA
           case item
           when Stub
             true
+          when Array, Hash
+            false
           when Persistable
             item.odba_stubize(@odba_object)
           end
