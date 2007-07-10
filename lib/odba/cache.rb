@@ -252,7 +252,10 @@ module ODBA
 			collection.each { |pair| 
 				pair.collect! { |item| 
 					if(item.is_a?(ODBA::Stub))
-            fetch(item.odba_id, obj)
+            ## don't fetch: that may result in a conflict when storing.
+            #fetch(item.odba_id, obj)
+            item.odba_container = obj
+            item
           elsif(ce = fetch_cache_entry(item.odba_id))
             warn "collection loaded unstubbed object: #{item.odba_id}"
             ce.odba_add_reference(obj)
