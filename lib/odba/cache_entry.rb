@@ -57,8 +57,6 @@ module ODBA
           case item
           when Stub
             true
-          when Array, Hash
-            false
           when Persistable
             item.odba_stubize(@odba_object)
           end
