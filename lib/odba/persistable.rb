@@ -471,26 +471,6 @@ class Array # :nodoc: all
 			self[key] = val
 		}
 	end
-  def odba_stubize!(obj) # :nodoc:
-    id = obj.odba_id
-    collect! { |var|
-      case var
-      when ODBA::Stub
-        # no need to make a new stub
-      when ODBA::Persistable
-        if(var.odba_id == id) 
-          ODBA::Stub.new(id, self, obj)
-        end
-      end || var
-    }
-    self ## allow CacheEntry to retire
-  rescue StandardError => e
-    warn e.message
-    self ## allow CacheEntry to retire
-  end
-  def odba_stubize(obj) # :nodoc:
-    super && odba_stubize!(obj)
-  end
 	def odba_unsaved_neighbors(snapshot_level = nil)
 		unsaved = super
 		each { |item|
@@ -547,29 +527,6 @@ class Hash # :nodoc: all
 			self[key] = val
 		}
 	end
-  def odba_stubize(obj) # :nodoc:
-    super or return false
-    id = obj.odba_id
-    stubs = dup.clear
-    success = true
-    each { |key, value|
-      if(key.is_a?(ODBA::Persistable))
-        success = false
-      end
-      val = case value
-            when ODBA::Stub
-              # no need to make a new stub
-            when ODBA::Persistable
-              if(value.odba_id == id) 
-                ODBA::Stub.new(id, self, obj)
-              end
-            end || value
-      stubs.store(key, val)
-    }
-    replace(stubs)
-    ## allow CacheEntry to retire
-    success
-  end
 	def odba_unsaved?(snapshot_level = nil)
 		super || (snapshot_level.nil? && any? { |key, val|
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved? \
