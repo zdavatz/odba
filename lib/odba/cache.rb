@@ -92,7 +92,7 @@ module ODBA
       if(offset > holder.size) 
         offset = 0
       end
-      holder.values[offset, @cleaner_step].each { |value|
+      holder.each_value { |value|
 				if(value.odba_old?(retire_time))
 					value.odba_retire && @cleaned += 1
 				end
