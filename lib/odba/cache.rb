@@ -92,12 +92,16 @@ module ODBA
       if(offset > holder.size) 
         offset = 0
       end
+      counter = 0
+      cutoff = offset + @cleaner_step
       holder.each_value { |value|
-				if(value.odba_old?(retire_time))
+        counter += 1
+				if(counter > offset && value.odba_old?(retire_time))
 					value.odba_retire && @cleaned += 1
 				end
+        return cutoff if(counter > cutoff)
       }
-      offset + @cleaner_step
+      cutoff 
     end
 		# overrides the ODBA_PREFETCH constant and @odba_prefetch instance variable
 		# in Persistable. Use this if a secondary client is more memory-bound than 
