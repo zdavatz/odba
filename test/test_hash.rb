@@ -129,7 +129,7 @@ module ODBA
       assert_equal(12, hash.odba_id)
       assert_equal(true, hash.odba_stubize(obj))
       assert_equal([1], hash.keys)
-      assert hash.values.first.is_a?(ODBA::Stub)
+      assert_equal false, hash.values.first.is_a?(ODBA::Stub)
     end
     def test_odba_stubize__key
       obj = Object.new
@@ -139,7 +139,7 @@ module ODBA
       assert_equal(11, obj.odba_id)
       hash = {obj => 'foo'}
       assert_equal(12, hash.odba_id)
-      assert_equal(false, hash.odba_stubize(obj))
+      assert_equal(true, hash.odba_stubize(obj))
       assert_equal({obj => 'foo'}, hash)
     end
 	end

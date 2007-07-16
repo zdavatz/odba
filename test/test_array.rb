@@ -100,9 +100,9 @@ module ODBA
       @array.push(item)
       @array.odba_stubize(item)
       first = @array.first
-      assert first.is_a?(ODBA::Stub)
+      assert_equal false, first.is_a?(ODBA::Stub)
       assert @array.include?(item)
-      assert first.is_a?(ODBA::Stub)
+      assert_equal false, first.is_a?(ODBA::Stub)
     end
   end
 end

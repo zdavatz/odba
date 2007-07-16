@@ -68,7 +68,7 @@ module ODBA
       }
 			@cache_entry.odba_retire
 			#assert_equal({hash => true}, @cache_entry.accessed_by)
-			assert_equal({}, @cache_entry.accessed_by)
+			assert_equal({hash.object_id => 35}, @cache_entry.accessed_by)
 		end
 		def test_odba_add_reference
 			mock = flexmock
