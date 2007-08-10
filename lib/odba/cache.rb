@@ -115,6 +115,21 @@ module ODBA
 			@fetched.clear
 			@prefetched.clear
 		end
+    # Creates or recreates automatically defined indices
+    def create_deferred_indices(drop_existing = false)
+      @deferred_indices.each { |definition|
+        name = definition.index_name
+        if(drop_existing && self.indices.include?(name))
+          drop_index(name)
+        end
+        unless(self.indices.include?(name)) 
+          index = create_index(definition)
+          if(index.target_klass.respond_to?(:odba_extent))
+            index.fill(index.target_klass.odba_extent)
+          end
+        end
+      }
+    end
 		# Creates a new index according to IndexDefinition
 		def create_index(index_definition, origin_module=Object)
 			transaction {
@@ -398,14 +413,7 @@ module ODBA
       self.indices.each_key { |index_name|
         ODBA.storage.ensure_target_id_index(index_name)
       }
-      @deferred_indices.each { |definition|
-        unless(self.indices.include?(definition.index_name))
-          index = create_index(definition)
-          if(index.target_klass.respond_to?(:odba_extent))
-            index.fill(index.target_klass.odba_extent)
-          end
-        end
-      }
+      create_deferred_indices
       nil
     end
     # Returns the total number of cached objects
