@@ -1,9 +1,6 @@
 #!/usr/bin/env ruby
 #-- Persistable -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
-require 'odba/stub'
-require 'observer'
-
 class Object # :nodoc: all
 	def odba_id
 	end
@@ -16,6 +13,10 @@ class Object # :nodoc: all
   def metaclass; class << self; self; end; end
   def meta_eval &blk; metaclass.instance_eval &blk; end
 end
+
+require 'odba/stub'
+require 'observer'
+
 module ODBA
 	class Stub; end
 	module Persistable
