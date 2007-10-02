@@ -79,9 +79,10 @@ module ODBA
       end
 		end
 		def ready_to_destroy?(destroy_horizon = Time.now - ODBA.cache.destroy_age)
-			!@odba_object.odba_unsaved? \
-				&& @accessed_by.empty? \
-				&& (destroy_horizon > @last_access) 
+      @odba_object.nil? \
+        || (!@odba_object.odba_unsaved? \
+            && @accessed_by.empty? \
+            && (destroy_horizon > @last_access))
 		end
 	end
 end
