@@ -261,6 +261,11 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       SQL
     rescue
     end
+    def extent_count(klass)
+      self.dbi.select_one(<<-EOQ, klass.name).first
+        SELECT COUNT(odba_id) FROM object WHERE extent = ?
+      EOQ
+    end
     def extent_ids(klass)
       self.dbi.select_all(<<-EOQ, klass.name).flatten
         SELECT odba_id FROM object WHERE extent = ?

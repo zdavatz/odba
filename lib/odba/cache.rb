@@ -232,6 +232,10 @@ module ODBA
     def extent(klass, odba_caller=nil)
 			bulk_fetch(ODBA.storage.extent_ids(klass), odba_caller)
     end
+    # Get number of instances of a class
+    def count(klass)
+      ODBA.storage.extent_count(klass)
+    end
 		# Fetch a Persistable identified by _odba_id_. Registers _odba_caller_ with
 		# the CacheEntry. Loads the Persistable if it is not already loaded.
 		def fetch(odba_id, odba_caller=nil)

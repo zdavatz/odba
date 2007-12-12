@@ -129,6 +129,9 @@ module ODBA
               all
             end
           end
+          def odba_count
+            ODBA.cache.count(self) 
+          end
         end
       }
     end
