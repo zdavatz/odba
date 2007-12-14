@@ -74,7 +74,14 @@ module ODBA
                 if(vals.size > 1) 
                   args = {}
                   vals.each_with_index { |val, idx|
-                    args.store(keys.at(idx), val)
+                    cond = case val
+                           when Numeric, Date
+                             '='
+                           else
+                             'like'
+                           end
+                    args.store(keys.at(idx), 
+                               {'value',val,'condition',cond})
                   }
                   ODBA.cache.retrieve_from_index(index_name, args)
                 else
