@@ -81,10 +81,12 @@ CREATE TABLE collection (
     def condition_index_delete(index_name, origin_id, 
                                search_terms, target_id=nil)
       values = []
-      sql = <<-SQL
-        DELETE FROM #{index_name}
-        WHERE origin_id = ?
-      SQL
+      sql = "DELETE FROM #{index_name}"
+      if(origin_id)
+        sql << " WHERE origin_id = ?"
+      else
+        sql << " WHERE origin_id IS ?"
+      end
       search_terms.each { |key, value|
         sql << " AND %s = ?" % key
         values << value
