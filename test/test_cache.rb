@@ -65,11 +65,11 @@ module ODBA
 			old_marshal = ODBA.marshaller
 			ODBA.marshaller = marshal = flexmock('Marshal')
 			array = [2, 3]
-			obj1 = flexmock
+			obj1 = Object.new
 			obj1.instance_variable_set("@odba_id", 2)
 			obj1.instance_variable_set("@odba_prefetch", false)
 			obj1.instance_variable_set("@odba_name", nil)
-			obj2 = flexmock
+			obj2 = Object.new
 			obj2.instance_variable_set("@odba_id", 3)
 			obj2.instance_variable_set("@odba_prefetch", true)
 			obj2.instance_variable_set("@odba_name", nil)
@@ -104,11 +104,11 @@ module ODBA
 			@cache.fetched = {
 				7 => baz
 			}
-			obj1 = flexmock
+			obj1 = Object.new
 			obj1.instance_variable_set("@odba_id", 2)
 			obj1.instance_variable_set("@odba_prefetch", false)
 			obj1.instance_variable_set("@odba_name", nil)
-			obj2 = flexmock
+			obj2 = Object.new
 			obj2.instance_variable_set("@odba_id", 3)
 			obj2.instance_variable_set("@odba_prefetch", false)
 			obj2.instance_variable_set("@odba_name", nil)

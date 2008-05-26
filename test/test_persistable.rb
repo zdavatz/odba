@@ -437,13 +437,17 @@ module ODBA
 
       ## search by multiple keys
       name = 'odba_testpersistable_indexedstub_foo_and_bar'
-      args = {:foo, 'oof', :bar, 'rab'}
+      args = {
+        :foo => { 'condition' => 'like', 'value' => 'oof'},
+        :bar => { 'condition' => 'like', 'value' => 'rab'},
+      }
       ODBA.cache.should_receive(:retrieve_from_index).with(name, args)\
         .times(1).and_return([result])
       assert_equal([result], 
                    IndexedStub.search_by_foo_and_bar('oof', 'rab'))
 
       ## exact search by multiple keys
+      args = {:foo, 'oof', :bar, 'rab'}
       ODBA.cache.should_receive(:retrieve_from_index)\
         .with(name, args, Persistable::Exact)\
         .times(1).and_return([result])

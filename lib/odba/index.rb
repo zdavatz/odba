@@ -13,13 +13,14 @@ module ODBA
 	# Further, _search_term_ must be resolved in relation to _origin_.
 	class IndexCommon # :nodoc: all
 		include Persistable
-		ODBA_EXCLUDE_VARS = ['@proc_origin']
-		attr_accessor :origin_klass, :target_klass, :resolve_origin,
+		ODBA_EXCLUDE_VARS = ['@proc_origin', '@proc_target']
+		attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
 			:resolve_search_term, :index_name
 		def initialize(index_definition, origin_module)
 			@origin_klass = origin_module.instance_eval(index_definition.origin_klass.to_s)
 			@target_klass = origin_module.instance_eval(index_definition.target_klass.to_s)
 			@resolve_origin = index_definition.resolve_origin
+			@resolve_target = index_definition.resolve_target
 			@index_name = index_definition.index_name
 			@resolve_search_term = index_definition.resolve_search_term
 			@dictionary = index_definition.dictionary
@@ -88,7 +89,27 @@ module ODBA
 			end
 			@proc_origin
 		end
-		def proc_resolve_search_term # :nodoc:
+    def proc_instance_target # :nodoc:
+      if(@proc_target.nil?)
+        if(@resolve_target.to_s.empty?)
+          @proc_target = Proc.new { |odba_item|  [odba_item] }
+        #elsif(@resolve_target == :odba_skip)
+        #  @proc_target = Proc.new { [] }
+        else
+          src = <<-EOS
+            Proc.new { |odba_item| 
+              res = [odba_item.#{@resolve_target}]
+              res.flatten!
+              res.compact!
+              res
+            }
+          EOS
+          @proc_target = eval(src)
+        end
+      end
+      @proc_target
+    end
+    def proc_resolve_search_term # :nodoc:
 			if(@proc_resolve_search_term.nil?)
 				if(@resolve_search_term.to_s.empty?)
 					@proc_resolve_search_term = Proc.new { |origin| 
@@ -193,6 +214,42 @@ module ODBA
                                               exact)
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
+		end
+		def update_origin(object) # :nodoc:
+      # Possible changes:
+      # - search_terms of origin have changed
+      # - targets have changed
+      # => we need a matrix of all current [term, target_id]
+      #                     and of all new [term, target_id]
+			origin_id = object.odba_id
+			search_terms = search_terms(object)
+      current = current_target_ids(origin_id)
+      target_ids = proc_instance_target.call(object).collect { |obj| 
+        obj.odba_id }
+      target_ids.compact!
+      target_ids.uniq!
+      current_ids = []
+      current_terms = []
+      current.each { |row|
+        current_ids.push(row[0])
+        current_terms.push(row[1])
+      }
+      current_ids.uniq!
+      current_terms.uniq!
+      current_combinations = current_ids.inject([]) { |memo, id|
+        current_terms.each { |term| memo.push [term, id] }
+        memo
+      }
+      combinations = target_ids.inject([]) { |memo, id|
+        search_terms.each { |term| memo.push [term, id] }
+        memo
+      }
+      (current_combinations - combinations).each { |pair|
+        delete_target(origin_id, *pair)
+      }
+      (combinations - current_combinations).each { |pair|
+        do_update_index(origin_id, *pair)
+      }
 		end
     def search_terms(origin)
       super.collect { |term| term.to_s.downcase }.uniq

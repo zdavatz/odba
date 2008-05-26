@@ -810,8 +810,7 @@ WHERE origin_id=?
     end
     def test_condition_index_delete
       sql = <<-SQL
-        DELETE FROM index
-        WHERE origin_id = ?\n AND c1 = ? AND c2 = ?
+DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
       SQL
       handle = flexmock('DBHandle')
       @dbi.should_receive(:prepare).with(sql.chomp)\
@@ -822,8 +821,7 @@ WHERE origin_id=?
     end
     def test_condition_index_delete__with_target_id
       sql = <<-SQL
-        DELETE FROM index
-        WHERE origin_id = ?\n AND c1 = ? AND c2 = ? AND target_id = ?
+DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?
       SQL
       handle = flexmock('DBHandle')
       @dbi.should_receive(:prepare).with(sql.chomp)\
