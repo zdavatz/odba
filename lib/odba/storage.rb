@@ -593,7 +593,7 @@ WHERE origin_id=?
 			}
 		end
 		def restore_max_id
-			row = self.dbi.select_one("select MAX(odba_id) from object")
+			row = self.dbi.select_one("SELECT odba_id FROM object ORDER BY odba_id DESC LIMIT 1")
 			unless(row.first.nil?)
 				row.first
 			else
