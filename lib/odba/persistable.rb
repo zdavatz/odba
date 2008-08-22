@@ -34,20 +34,21 @@ module ODBA
             require 'odba/index_definition'
             origin_klass = self
             resolve_origin = nil
+            resolve_target = :none
             resolve = {}
             opts = {}
             if(keys.size > 1)
               if(keys.last.is_a?(Hash))
                 opts = keys.pop
               end
-              if(keys.last.is_a?(Symbol))
-                keys.each { |key|
-                  resolve.store(key, {'resolve', key})
-                }
-              elsif(keys.last.is_a?(Class))
+              if(keys.last.is_a?(Class))
                 origin_klass = keys.pop 
                 resolve = keys.pop
                 resolve_origin = keys.pop
+              elsif(keys.last.is_a?(Symbol))
+                keys.each { |key|
+                  resolve.store(key, {'resolve', key})
+                }
               else
                 resolve = keys.pop
               end
@@ -72,6 +73,7 @@ module ODBA
             index_definition.target_klass = self
             index_definition.resolve_search_term = resolve
             index_definition.resolve_origin = resolve_origin.to_s
+            index_definition.resolve_target = resolve_target
             opts.each { |key, val| index_definition.send "#{key}=", val }
             ODBA.cache.ensure_index_deferred(index_definition)
             meta_eval {

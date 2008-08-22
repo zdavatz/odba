@@ -218,14 +218,18 @@ module ODBA
 		def update_origin(object) # :nodoc:
       # Possible changes:
       # - search_terms of origin have changed
-      # - targets have changed
+      # - targets have changed, except if @resolve_target == :none
       # => we need a matrix of all current [term, target_id]
       #                     and of all new [term, target_id]
 			origin_id = object.odba_id
 			search_terms = search_terms(object)
       current = current_target_ids(origin_id)
-      target_ids = proc_instance_target.call(object).collect { |obj| 
-        obj.odba_id }
+      target_ids = if @resolve_target == :none
+                     current.dup
+                   else
+                     proc_instance_target.call(object).collect { |obj| 
+                       obj.odba_id }
+                   end
       target_ids.compact!
       target_ids.uniq!
       current_ids = []
