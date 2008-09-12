@@ -398,7 +398,7 @@ module ODBA
           end
 				end
 			}
-      odba_notify_observers(:stubize, obj)
+      odba_notify_observers(:stubize, id, obj.object_id)
       ## allow CacheEntry to retire
       true
 		end
