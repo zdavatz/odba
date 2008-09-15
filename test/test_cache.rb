@@ -149,10 +149,8 @@ module ODBA
 			@cache.fetched.store(2, obj1)
 			@cache.fetched.store(3, obj2)
 			assert_equal(2, @cache.fetched.size)
-			obj1.mock_handle(:ready_to_destroy?) { false }
 			obj1.mock_handle(:odba_old?) { true }
 			obj1.mock_handle(:odba_retire) { }
-			obj2.mock_handle(:ready_to_destroy?) { false }
 			obj2.mock_handle(:odba_old?) { false }
 			@cache.clean
 			assert_equal(2, @cache.fetched.size)
@@ -183,44 +181,6 @@ module ODBA
 			@cache.prefetched.store(13, prefetched)
 			assert_equal(2, @cache.size)
       @cache.clear
-			value.mock_verify
-			obj.mock_verify
-			assert_equal(0, @cache.size)
-		end
-		def test_delete_old
-			value = flexmock("value")
-			obj = flexmock('object')
-			prefetched = flexmock('prefetched')
-			@cache.fetched.store(12, value)
-			@cache.prefetched.store(13, prefetched)
-			assert_equal(2, @cache.size)
-			value.mock_handle(:ready_to_destroy?) { true }
-			value.mock_handle(:odba_id) { 12 }
-      value.mock_handle(:odba_notify_observers) { }
-      value.mock_handle(:odba_destroy!) { assert true }
-      @cache.clean_prefetched(false)
-			@cache.delete_old(Time.now - 2)
-			value.mock_verify
-			obj.mock_verify
-			assert_equal(1, @cache.size)
-		end
-		def test_delete_old__prefetched
-			value = flexmock("value")
-			obj = flexmock('object')
-			prefetched = flexmock('prefetched')
-      @cache.instance_variable_set('@clean_prefetched', true)
-			@cache.fetched.store(12, value)
-			@cache.prefetched.store(13, prefetched)
-			assert_equal(2, @cache.size)
-			value.mock_handle(:ready_to_destroy?) { true }
-			value.mock_handle(:odba_id) { 12 }
-      value.mock_handle(:odba_notify_observers) { }
-      value.mock_handle(:odba_destroy!) { assert true }
-			prefetched.mock_handle(:ready_to_destroy?) { true }
-			prefetched.mock_handle(:odba_id) { 13 }
-      prefetched.mock_handle(:odba_notify_observers) { }
-      prefetched.mock_handle(:odba_destroy!) { assert true }
-			@cache.delete_old(Time.now - 2)
 			value.mock_verify
 			obj.mock_verify
 			assert_equal(0, @cache.size)
@@ -315,6 +275,7 @@ module ODBA
       @cache.fetched.store(3, cont)
 			save_obj = flexmock("save_obj")
       save_obj.should_receive(:odba_target_ids).and_return([3])
+      save_obj.should_receive(:odba_observers).and_return { [] }
 			prepare_store([save_obj])
       save_obj.should_receive(:odba_add_observer)
       cont.should_receive(:odba_add_reference).with(save_obj)\

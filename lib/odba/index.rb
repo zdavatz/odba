@@ -13,7 +13,7 @@ module ODBA
 	# Further, _search_term_ must be resolved in relation to _origin_.
 	class IndexCommon # :nodoc: all
 		include Persistable
-		ODBA_EXCLUDE_VARS = ['@proc_origin', '@proc_target']
+		ODBA_EXCLUDE_VARS = ['@proc_origin', '@proc_target', '@proc_resolve_search_term']
 		attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
 			:resolve_search_term, :index_name
 		def initialize(index_definition, origin_module)
@@ -149,6 +149,8 @@ module ODBA
 			elsif(object.instance_of?(@origin_klass))
 				update_origin(object)
 			end
+    rescue StandardError => err
+      warn "#{err.class}: #{err.message} when updating index '#{@index_name}' with a #{object.class}"
 		end
 		def update_origin(object) # :nodoc:
 			origin_id = object.odba_id

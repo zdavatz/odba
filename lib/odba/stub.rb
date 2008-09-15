@@ -23,27 +23,29 @@ module ODBA
 			"#<ODBA::Stub:#{object_id}##@odba_id @odba_class=#@odba_class @odba_container=#{@odba_container.object_id}##{@odba_container.odba_id}>"
 		end
 		def is_a?(klass)
-			[Stub, Persistable, @odba_class].include?(klass) \
+      klass == Stub || klass == Persistable || klass == @odba_class \
 				|| odba_instance.is_a?(klass)
 		end
 		def odba_clear_receiver
 			@receiver = nil
+      @receiver_loaded = nil
 		end
     def odba_dup
       odba_isolated_stub
     end
-		def odba_instance
-			odba_receiver
-		end
 		def odba_isolated_stub
 			Stub.new(@odba_id, nil, nil)
 		end
+    def odba_prefetch?
+      false
+    end
 		def odba_receiver(name=nil)
       if(@receiver && !@receiver_loaded)
         warn "stub for #{@receiver.class}:#{@odba_id} was saved with receiver"
         @receiver = nil
       end
 			@receiver || begin
+      #begin
 				@receiver = ODBA.cache.fetch(@odba_id, @odba_container)
         @receiver_loaded = true
 				if(@odba_container)
@@ -77,7 +79,7 @@ module ODBA
 			"instance_variables", "instance_variable_get",
 			"instance_variable_set", "==",
 			## methods defined in persistable.rb:Object
-			"odba_id", "odba_instance", "odba_isolated_stub",
+			"odba_id", "odba_instance", "odba_isolated_stub", "odba_prefetch?",
 			## yaml-methods
 			"to_yaml", "taguri", "to_yaml_style", "to_yaml_type",
 			"to_yaml_properties", "yaml_initialize",

@@ -19,34 +19,18 @@ module ODBA
 		def setup
 			@mock = flexmock
       @mock.should_receive(:odba_add_observer)
+			@mock.should_receive(:odba_observers).and_return { [] }
+			@mock.should_receive(:odba_id).and_return { 123 }
 			@cache_entry = ODBA::CacheEntry.new(@mock)
 			ODBA.cache = flexmock("cache")
       ODBA.cache.should_receive(:retire_age).and_return(0.9)
       ODBA.cache.should_receive(:destroy_age).and_return(0.9)
 		end
 		def test_retire_check
-			@mock.mock_handle(:odba_unsaved?) { false }
-			@mock.mock_handle(:odba_unsaved?) { false }
+			@mock.should_receive(:odba_unsaved?).and_return { false }
+			@mock.should_receive(:odba_unsaved?).and_return { false }
 			assert_equal(false, @cache_entry.odba_old?(Time.now - 1))
 			assert_equal(true, @cache_entry.odba_old?(Time.now + 1))
-		end
-		def test_ready_to_destroy_true
-			@mock.mock_handle(:odba_unsaved?) { false }
-			assert_equal(true, @cache_entry.ready_to_destroy?(Time.now + 1))
-		end
-		def test_ready_to_destroy_false__age
-			@mock.mock_handle(:odba_unsaved?) { false }
-			assert_equal(false, @cache_entry.ready_to_destroy?)
-		end
-		def test_ready_to_destroy_false__accessed_by
-			@mock.mock_handle(:odba_unsaved?) { false }
-			@cache_entry.accessed_by = ['foo']
-			assert_equal(false, @cache_entry.ready_to_destroy?(Time.now + 1))
-		end
-		def test_ready_to_destroy_false__combined
-			@mock.mock_handle(:odba_unsaved?) { false }
-			@cache_entry.accessed_by = ['foo']
-			assert_equal(false, @cache_entry.ready_to_destroy?)
 		end
 		def test_retire
 			obj_1 = Object.new
@@ -81,7 +65,6 @@ module ODBA
       assert_equal({mock2.object_id => 123, id => nil}, @cache_entry.accessed_by)
 		end
 		def test_odba_id
-			@mock.mock_handle(:odba_id) { 123 }
 			assert_equal(123, @cache_entry.odba_id)
 		end
     def test_odba_cut_connections
@@ -101,6 +84,7 @@ module ODBA
       modified = Object.new
       modified.extend(ODBA::Persistable)
       modified.instance_variable_set('@data', 'foo')
+      modified.instance_variable_set('@odba_id', 124)
       cache_entry = CacheEntry.new(modified)
 
       reloaded = modified.dup

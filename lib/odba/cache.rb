@@ -20,7 +20,6 @@ module ODBA
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
 			end
-      @destroy_age = 600
       @retire_age = 300
 			@cache_mutex = Mutex.new
       @deferred_indices = []
@@ -57,14 +56,13 @@ module ODBA
 			rows.each { |row|
 				obj_id = row.at(0)
 				dump = row.at(1)
-        obj = fetch_or_restore(obj_id, dump, odba_caller)
-				retrieved_objects.push(obj)
+        odba_obj = fetch_or_restore(obj_id, dump, odba_caller)
+				retrieved_objects.push(odba_obj)
 			}
 			retrieved_objects
 		end
 		def clean # :nodoc:
       now = Time.now
-			delete_old(now - @destroy_age)
       start = Time.now if(@debug)
 			@cleaned = 0
       if(@debug)
@@ -96,12 +94,16 @@ module ODBA
       cutoff = offset + @cleaner_step
       holder.each_value { |value|
         counter += 1
-				if(counter > offset && value.odba_old?(retire_time))
-					value.odba_retire && @cleaned += 1
-				end
+        if(counter > offset && value.odba_old?(retire_time))
+          value.odba_retire && @cleaned += 1
+        end
         return cutoff if(counter > cutoff)
       }
       cutoff 
+    # every once in a while we'll get a 'hash modified during iteration'-Error.
+    # not to worry, we'll just try again later.
+    rescue StandardError
+      offset
     end
 		# overrides the ODBA_PREFETCH constant and @odba_prefetch instance variable
 		# in Persistable. Use this if a secondary client is more memory-bound than 
@@ -148,29 +150,29 @@ module ODBA
 		end
 		# Permanently deletes _object_ from the database and deconnects all connected
 		# Persistables 
-		def delete(object)
-			odba_id = object.odba_id
-      name = object.odba_name
-      object.odba_notify_observers(:delete, odba_id, object.object_id)
+		def delete(odba_object)
+			odba_id = odba_object.odba_id
+      name = odba_object.odba_name
+      odba_object.odba_notify_observers(:delete, odba_id, odba_object.object_id)
 			rows = ODBA.storage.retrieve_connected_objects(odba_id)
 			rows.each { |row|
 				id = row.first
 				# Self-Referencing objects don't have to be resaved
 				begin
 					if(connected_object = fetch(id, nil))
-						connected_object.odba_cut_connection(object)
+						connected_object.odba_cut_connection(odba_object)
 						connected_object.odba_isolated_store
 					end
 				rescue OdbaError
-					warn "OdbaError ### deleting #{object.class}:#{odba_id}"
+					warn "OdbaError ### deleting #{odba_object.class}:#{odba_id}"
 					warn "          ### while looking for connected object #{id}"
 				end
 			}
       delete_cache_entry(odba_id)
       delete_cache_entry(name)
 			ODBA.storage.delete_persistable(odba_id)
-			delete_index_element(object)
-			object
+			delete_index_element(odba_object)
+			odba_object
 		end
     def delete_cache_entry(key)
       @cache_mutex.synchronize {
@@ -184,33 +186,6 @@ module ODBA
         index.delete(odba_object)
 			}
 		end
-		def delete_old(destroy_horizon) # :nodoc:
-			start = Time.now if @debug
-      deleted = _delete_old(destroy_horizon, @fetched)
-      if(@debug)
-        puts "deleted: #{deleted} objects from @fetched in #{Time.now - start} seconds"
-        $stdout.flush
-      end
-			if(@clean_prefetched)
-        start = Time.now if @debug
-        deleted = _delete_old(destroy_horizon, @prefetched)
-        if(@debug)
-          puts "deleted: #{deleted} objects from @prefetched in #{Time.now - start} seconds"
-          $stdout.flush
-        end
-			end
-		end
-    def _delete_old(destroy_horizon, holder) # :nodoc:
-      deleted = 0
-      holder.delete_if { |key, obj|
-        if(obj.ready_to_destroy?(destroy_horizon))
-          obj.odba_notify_observers(:clean, obj.odba_id, obj.object_id)
-          obj.odba_destroy!
-          deleted += 1
-        end
-      }
-      deleted
-    end
 		# Permanently deletes the index named _index_name_
 		def drop_index(index_name)
 			transaction {
@@ -246,17 +221,18 @@ module ODBA
 		def fetch_cache_entry(odba_id_or_name) # :nodoc:
 			@prefetched[odba_id_or_name] || @fetched[odba_id_or_name]
 		end
-		def fetch_collection(obj) # :nodoc:
+		def fetch_collection(odba_obj) # :nodoc:
 			collection = []
 			bulk_fetch_ids = [] 
-			rows = ODBA.storage.restore_collection(obj.odba_id)
+			rows = ODBA.storage.restore_collection(odba_obj.odba_id)
+      return collection if rows.empty?
 			rows.each { |row|
 				key = ODBA.marshaller.load(row[0])
 				value = ODBA.marshaller.load(row[1])
         item = nil
         if([key, value].any? { |item| item.instance_variable_get('@receiver') })
-          odba_id = obj.odba_id
-          warn "stub for #{item.class}:#{item.odba_id} was saved with receiver in collection of #{obj.class}:#{odba_id}"
+          odba_id = odba_obj.odba_id
+          warn "stub for #{item.class}:#{item.odba_id} was saved with receiver in collection of #{odba_obj.class}:#{odba_id}"
           warn "repair: remove [#{odba_id}, #{row[0]}, #{row[1].length}]"
           ODBA.storage.collection_remove(odba_id, row[0])	
           key = key.odba_isolated_stub
@@ -272,17 +248,17 @@ module ODBA
 			}
 			bulk_fetch_ids.compact!
 			bulk_fetch_ids.uniq!
-			bulk_fetch(bulk_fetch_ids, obj)
+			bulk_fetch(bulk_fetch_ids, odba_obj)
 			collection.each { |pair| 
 				pair.collect! { |item| 
 					if(item.is_a?(ODBA::Stub))
             ## don't fetch: that may result in a conflict when storing.
-            #fetch(item.odba_id, obj)
-            item.odba_container = obj
+            #fetch(item.odba_id, odba_obj)
+            item.odba_container = odba_obj
             item
           elsif(ce = fetch_cache_entry(item.odba_id))
             warn "collection loaded unstubbed object: #{item.odba_id}"
-            ce.odba_add_reference(obj)
+            ce.odba_add_reference(odba_obj)
             ce.odba_object
 					else
 						item 
@@ -297,13 +273,11 @@ module ODBA
 			## to load if there was a dump stored in the collection table
 			if(dump = ODBA.storage.collection_fetch(odba_id, key_dump))
 				item = ODBA.marshaller.load(dump)
-        if(item.is_a?(ODBA::Persistable))
-          if(item.is_a?(ODBA::Stub))
-            fetch(item.odba_id)
-          else
-            warn "collection_element was unstubbed object: #{item.odba_id}"
-            fetch_or_restore(item.odba_id, dump, nil)
-          end
+        if(item.is_a?(ODBA::Stub))
+          fetch(item.odba_id)
+        elsif(item.is_a?(ODBA::Persistable))
+          warn "collection_element was unstubbed object: #{item.odba_id}"
+          fetch_or_restore(item.odba_id, dump, nil)
         else
           item
         end
@@ -313,10 +287,10 @@ module ODBA
 			fetch_or_do(name, odba_caller) { 
 				dump = ODBA.storage.restore_named(name)
 				if(dump.nil?)
-					obj = block.call
-					obj.odba_name = name
-					obj.odba_store(name)
-					obj
+					odba_obj = block.call
+					odba_obj.odba_name = name
+					odba_obj.odba_store(name)
+					odba_obj
 				else
 					fetch_or_restore(name, dump, odba_caller)
 				end	
@@ -330,27 +304,24 @@ module ODBA
 				block.call
 			end
 		end
-		def fetch_or_restore(obj_id, dump, odba_caller) # :nodoc:
-			fetch_or_do(obj_id, odba_caller) { 
-				obj, collection = restore(dump)
-				cache_entry = CacheEntry.new(obj)
-				cache_entry.odba_add_reference(odba_caller)
-				obj = cache_entry.odba_object
-				hash = obj.odba_prefetch? ? @prefetched : @fetched
-				name = obj.odba_name
-				odba_id = obj.odba_id
-				@cache_mutex.synchronize {
-					fetch_or_do(odba_id, odba_caller) {
-						hash.store(odba_id, cache_entry)
-						unless(name.nil?)
-							hash.store(name, cache_entry)
-						end
-						## set access time to now
-						cache_entry.odba_object
-					}
-				}
-			}
-		end
+    def fetch_or_restore(odba_id, dump, odba_caller) # :nodoc:
+      fetch_or_do(odba_id, odba_caller) {
+        odba_obj, collection = restore(dump)
+        @cache_mutex.synchronize {
+          fetch_or_do(odba_id, odba_caller) {
+            cache_entry = CacheEntry.new(odba_obj)
+            cache_entry.odba_add_reference(odba_caller)
+            hash = odba_obj.odba_prefetch? ? @prefetched : @fetched
+            name = odba_obj.odba_name
+            hash.store(odba_obj.odba_id, cache_entry)
+            if name
+              hash.store(name, cache_entry)
+            end
+            odba_obj
+          }
+        }
+      }
+    end
 		def fill_index(index_name, targets) 
 			self.indices[index_name].fill(targets)
 		end
@@ -368,6 +339,12 @@ module ODBA
 				{}
 			}
 		end
+    def invalidate(odba_id)
+      ## when finalizers are run, no other threads will be scheduled,
+      #  therefore we don't need to @cache_mutex.synchronize
+      @fetched.delete odba_id
+      @prefetched.delete odba_id
+    end
 		# Returns the next valid odba_id
 		def next_id
 			ODBA.storage.next_id
@@ -472,9 +449,9 @@ module ODBA
 				cache_entry.odba_object
 			}
 		end
-    def store_collection_elements(obj) # :nodoc:
-      odba_id = obj.odba_id
-      collection = obj.odba_collection.collect { |key, value|
+    def store_collection_elements(odba_obj) # :nodoc:
+      odba_id = odba_obj.odba_id
+      collection = odba_obj.odba_collection.collect { |key, value|
         [ ODBA.marshaller.dump(key.odba_isolated_stub),
           ODBA.marshaller.dump(value.odba_isolated_stub) ]
       }
@@ -508,8 +485,8 @@ module ODBA
 				ids.each { |id, name|
 					if(entry = fetch_cache_entry(id))
 						if(dump = ODBA.storage.restore(id))
-							obj, collection = restore(dump)
-							entry.odba_replace!(obj)
+							odba_obj, collection = restore(dump)
+							entry.odba_replace!(odba_obj)
 						else
 							entry.odba_cut_connections!
               delete_cache_entry(id)
@@ -537,9 +514,9 @@ module ODBA
     def load_object(odba_id, odba_caller)
       start = Time.now if(@debug)
       dump = ODBA.storage.restore(odba_id)
-      obj = restore_object(odba_id, dump, odba_caller)
-      return obj unless(@debug)
-      stats = (@loading_stats[obj.class] ||= { 
+      odba_obj = restore_object(odba_id, dump, odba_caller)
+      return odba_obj unless(@debug)
+      stats = (@loading_stats[odba_obj.class] ||= {
         :count => 0, :times => [], :total_time => 0, :callers => [],
       })
       stats[:count] += 1
@@ -557,16 +534,16 @@ module ODBA
         printf("long load-time (%4.2fs) for odba_id %i: %s#%s\n",
                time, odba_id, odba_caller, names.join(','))
       end
-      obj
+      odba_obj
     end
 		def restore(dump)
-			obj = ODBA.marshaller.load(dump)
-      unless(obj.is_a?(Persistable))
-        obj.extend(Persistable)
+			odba_obj = ODBA.marshaller.load(dump)
+      unless(odba_obj.is_a?(Persistable))
+        odba_obj.extend(Persistable)
       end
-			collection = fetch_collection(obj)
-			obj.odba_restore(collection)
-			[obj, collection]
+			collection = fetch_collection(odba_obj)
+			odba_obj.odba_restore(collection)
+			[odba_obj, collection]
 		end
 		def restore_object(odba_id, dump, odba_caller)
 			if(dump.nil?)

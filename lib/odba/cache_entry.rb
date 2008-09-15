@@ -3,12 +3,23 @@
 
 module ODBA
 	class CacheEntry # :nodoc: all
+    @@id_table = {}
+    @@finalizer = proc { |object_id|
+      if(odba_id = @@id_table.delete(object_id))
+        ODBA.cache.invalidate odba_id
+      end
+    }
 		attr_accessor :last_access
-		attr_reader :accessed_by
+		attr_reader :accessed_by, :odba_id, :odba_object_id
 		def initialize(obj)
 			@last_access = Time.now
 			@odba_object = obj
+      @odba_id = obj.odba_id
+      @odba_object_id = obj.object_id
+      @@id_table.store @odba_object_id, @odba_id
 			@accessed_by = {}
+      @odba_observers = obj.odba_observers
+      ObjectSpace.define_finalizer obj, @@finalizer
 		end	
     def object_id2ref(object_id)
       ObjectSpace._id2ref(object_id) 
@@ -25,34 +36,30 @@ module ODBA
 			@accessed_by.each { |object_id, odba_id|
         if((item = odba_id2ref(odba_id) || object_id2ref(object_id)) \
           && item.respond_to?(:odba_cut_connection))
-					item.odba_cut_connection(@odba_object)
+					item.odba_cut_connection(_odba_object)
 				end
 			}
 		end
-    def odba_destroy!
-      @odba_object = nil
-      @accessed_by = nil
-      true
-    end
-		def odba_id
-			@odba_object.odba_id
-		end
     def odba_notify_observers(*args)
-      @odba_object.odba_notify_observers(*args)
+      @odba_observers.each { |obs| obs.odba_update(*args) }
     end
 		def odba_object
 			@last_access  = Time.now
-			@odba_object
+      @odba_object = _odba_object
+      @odba_object || ODBA.cache.fetch(@odba_id)
+    end
+    def _odba_object
+      @odba_object || object_id2ref(@odba_object_id)
 		end
 		def odba_old?(retire_horizon = Time.now - ODBA.cache.retire_age)
-			!@odba_object.odba_unsaved? \
-				&& (retire_horizon > @last_access)
+      !_odba_object.odba_unsaved? \
+        && (retire_horizon > @last_access)
 		end
 		def odba_retire
 			# replace with stubs in accessed_by 
 			@accessed_by.delete_if { |object_id, odba_id|
         if(item = odba_id2ref(odba_id))
-          item.odba_stubize(@odba_object)
+          item.odba_stubize(_odba_object)
         elsif(item = object_id2ref(object_id))
           case item
           when Stub
@@ -60,29 +67,28 @@ module ODBA
           when Array, Hash
             false
           when Persistable
-            item.odba_stubize(@odba_object)
+            item.odba_stubize(_odba_object)
+          else
+            true
           end
         else
           true
         end
 			}
+      if @accessed_by.empty?
+        @odba_object = nil
+      end
 		end
 		def odba_replace!(obj)
-      oldhash = @odba_object.hash
-			@odba_object.odba_replace!(obj)
-      if(@odba_object.hash != oldhash)
+      oldhash = _odba_object.hash
+			_odba_object.odba_replace!(obj)
+      if(_odba_object.hash != oldhash)
         @accessed_by.each { |object_id, odba_id|
           if(item = odba_id2ref(odba_id) || object_id2ref(object_id))
             item.rehash if(item.respond_to? :rehash)
           end
         }
       end
-		end
-		def ready_to_destroy?(destroy_horizon = Time.now - ODBA.cache.destroy_age)
-      @odba_object.nil? \
-        || (!@odba_object.odba_unsaved? \
-            && @accessed_by.empty? \
-            && (destroy_horizon > @last_access))
 		end
 	end
 end

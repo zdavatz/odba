@@ -154,7 +154,6 @@ module ODBA
       name.gsub(/[^a-z0-9_]/i, '_')
     end
 		attr_accessor :odba_name, :odba_prefetch
-    attr_reader :odba_observers
 		# Classes which include Persistable may override ODBA_EXCLUDE_VARS to 
 		# prevent data from being stored in the database (e.g. passwords, file
 		# descriptors). Simply redefine: ODBA_EXCLUDE_VARS = ['@foo']
@@ -190,7 +189,7 @@ module ODBA
     # Add an observer for Cache#store(self), Cache#delete(self) and
     # Cache#clean removing the object from the Cache
     def odba_add_observer(obj)
-      (@odba_observers ||= []).push(obj)
+      odba_observers.push(obj)
       obj
     end
 		def odba_collection # :nodoc:
@@ -290,9 +289,10 @@ module ODBA
     # Invoke the update method in each currently associated observer 
     # in turn, passing it the given arguments
     def odba_notify_observers(*args) 
-      if(@odba_observers)
-        @odba_observers.each { |obs| obs.odba_update(*args) }
-      end
+      odba_observers.each { |obs| obs.odba_update(*args) }
+    end
+    def odba_observers
+      @odba_observers ||= []
     end
 		def odba_potentials # :nodoc:
 			instance_variables - odba_serializables - odba_exclude_vars
