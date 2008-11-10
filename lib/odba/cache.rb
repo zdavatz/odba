@@ -435,20 +435,21 @@ module ODBA
       update_indices(object)
       object
 		end
-		def store_cache_entry(odba_id, object, name=nil) # :nodoc:
-			@cache_mutex.synchronize {
-				cache_entry = fetch_cache_entry(odba_id)
-				if(cache_entry.nil?)
-					hash = object.odba_prefetch? ? @prefetched : @fetched
-					cache_entry = CacheEntry.new(object)
-					hash.store(odba_id, cache_entry)
-					unless(name.nil?)
-						hash.store(name, cache_entry)
-					end
-				end
-				cache_entry.odba_object
-			}
-		end
+    def store_cache_entry(odba_id, object, name=nil) # :nodoc:
+      @cache_mutex.synchronize {
+        if cache_entry = fetch_cache_entry(odba_id)
+          cache_entry.update object
+        else
+          hash = object.odba_prefetch? ? @prefetched : @fetched
+          cache_entry = CacheEntry.new(object)
+          hash.store(odba_id, cache_entry)
+          unless(name.nil?)
+            hash.store(name, cache_entry)
+          end
+        end
+        cache_entry.odba_object
+      }
+    end
     def store_collection_elements(odba_obj) # :nodoc:
       odba_id = odba_obj.odba_id
       collection = odba_obj.odba_collection.collect { |key, value|

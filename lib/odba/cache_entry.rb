@@ -11,19 +11,29 @@ module ODBA
     }
 		attr_accessor :last_access
 		attr_reader :accessed_by, :odba_id, :odba_object_id
-		def initialize(obj)
-			@last_access = Time.now
-			@odba_object = obj
+    def initialize(obj)
       @odba_id = obj.odba_id
-      @odba_object_id = obj.object_id
-      @@id_table.store @odba_object_id, @odba_id
-			@accessed_by = {}
+      update obj
+      @accessed_by = {}
       @odba_observers = obj.odba_observers
-      ObjectSpace.define_finalizer obj, @@finalizer
-		end	
+    end
+    def update obj
+      @last_access = Time.now
+      @odba_object = obj
+      @odba_class = obj.class
+      @odba_hash = obj.hash
+      unless @odba_object_id == obj.object_id
+        @@id_table.delete @odba_object_id
+        @odba_object_id = obj.object_id
+        @@id_table.store @odba_object_id, @odba_id
+        ObjectSpace.define_finalizer obj, @@finalizer
+      end
+    end
     def object_id2ref(object_id)
-      ObjectSpace._id2ref(object_id) 
-    rescue Exception
+      if (obj = ObjectSpace._id2ref(object_id)) && obj.hash == @odba_hash
+        obj
+      end
+    rescue RangeError
     end
     def odba_id2ref(odba_id)
       odba_id && ODBA.cache.include?(odba_id) && ODBA.cache.fetch(odba_id)
