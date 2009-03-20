@@ -435,7 +435,7 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       ## this combination of gsub statements solves the problem of 
       #  properly escaping strings of this form: "(2:1)" into 
       #  '\(2\:1\)' (see test_retrieve_from_fulltext_index)
-			term = search_term.gsub(/\s+/, '&').gsub(/&+/, '&')\
+			term = search_term.strip.gsub(/\s+/, '&').gsub(/&+/, '&')\
         .gsub(/[():]/i, '\\ \\&').gsub(/\s/, '')
 	    sql = <<-EOQ
 				SELECT target_id, 
