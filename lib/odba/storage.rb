@@ -439,7 +439,7 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
         .gsub(/[():]/i, '\\ \\&').gsub(/\s/, '')
 	    sql = <<-EOQ
 				SELECT target_id, 
-					max(rank(search_term, to_tsquery(?, ?))) AS relevance
+					max(ts_rank(search_term, to_tsquery(?, ?))) AS relevance
 				FROM #{index_name} 
 				WHERE search_term @@ to_tsquery(?, ?) 
 				GROUP BY target_id
