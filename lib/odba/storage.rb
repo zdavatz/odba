@@ -431,7 +431,7 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       end
       self.dbi.select_all(sql, *values)
     end
-		def retrieve_from_fulltext_index(index_name, search_term, dict)
+		def retrieve_from_fulltext_index(index_name, search_term, dict, limit=nil)
       ## this combination of gsub statements solves the problem of 
       #  properly escaping strings of this form: "(2:1)" into 
       #  '\(2\:1\)' (see test_retrieve_from_fulltext_index)
@@ -445,6 +445,9 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
 				GROUP BY target_id
 				ORDER BY relevance DESC
 			EOQ
+      if(limit)
+        sql << " LIMIT #{limit}"
+      end
 			self.dbi.select_all(sql, dict, term, dict, term)
 		rescue DBI::ProgrammingError => e
 			warn("ODBA::Storage.retrieve_from_fulltext_index rescued a DBI::ProgrammingError(#{e.message}). Query:")

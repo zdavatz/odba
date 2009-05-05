@@ -15,7 +15,7 @@ module ODBA
 		include Persistable
 		ODBA_EXCLUDE_VARS = ['@proc_origin', '@proc_target', '@proc_resolve_search_term']
 		attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
-			:resolve_search_term, :index_name
+			:resolve_search_term, :index_name, :dictionary
 		def initialize(index_definition, origin_module)
 			@origin_klass = origin_module.instance_eval(index_definition.origin_klass.to_s)
 			@target_klass = origin_module.instance_eval(index_definition.target_klass.to_s)
@@ -213,7 +213,7 @@ module ODBA
 			limit = meta.respond_to?(:limit) && meta.limit
 			rows = ODBA.storage.retrieve_from_index(@index_name, 
                                               search_term.to_s.downcase,
-                                              exact)
+                                              exact, limit)
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
@@ -363,8 +363,9 @@ module ODBA
                                          'origin_id')
     end
 		def fetch_ids(search_term, meta=nil)  # :nodoc:
+      limit = meta.respond_to?(:limit) && meta.limit
 			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, 
-				search_term, @dictionary)
+				search_term, @dictionary, limit)
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
