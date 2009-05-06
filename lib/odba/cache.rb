@@ -386,6 +386,16 @@ module ODBA
 		def retrieve_from_index(index_name, search_term, meta=nil)
 			index = indices.fetch(index_name)
 			ids = index.fetch_ids(search_term, meta)
+      if meta.respond_to?(:error_limit) && (limit = meta.error_limit) \
+        && (size = ids.size) > limit.to_i
+        error = OdbaResultLimitError.new
+        error.limit = limit
+        error.size = size
+        error.index = index_name
+        error.search_term = search_term
+        error.meta = meta
+        raise error
+      end
 			bulk_fetch(ids, nil)
 		end
 		# Create necessary DB-Structure / other storage-setup

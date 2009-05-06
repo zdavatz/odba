@@ -4,4 +4,7 @@
 module ODBA
 	class OdbaError < RuntimeError
 	end
+  class OdbaResultLimitError < OdbaError
+    attr_accessor :limit, :size, :index, :search_term, :meta
+  end
 end
