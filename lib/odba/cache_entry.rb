@@ -21,7 +21,7 @@ module ODBA
       @last_access = Time.now
       @odba_object = obj
       @odba_class = obj.class
-      @odba_hash = obj.hash
+      @odba_id = obj.odba_id
       unless @odba_object_id == obj.object_id
         @@id_table.delete @odba_object_id
         @odba_object_id = obj.object_id
@@ -30,7 +30,7 @@ module ODBA
       end
     end
     def object_id2ref(object_id)
-      if (obj = ObjectSpace._id2ref(object_id)) && obj.hash == @odba_hash
+      if (obj = ObjectSpace._id2ref(object_id)) && obj.odba_id == @odba_id
         obj
       end
     rescue RangeError
