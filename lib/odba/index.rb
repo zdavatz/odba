@@ -32,11 +32,11 @@ module ODBA
       ODBA.storage.index_target_ids(@index_name, origin_id)
     end
     def delete(object) # :nodoc:
-      if(object.instance_of?(@origin_klass))
+      if(object.is_a?(@origin_klass))
         ODBA.storage.delete_index_element(@index_name, object.odba_id, 
                                           'origin_id')
       end
-      if(object.instance_of?(@target_klass))
+      if(object.is_a?(@target_klass))
         ODBA.storage.delete_index_element(@index_name, object.odba_id, 
                                           'target_id')
       end
@@ -144,9 +144,9 @@ module ODBA
 			end
 		end
 		def update(object)
-			if(object.instance_of?(@target_klass))
+			if(object.is_a?(@target_klass))
 				update_target(object)
-			elsif(object.instance_of?(@origin_klass))
+			elsif(object.is_a?(@origin_klass))
 				update_origin(object)
 			end
     rescue StandardError => err
