@@ -13,6 +13,7 @@ module ODBA
 		# the DBI-arguments and reuses them to setup connections when needed.
 		def initialize(*dbi_args)
 			@dbi_args = dbi_args
+      @opts = @dbi_args.last.is_a?(Hash) ? @dbi_args.pop : Hash.new
 			@connections = []
 			@mutex = Mutex.new
 			connect
@@ -54,11 +55,15 @@ module ODBA
 		def connect # :nodoc:
 			@mutex.synchronize { _connect }
 		end
-		def _connect # :nodoc:
-			POOL_SIZE.times { 
-				@connections.push(DBI.connect(*@dbi_args))
-			}
-		end
+    def _connect # :nodoc:
+      POOL_SIZE.times {
+        conn = DBI.connect(*@dbi_args)
+        if encoding = @opts[:client_encoding]
+          conn.execute "SET CLIENT_ENCODING TO '#{encoding}'"
+        end
+        @connections.push(conn)
+      }
+    end
 		def disconnect # :nodoc:
 			@mutex.synchronize { _disconnect }
 		end
