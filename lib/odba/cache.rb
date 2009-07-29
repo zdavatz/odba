@@ -221,6 +221,7 @@ module ODBA
 		def fetch_cache_entry(odba_id_or_name) # :nodoc:
 			@prefetched[odba_id_or_name] || @fetched[odba_id_or_name]
 		end
+    @@receiver_name = RUBY_VERSION >= '1.9' ? :@receiver : '@receiver'
 		def fetch_collection(odba_obj) # :nodoc:
 			collection = []
 			bulk_fetch_ids = [] 
@@ -230,7 +231,7 @@ module ODBA
 				key = ODBA.marshaller.load(row[0])
 				value = ODBA.marshaller.load(row[1])
         item = nil
-        if([key, value].any? { |item| item.instance_variable_get('@receiver') })
+        if([key, value].any? { |item| item.instance_variable_get(@@receiver_name) })
           odba_id = odba_obj.odba_id
           warn "stub for #{item.class}:#{item.odba_id} was saved with receiver in collection of #{odba_obj.class}:#{odba_id}"
           warn "repair: remove [#{odba_id}, #{row[0]}, #{row[1].length}]"

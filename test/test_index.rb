@@ -239,8 +239,8 @@ module ODBA
       origin.term = 'search_term'
       origin.odba_id = 15
       expected = {
-        'crit1', 'search_term',
-        'crit2', 15,
+        'crit1' => 'search_term',
+        'crit2' => 15,
       }
       assert_equal(expected, pr.call(origin))
     end

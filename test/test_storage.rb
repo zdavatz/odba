@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: ISO-8859-1
 # TestStorage -- odba -- 10.05.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 $: << File.dirname(__FILE__)
@@ -817,7 +818,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
         .times(1).and_return(handle)
       handle.should_receive(:execute).with(3, 'f', 7)\
         .times(1).and_return { assert(true) }
-      @storage.condition_index_delete('index', 3, {'c1','f','c2',7})
+      @storage.condition_index_delete('index', 3, {'c1' => 'f','c2' => 7})
     end
     def test_condition_index_delete__with_target_id
       sql = <<-SQL
@@ -828,7 +829,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?
         .times(1).and_return(handle)
       handle.should_receive(:execute).with(3, 'f', 7, 4)\
         .times(1).and_return { assert(true) }
-      @storage.condition_index_delete('index', 3, {'c1','f','c2',7}, 4)
+      @storage.condition_index_delete('index', 3, {'c1' => 'f','c2' => 7}, 4)
     end
     def test_condition_index_ids__origin_id
       sql = <<-SQL

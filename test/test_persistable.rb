@@ -447,7 +447,7 @@ module ODBA
                    IndexedStub.search_by_foo_and_bar('oof', 'rab'))
 
       ## exact search by multiple keys
-      args = {:foo, 'oof', :bar, 'rab'}
+      args = {:foo => 'oof', :bar => 'rab'}
       ODBA.cache.should_receive(:retrieve_from_index)\
         .with(name, args, Persistable::Exact)\
         .times(1).and_return([result])
@@ -455,8 +455,8 @@ module ODBA
                    IndexedStub.search_by_exact_foo_and_bar('oof', 'rab'))
 
       ## find by multiple keys
-      args = {:foo, {'value',7,'condition','='}, 
-              :bar, {'value','rab','condition','like'}}
+      args = {:foo => {'value' => 7,'condition' => '='}, 
+              :bar => {'value' => 'rab','condition' => 'like'}}
       ODBA.cache.should_receive(:retrieve_from_index)\
         .with(name, args, Persistable::Find)\
         .times(1).and_return([result])

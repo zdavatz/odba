@@ -47,7 +47,7 @@ module ODBA
                 resolve_origin = keys.pop
               elsif(keys.last.is_a?(Symbol))
                 keys.each { |key|
-                  resolve.store(key, {'resolve', key})
+                  resolve.store(key, {'resolve' => key})
                 }
               else
                 resolve = keys.pop
@@ -56,7 +56,12 @@ module ODBA
               resolve = keys.first
             end
             keys.each { |key| 
-              unless(instance_methods.include?(key.to_s))
+              if RUBY_VERSION >= '1.9'
+                key = key.to_sym
+              else
+                key = key.to_s
+              end
+              unless(instance_methods.include?(key))
                 attr_accessor key
               end
             }
@@ -88,7 +93,7 @@ module ODBA
                              'like'
                            end
                     args.store(keys.at(idx), 
-                               {'value',val,'condition',cond})
+                               { 'value' => val, 'condition' => cond })
                   }
                   ODBA.cache.retrieve_from_index(index_name, args)
                 else
@@ -102,10 +107,10 @@ module ODBA
                     args.store(keys.at(idx), val)
                   }
                   ODBA.cache.retrieve_from_index(index_name, args, 
-                                                 Exact)
+                                                 ODBA::Persistable::Exact)
                 else
                   ODBA.cache.retrieve_from_index(index_name, vals.first,
-                                                 Exact)
+                                                 ODBA::Persistable::Exact)
                 end
               }
               define_method(find_name) {  |*vals|
@@ -119,12 +124,13 @@ module ODBA
                              'like'
                            end
                     args.store(keys.at(idx), 
-                               {'value',val,'condition',cond})
+                               { 'value' => val, 'condition' => cond })
                   }
-                  ODBA.cache.retrieve_from_index(index_name, args, Find)
+                  ODBA.cache.retrieve_from_index(index_name, args,
+                                                 ODBA::Persistable::Find)
                 else
                   ODBA.cache.retrieve_from_index(index_name, vals.first,
-                                                 Find)
+                                                 ODBA::Persistable::Find)
                 end.first
               }
               define_method(keys_name) { |*vals|
@@ -150,19 +156,25 @@ module ODBA
         end
       }
     end
+    @@sanitize_ptrn = /[^a-z0-9_]/i
     def Persistable.sanitize(name)
-      name.gsub(/[^a-z0-9_]/i, '_')
+      name.gsub(@@sanitize_ptrn, '_')
     end
 		attr_accessor :odba_name, :odba_prefetch
 		# Classes which include Persistable may override ODBA_EXCLUDE_VARS to 
 		# prevent data from being stored in the database (e.g. passwords, file
 		# descriptors). Simply redefine: ODBA_EXCLUDE_VARS = ['@foo']
 		ODBA_EXCLUDE_VARS = []
-		ODBA_PREDEFINE_EXCLUDE_VARS = ['@odba_observers'] # :nodoc:
 		ODBA_INDEXABLE = true # :nodoc:
 		# see odba_prefetch?
 		ODBA_PREFETCH = false
-		ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids'] # :nodoc:, legacy
+    if RUBY_VERSION >= '1.9'
+      ODBA_PREDEFINE_EXCLUDE_VARS = [:@odba_observers] # :nodoc:
+      ODBA_PREDEFINE_SERIALIZABLE = [:@odba_target_ids] # :nodoc:, legacy
+    else
+      ODBA_PREDEFINE_EXCLUDE_VARS = ['@odba_observers'] # :nodoc:
+      ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids'] # :nodoc:, legacy
+    end
 		# If you want to prevent Persistables from being disconnected and stored 
 		# separately (Array and Hash are Persistable by default), redefine:
 		# ODBA_SERIALIZABLE = ['@bar']
@@ -170,17 +182,13 @@ module ODBA
 		def ==(other) # :nodoc:
 			super(other.odba_instance)
 		end
+    @@odba_id_name = RUBY_VERSION >= '1.9' ? :@odba_id : '@odba_id'
     def dup # :nodoc:
-      Thread.exclusive {
-        ## since twin may not be a Persistable, we need to do some magic here to 
-        #  ensure that it does not have the same odba_id
-        if(id = @odba_id)
-          remove_instance_variable('@odba_id')
-        end
-        twin = super
-        @odba_id = id
-        twin
-      }
+      twin = super
+      ## since twin may not be a Persistable, we need to do some magic here to 
+      #  ensure that it does not have the same odba_id
+      twin.instance_variable_set(@@odba_id_name, nil)
+      twin
     end
     def eql?(other) # :nodoc:
       (other.is_a?(Stub) && other.odba_id == @odba_id) \

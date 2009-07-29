@@ -10,13 +10,13 @@ require 'drb/timeridconv'
 module ODBA
   class DRbWrapper 
     instance_methods.each { |m| 
-      undef_method(m) unless m =~ /^(__)|(respond_to\?$)/ }
+      undef_method(m) unless m =~ /^(__)|(respond_to\?|object_id$)/ }
     include DRb::DRbUndumped
     def initialize(obj)
       @obj = obj
     end
-    def respond_to?(sym)
-      super || @obj.respond_to?(sym)
+    def respond_to?(sym, *args)
+      super || @obj.respond_to?(sym, *args)
     end
     def method_missing(sym, *args)
       if(block_given?)
@@ -28,6 +28,11 @@ module ODBA
         res = @obj.__send__(sym, *args)
         if(res.is_a?(Array))
           res.collect { |item| __wrap(item) }
+        elsif(res.is_a?(Hash))
+          res.inject({}) { |memo, (key, value)|
+            memo.store(__wrap(key), __wrap(value))
+            memo
+          }
         else
           __wrap(res)
         end

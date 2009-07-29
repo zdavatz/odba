@@ -71,7 +71,11 @@ module ODBA
 			"!ruby/object:ODBA::Stub"
 		end
 		def yaml_initialize(tag, val)
-			val.each { |key, value| instance_variable_set("@#{key}", value) }
+      if RUBY_VERSION >= '1.9'
+        val.each { |key, value| instance_variable_set(:"@#{key}", value) }
+      else
+        val.each { |key, value| instance_variable_set("@#{key}", value) }
+      end
 		end
 		no_override = [
 			"class", "is_a?", "__id__", "__send__", "inspect", 
@@ -85,6 +89,9 @@ module ODBA
 			"to_yaml_properties", "yaml_initialize",
 		]
 		NO_OVERRIDE = no_override.collect { |name| name.to_sym }
+    if RUBY_VERSION >= '1.9'
+      no_override = NO_OVERRIDE
+    end
 		override_methods = Object.public_methods - no_override
 		override_methods.each { |method|
 			src = (method[-1] == ?=) ? <<-EOW : <<-EOS
@@ -105,14 +112,14 @@ module ODBA
 				odba_instance.send(meth_symbol, *args, &block)
 			end
 		end
-		def respond_to?(msg_id)
+		def respond_to?(msg_id, *args)
 			case msg_id
 			when :_dump, :marshal_dump
 				false
 			when *NO_OVERRIDE
 				super
 			else
-				odba_instance.respond_to?(msg_id)
+				odba_instance.respond_to?(msg_id, *args)
 			end
 		end
 		## FIXME
