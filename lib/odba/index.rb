@@ -23,7 +23,7 @@ module ODBA
       ]
     end
 		attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
-			:resolve_search_term, :index_name, :dictionary
+			:resolve_search_term, :index_name, :dictionary, :class_filter
 		def initialize(index_definition, origin_module)
 			@origin_klass = origin_module.instance_eval(index_definition.origin_klass.to_s)
 			@target_klass = origin_module.instance_eval(index_definition.target_klass.to_s)
@@ -32,6 +32,7 @@ module ODBA
 			@index_name = index_definition.index_name
 			@resolve_search_term = index_definition.resolve_search_term
 			@dictionary = index_definition.dictionary
+      @class_filter = index_definition.class_filter
 		end
     def current_origin_ids(target_id) # :nodoc:
       ODBA.storage.index_origin_ids(@index_name, target_id)
@@ -152,9 +153,10 @@ module ODBA
 			end
 		end
 		def update(object)
-			if(object.is_a?(@target_klass))
+      @class_filter ||= :is_a?
+			if(object.send(@class_filter, @target_klass))
 				update_target(object)
-			elsif(object.is_a?(@origin_klass))
+			elsif(object.send(@class_filter, @origin_klass))
 				update_origin(object)
 			end
     rescue StandardError => err
