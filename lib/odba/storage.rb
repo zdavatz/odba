@@ -417,11 +417,11 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
               val += '%'
             end
             condition = "#{condition || '='} ?"
-            values.push(val)
+            values.push(val.to_s)
           end
         elsif(info)
           condition = "= ?"
-          values.push(info)
+          values.push(info.to_s)
         end
         sql << <<-EOQ
           AND #{name} #{condition || 'IS NULL'}
