@@ -346,6 +346,14 @@ module ODBA
       @fetched.delete odba_id
       @prefetched.delete odba_id
     end
+    def invalidate!(*odba_ids)
+      odba_ids.each do |odba_id|
+        if entry = fetch_cache_entry(odba_id)
+          entry.odba_retire :force => true
+        end
+        invalidate odba_id
+      end
+    end
 		# Returns the next valid odba_id
 		def next_id
 			ODBA.storage.next_id

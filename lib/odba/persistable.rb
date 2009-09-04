@@ -514,6 +514,19 @@ class Array # :nodoc: all
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved?
 		} )
 	end
+  def odba_stubize(obj) # :nodoc:
+    return false if(frozen?)
+    id = obj.odba_id
+    collect! do |item|
+      if item.is_a?(ODBA::Persistable) \
+        && !item.is_a?(ODBA::Stub) && item.odba_id == id
+        ODBA::Stub.new(id, self, obj)
+      else
+        item
+      end
+    end
+    super
+  end
 	def odba_target_ids
 		ids = super
 		self.each { |value|
@@ -573,6 +586,16 @@ class Hash # :nodoc: all
 		}
 		unsaved
 	end
+  def odba_stubize(obj) # :nodoc:
+    return false if(frozen?)
+    dup = {}
+    each do |pair|
+      pair.odba_stubize(obj)
+      dup.store *pair
+    end
+    replace dup
+    super
+  end
 	def odba_target_ids
 		ids = super
 		self.each { |key, value|

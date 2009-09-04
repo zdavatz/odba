@@ -65,28 +65,43 @@ module ODBA
       !_odba_object.odba_unsaved? \
         && (retire_horizon > @last_access)
 		end
-		def odba_retire
+		def odba_retire opts={}
 			# replace with stubs in accessed_by 
-			@accessed_by.delete_if { |object_id, odba_id|
-        if(item = odba_id2ref(odba_id))
-          item.odba_stubize(_odba_object)
-        elsif(item = object_id2ref(object_id))
-          case item
-          when Stub
-            true
-          when Array, Hash
-            false
-          when Persistable
-            item.odba_stubize(_odba_object)
+      instance = _odba_object
+      if opts[:force]
+        @accessed_by.each do |object_id, odba_id|
+          if item = odba_id2ref(odba_id)
+            item.odba_stubize instance
+          elsif(item = object_id2ref(object_id))
+            if item.is_a?(Persistable) && !item.is_a?(Stub)
+              item.odba_stubize instance
+            end
+          end
+        end
+        @accessed_by.clear
+        @odba_object = nil
+      else
+        @accessed_by.delete_if { |object_id, odba_id|
+          if(item = odba_id2ref(odba_id))
+            item.odba_stubize instance
+          elsif(item = object_id2ref(object_id))
+            case item
+            when Stub
+              true
+            when Array, Hash
+              false
+            when Persistable
+              item.odba_stubize instance
+            else
+              true
+            end
           else
             true
           end
-        else
-          true
+        }
+        if @accessed_by.empty?
+          @odba_object = nil
         end
-			}
-      if @accessed_by.empty?
-        @odba_object = nil
       end
 		end
 		def odba_replace!(obj)
