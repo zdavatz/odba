@@ -30,7 +30,9 @@ module ODBA
       end
     end
     def object_id2ref(object_id)
-      if (obj = ObjectSpace._id2ref(object_id)) && obj.odba_id == @odba_id
+      if (obj = ObjectSpace._id2ref(object_id)) \
+        && obj.is_a?(Persistable) && !obj.odba_unsaved? \
+        && obj.odba_id == @odba_id
         obj
       end
     rescue RangeError
