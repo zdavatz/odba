@@ -387,7 +387,7 @@ module ODBA
 				current_level = next_level
 			end
 		end
-		def odba_stubize(obj) # :nodoc:
+		def odba_stubize(obj, opts={}) # :nodoc:
       return false if(frozen?)
 			id = obj.odba_id
 			odba_potentials.each { |name|
@@ -514,15 +514,17 @@ class Array # :nodoc: all
 			val.is_a?(ODBA::Persistable) && val.odba_unsaved?
 		} )
 	end
-  def odba_stubize(obj) # :nodoc:
+  def odba_stubize(obj, opts={}) # :nodoc:
     return false if(frozen?)
-    id = obj.odba_id
-    collect! do |item|
-      if item.is_a?(ODBA::Persistable) \
-        && !item.is_a?(ODBA::Stub) && item.odba_id == id
-        ODBA::Stub.new(id, self, obj)
-      else
-        item
+    if opts[:force]
+      id = obj.odba_id
+      collect! do |item|
+        if item.is_a?(ODBA::Persistable) \
+          && !item.is_a?(ODBA::Stub) && item.odba_id == id
+          ODBA::Stub.new(id, self, obj)
+        else
+          item
+        end
       end
     end
     super
@@ -586,14 +588,16 @@ class Hash # :nodoc: all
 		}
 		unsaved
 	end
-  def odba_stubize(obj) # :nodoc:
+  def odba_stubize(obj, opts={}) # :nodoc:
     return false if(frozen?)
-    dup = {}
-    each do |pair|
-      pair.odba_stubize(obj)
-      dup.store *pair
+    if opts[:force]
+      dup = {}
+      each do |pair|
+        pair.odba_stubize(obj)
+        dup.store *pair
+      end
+      replace dup
     end
-    replace dup
     super
   end
 	def odba_target_ids
