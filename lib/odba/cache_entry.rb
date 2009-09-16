@@ -35,7 +35,7 @@ module ODBA
         && obj.odba_id == @odba_id
         obj
       end
-    rescue RangeError
+    rescue RangeError, NoMethodError
     end
     def odba_id2ref(odba_id)
       odba_id && ODBA.cache.include?(odba_id) && ODBA.cache.fetch(odba_id)
