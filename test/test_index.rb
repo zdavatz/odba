@@ -191,7 +191,7 @@ module ODBA
     def test_fetch_ids
       rows = [[1,3], [2,2], [3,1]]
       @storage.should_receive(:retrieve_from_index)\
-        .with('index', 'search-term', false).and_return rows
+        .with('index', 'search-term', false, false).and_return rows
       assert_equal([1,2,3], @index.fetch_ids('search-term'))
     end
     def test_search_terms
@@ -317,7 +317,7 @@ module ODBA
     def test_fetch_ids
       rows = [[1,3], [2,2], [3,1]]
       @storage.should_receive(:retrieve_from_fulltext_index)\
-        .with('index', 'search-term', 'german').and_return rows
+        .with('index', 'search-term', 'german', false).and_return rows
       assert_equal([1,2,3], @index.fetch_ids('search-term'))
     end
     def test_do_update_index

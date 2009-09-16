@@ -63,12 +63,10 @@ module ODBA
 			val = flexmock("val")
 			@hash.instance_variable_set("@odba_persistent", true)
 			@hash.store(key, val)
-			val.mock_handle(:is_a?) { |klass| true }
-			val.mock_handle(:odba_unsaved?) { true }
+			val.should_receive(:is_a?).and_return { |klass| true }
+			val.should_receive(:odba_unsaved?).and_return { true }
 
 			assert_equal(true, @hash.odba_unsaved?)
-			val.mock_verify
-			key.mock_verify
 		end
     def test_odba_cut_connection
       remove_obj = Object.new
@@ -127,7 +125,7 @@ module ODBA
       assert_equal(11, obj.odba_id)
       hash = {1 => obj}
       assert_equal(12, hash.odba_id)
-      assert_equal(true, hash.odba_stubize(obj))
+      assert_equal(true, hash.odba_stubize(obj, :force => true))
       assert_equal([1], hash.keys)
       assert_equal false, hash.values.first.is_a?(ODBA::Stub)
     end
@@ -139,7 +137,7 @@ module ODBA
       assert_equal(11, obj.odba_id)
       hash = {obj => 'foo'}
       assert_equal(12, hash.odba_id)
-      assert_equal(true, hash.odba_stubize(obj))
+      assert_equal(true, hash.odba_stubize(obj, :force => true))
       assert_equal({obj => 'foo'}, hash)
     end
 	end

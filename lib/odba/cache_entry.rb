@@ -29,13 +29,13 @@ module ODBA
         ObjectSpace.define_finalizer obj, @@finalizer
       end
     end
-    def object_id2ref(object_id)
+    def object_id2ref(object_id, odba_id)
       if (obj = ObjectSpace._id2ref(object_id)) \
         && obj.is_a?(Persistable) && !obj.odba_unsaved? \
-        && obj.odba_id == @odba_id
+        && obj.odba_id == odba_id
         obj
       end
-    rescue RangeError, NoMethodError
+    rescue RangeError, NoMethodError => e
     end
     def odba_id2ref(odba_id)
       odba_id && ODBA.cache.include?(odba_id) && ODBA.cache.fetch(odba_id)
@@ -46,7 +46,7 @@ module ODBA
 		end
 		def odba_cut_connections!
 			@accessed_by.each { |object_id, odba_id|
-        if((item = odba_id2ref(odba_id) || object_id2ref(object_id)) \
+        if((item = odba_id2ref(odba_id) || object_id2ref(object_id, odba_id)) \
           && item.respond_to?(:odba_cut_connection))
 					item.odba_cut_connection(_odba_object)
 				end
@@ -61,7 +61,7 @@ module ODBA
       @odba_object || ODBA.cache.fetch(@odba_id)
     end
     def _odba_object
-      @odba_object || object_id2ref(@odba_object_id)
+      @odba_object || object_id2ref(@odba_object_id, @odba_id)
 		end
 		def odba_old?(retire_horizon = Time.now - ODBA.cache.retire_age)
       !_odba_object.odba_unsaved? \
@@ -74,7 +74,7 @@ module ODBA
         @accessed_by.each do |object_id, odba_id|
           if item = odba_id2ref(odba_id)
             item.odba_stubize instance, opts
-          elsif(item = object_id2ref(object_id))
+          elsif(item = object_id2ref(object_id, odba_id))
             if item.is_a?(Persistable) && !item.is_a?(Stub)
               item.odba_stubize instance, opts
             end
@@ -86,7 +86,7 @@ module ODBA
         @accessed_by.delete_if { |object_id, odba_id|
           if(item = odba_id2ref(odba_id))
             item.odba_stubize instance
-          elsif(item = object_id2ref(object_id))
+          elsif(item = object_id2ref(object_id, odba_id))
             case item
             when Stub
               true
@@ -111,7 +111,7 @@ module ODBA
 			_odba_object.odba_replace!(obj)
       if(_odba_object.hash != oldhash)
         @accessed_by.each { |object_id, odba_id|
-          if(item = odba_id2ref(odba_id) || object_id2ref(object_id))
+          if(item = odba_id2ref(odba_id) || object_id2ref(object_id, odba_id))
             item.rehash if(item.respond_to? :rehash)
           end
         }

@@ -38,7 +38,6 @@ module ODBA
 		end
 		def teardown
       super
-			@storage.mock_verify
 			ODBA.storage = nil
 			ODBA.marshaller = nil
 			@cache.fetched.clear

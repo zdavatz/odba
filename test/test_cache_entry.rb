@@ -45,13 +45,13 @@ module ODBA
       ODBA.cache.should_receive(:fetch).with(36).and_return(obj_1)
 			hash = {}
 			hash.instance_variable_set('@odba_id', 35)
+			hash.instance_variable_set('@odba_persistent', true)
 			@cache_entry.accessed_by = {
         obj_1.object_id => 36, 
         obj_2.object_id => 34, 
         hash.object_id  => 35,
       }
 			@cache_entry.odba_retire
-			#assert_equal({hash => true}, @cache_entry.accessed_by)
 			assert_equal({hash.object_id => 35}, @cache_entry.accessed_by)
 		end
 		def test_odba_add_reference
@@ -69,12 +69,17 @@ module ODBA
 		end
     def test_odba_cut_connections
       ## transaction-rollback for unsaved items
-      item1 = flexmock('Item1')
-      item2 = flexmock('Item2')
-      @cache_entry.accessed_by.store(item1.object_id, nil)
-      @cache_entry.accessed_by.store(item2.object_id, nil)
-      item1.should_receive(:is_a?).with(Persistable).and_return(false)
-      item2.should_receive(:is_a?).with(Persistable).and_return(true)
+      item1 = flexmock('Item1', :odba_id => 145)
+      item2 = flexmock('Item2', :odba_id => 148)
+      ODBA.cache.should_receive(:include?).with(145).and_return(false)
+      ODBA.cache.should_receive(:include?).with(148).and_return(true)
+      ODBA.cache.should_receive(:fetch).with(148).and_return(item2)
+      @cache_entry.accessed_by.store(item1.object_id, 145)
+      @cache_entry.accessed_by.store(item2.object_id, 148)
+      item1.should_receive(:respond_to?).with(:odba_cut_connection)\
+        .and_return(false)
+      item2.should_receive(:respond_to?).with(:odba_cut_connection)\
+        .and_return(true)
       item2.should_receive(:odba_cut_connection).with(@mock)\
         .times(1).and_return { assert(true) }
       @cache_entry.odba_cut_connections!

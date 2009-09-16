@@ -516,6 +516,7 @@ class Array # :nodoc: all
 	end
   def odba_stubize(obj, opts={}) # :nodoc:
     return false if(frozen?)
+    super
     if opts[:force]
       id = obj.odba_id
       collect! do |item|
@@ -526,8 +527,10 @@ class Array # :nodoc: all
           item
         end
       end
+      true
+    else
+      false
     end
-    super
   end
 	def odba_target_ids
 		ids = super
@@ -590,6 +593,7 @@ class Hash # :nodoc: all
 	end
   def odba_stubize(obj, opts={}) # :nodoc:
     return false if(frozen?)
+    super
     if opts[:force]
       dup = {}
       each do |pair|
@@ -597,8 +601,11 @@ class Hash # :nodoc: all
         dup.store *pair
       end
       replace dup
+      true
+    else
+      puts "returning false"
+      false
     end
-    super
   end
 	def odba_target_ids
 		ids = super

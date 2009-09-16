@@ -25,49 +25,50 @@ module ODBA
 			dbi = flexmock("dbi")
 			array = [1, 23, 4]
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_all) { |query|
+			dbi.should_receive(:select_all).times(1).and_return { |query|
 				assert_not_nil(query.index('IN (1,23,4)'))
 				[]
 			}
 			@storage.bulk_restore(array)
-			dbi.mock_verify
 		end
 		def test_delete_persistable
 			dbi = flexmock("dbi")
-			sth = flexmock("sth")
 			@storage.dbi = dbi
 			expected1 = <<-SQL
 				DELETE FROM object_connection WHERE origin_id = ?
 			SQL
-			dbi.should_receive(:prepare).with(expected1).and_return(sth)
-			sth.should_receive(:execute).with(2).times(4).and_return { 
-        assert(true)
-      }
+			dbi.should_receive(:do).with(expected1, 2).times(1).and_return do
+        assert true
+      end
 			expected2 = <<-SQL
 				DELETE FROM object_connection WHERE target_id = ?
 			SQL
-			dbi.should_receive(:prepare).with(expected2).and_return(sth)
+			dbi.should_receive(:do).with(expected2, 2).times(1).and_return do
+        assert true
+      end
 			expected3 = <<-SQL
 				DELETE FROM collection WHERE odba_id = ?
 			SQL
-			dbi.should_receive(:prepare).with(expected3).and_return(sth)
+			dbi.should_receive(:do).with(expected3, 2).times(1).and_return do
+        assert true
+      end
 			expected4 = <<-SQL
 				DELETE FROM object WHERE odba_id = ?
 			SQL
-			dbi.should_receive(:prepare).with(expected4).and_return(sth)
+			dbi.should_receive(:do).with(expected4, 2).times(1).and_return do
+        assert true
+      end
 			@storage.delete_persistable(2)
 		end
 		def test_restore_prefetchable
 			dbi = flexmock("dbi")
 			rows = flexmock("row")
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_all){ |sql|
+			dbi.should_receive(:select_all).times(1).and_return{ |sql|
 				assert_equal("\t\t\t\tSELECT odba_id, content FROM object WHERE prefetchable = true\n", sql)
 				rows
 			}
 			@storage.restore_prefetchable
-			dbi.mock_verify
-			rows.mock_verify
 		end
 		def test_bulk_restore_empty
 			dbi = flexmock("dbi")
@@ -76,12 +77,9 @@ module ODBA
 			assert_nothing_raised {
 				@storage.bulk_restore(array)
 			}
-			dbi.mock_verify
 		end
 		def test_create_index
 			dbi = flexmock('dbi')
-			sth = flexmock('sth')
-      sth.should_receive(:execute).times(4).and_return { assert(true) }
 			@storage.dbi = dbi
       sql = <<-SQL
         CREATE TABLE index_name (
@@ -90,22 +88,30 @@ module ODBA
           target_id INTEGER
         );
       SQL
-      dbi.should_receive(:prepare).with(sql).and_return(sth)
+      dbi.should_receive(:do).times(1).with(sql).and_return do
+        assert true
+      end
       sql = <<-SQL
         CREATE INDEX origin_id_index_name
         ON index_name(origin_id)
       SQL
-      dbi.should_receive(:prepare).with(sql).and_return(sth)
+      dbi.should_receive(:do).times(1).with(sql).and_return do
+        assert true
+      end
       sql = <<-SQL
         CREATE INDEX search_term_index_name
         ON index_name(search_term)
       SQL
-      dbi.should_receive(:prepare).with(sql).and_return(sth)
+      dbi.should_receive(:do).times(1).with(sql).and_return do
+        assert true
+      end
       sql = <<-SQL
         CREATE INDEX target_id_index_name
         ON index_name(target_id)
       SQL
-      dbi.should_receive(:prepare).with(sql).and_return(sth)
+      dbi.should_receive(:do).times(1).with(sql).and_return do
+        assert true
+      end
 			@storage.create_index("index_name")
 		end
 		def test_next_id
@@ -115,23 +121,19 @@ module ODBA
 		end
 		def test_store__1
 			dbi = flexmock("dbi")
-			sth = flexmock("sth")
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_one) { |query, id| 
+			dbi.should_receive(:select_one).times(1).and_return { |query, id| 
 				assert_equal('SELECT name FROM object WHERE odba_id = ?', 
 					query)
 				assert_equal(1, id)
 				nil
 			} 
-			dbi.mock_handle(:prepare) { |query|
+			dbi.should_receive(:do).times(1).and_return { |query, id, dump, name, prefetch, klass|
 				expected= <<-SQL
 					INSERT INTO object (odba_id, content, name, prefetchable, extent)
 					VALUES (?, ?, ?, ?, ?)
 				SQL
 				assert_equal(expected, query)
-				sth
-			}
-			sth.mock_handle(:execute){ |id, dump, name, prefetch, klass| 
 				assert_equal(1, id)	
 				assert_equal("foodump", dump)	
 				assert_equal("foo", name)	
@@ -139,20 +141,17 @@ module ODBA
 				assert_equal("FlexMock", klass)
 			}
 			@storage.store(1,"foodump", "foo", true, FlexMock)
-			dbi.mock_verify
-			sth.mock_verify
 		end
 		def test_store__2
 			dbi = flexmock("dbi")
-			sth = flexmock("sth")
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_one) { |query, id| 
+			dbi.should_receive(:select_one).times(1).and_return { |query, id| 
 				assert_equal('SELECT name FROM object WHERE odba_id = ?', 
 					query)
 				assert_equal(1, id)
 				['name']
 			} 
-			dbi.mock_handle(:prepare) { |query|
+			dbi.should_receive(:do).times(1).and_return { |query, dump, name, prefetch, klass, id|
 				expected= <<-SQL
 					UPDATE object SET 
 					content = ?,
@@ -162,9 +161,6 @@ module ODBA
 					WHERE odba_id = ?
 				SQL
 				assert_equal(expected, query)
-				sth
-			}
-			sth.mock_handle(:execute){ |dump, name, prefetch, klass, id| 
 				assert_equal(1, id)	
 				assert_equal("foodump", dump)	
 				assert_equal("foo", name)	
@@ -172,20 +168,17 @@ module ODBA
 				assert_equal("FlexMock", klass)
 			}
 			@storage.store(1,"foodump", "foo", true, FlexMock)
-			dbi.mock_verify
-			sth.mock_verify
 		end
 		def test_store__3__name_only_set_in_db
 			dbi = flexmock("dbi")
-			sth = flexmock("sth")
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_one) { |query, id| 
+			dbi.should_receive(:select_one).times(1).and_return { |query, id| 
 				assert_equal('SELECT name FROM object WHERE odba_id = ?', 
 					query)
 				assert_equal(1, id)
 				{'name' => 'name_in_db'}
 			} 
-			dbi.mock_handle(:prepare) { |query|
+			dbi.should_receive(:do).times(1).and_return { |query, dump, name, prefetch, klass, id|
 				expected= <<-SQL
 					UPDATE object SET 
 					content = ?,
@@ -195,9 +188,6 @@ module ODBA
 					WHERE odba_id = ?
 				SQL
 				assert_equal(expected, query)
-				sth
-			}
-			sth.mock_handle(:execute){ |dump, name, prefetch, klass, id| 
 				assert_equal(1, id)	
 				assert_equal("foodump", dump)	
 				assert_equal("name_in_db", name)	
@@ -205,49 +195,43 @@ module ODBA
 				assert_equal("FlexMock", klass)
 			}
 			@storage.store(1,"foodump", nil, true, FlexMock)
-			dbi.mock_verify
-			sth.mock_verify
 		end
 		def test_restore
 			dbi = flexmock
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_one){ |arg, name| ['dump'] }
+			dbi.should_receive(:select_one).times(1).and_return{ |arg, name| ['dump'] }
 			assert_equal('dump', @storage.restore(1))
 		end
 		def test_restore_named
 			dbi = flexmock
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_one){ |arg, name| ['dump'] }
+			dbi.should_receive(:select_one).times(1).and_return{ |arg, name| ['dump'] }
 			assert_equal('dump', @storage.restore_named('foo'))
 		end
 		def test_max_id
 			dbi = flexmock
 			row = flexmock
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_one){|var|
+			dbi.should_receive(:select_one).and_return{|var|
 				row
 			}
-			row.mock_handle(:first) { 23 }
-			row.mock_handle(:first) { 23 }
+			row.should_receive(:first).times(1).and_return { 23 }
+			row.should_receive(:first).times(1).and_return { 23 }
 			assert_equal(23, @storage.max_id)
-			row.mock_verify
-			dbi.mock_verify
 		end
 		def test_restore_max_id__nil
 			dbi = flexmock
 			row = flexmock
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_one){|var|
+			dbi.should_receive(:select_one).times(1).and_return{|var|
 				row
 			}
-			row.mock_handle(:first){ || }
+			row.should_receive(:first).times(1).and_return{ || }
 			id = nil
 			assert_nothing_raised {
 				id = @storage.restore_max_id
 			}
 			assert_equal(0, id)
-			dbi.mock_verify
-			row.mock_verify
 		end
     def test_retrieve
       dbi = flexmock("dbi")
@@ -294,21 +278,14 @@ module ODBA
 		def test_update_index
 			dbi = flexmock("dbi")
 			rows = [3]
-			sth_delete = flexmock("sth_delete")
-			sth_insert = flexmock("sth_insert")
 			@storage.dbi = dbi
 
 			#insert query
-			dbi.mock_handle(:prepare){ |sql| 
+			dbi.should_receive(:do).times(1).and_return{ |sql, id, term, target_id| 
 				assert_not_nil(sql.index("INSERT INTO"))	
-				sth_insert
 			}
-			sth_insert.mock_handle(:execute) { |id, term, target_id| }
 
 			@storage.update_index("foo", 2,"baz", 3)
-			dbi.mock_verify
-			sth_insert.mock_verify
-			sth_delete.mock_verify
 		end
     def test_update_index__without_target_id
       sql = <<-'SQL'
@@ -316,36 +293,30 @@ module ODBA
           WHERE origin_id=?
       SQL
       handle = flexmock('StatementHandle')
-      @dbi.should_receive(:prepare).with(sql).and_return(handle)
-      handle.should_receive(:execute).with('term', 2).and_return {
-        assert(true) }
+      @dbi.should_receive(:do).with(sql, 'term', 2).times(1).and_return do
+        assert true
+      end
       @storage.update_index("index", 2, "term", nil)
     end
     def test_delete_index_origin
       dbi = flexmock("dbi")
-      sth = flexmock
       @storage.dbi = dbi
       expected = <<-SQL
         DELETE FROM foo 
         WHERE origin_id = ?
         AND search_term = ?
       SQL
-      dbi.mock_handle(:prepare) { |sql|
+      dbi.should_receive(:do).and_return { |sql, id, term|
         assert_equal(expected, sql)
-        sth
-      }
-      sth.mock_handle(:execute) { |id, term|
         assert_equal(2, id)
         assert_equal('search-term', term)
       }
       @storage.index_delete_origin("foo", 2, 'search-term')
-      dbi.mock_verify
-      sth.mock_verify
     end
 		def test_retrieve_connected_objects
 			dbi = flexmock("dbi")
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_all){|sql, target_id| 
+			dbi.should_receive(:select_all).and_return{|sql, target_id| 
 				assert_not_nil(sql.index('SELECT origin_id FROM object_connection'))
 				assert_equal(target_id, 1)
 			}	
@@ -361,35 +332,34 @@ module ODBA
         AND search_term = ?
         AND target_id = ?
       SQL
-			dbi.should_receive(:prepare).with(sql).times(1).and_return(sth)
-			sth.should_receive(:execute).with(6, 'search-term', 5)\
-        .times(1).and_return {
-        assert(true) }
+			dbi.should_receive(:do).with(sql, 6, 'search-term', 5).times(1).and_return do
+        assert true
+      end
 			@storage.index_delete_target("foo_index", 6, 'search-term', 5)
 		end
 		def test_drop_index
 			dbi = flexmock("dbi")
-			sth = flexmock("sth")
 			@storage.dbi = dbi
       sql = "DROP TABLE foo_index"
-			dbi.should_receive(:prepare).with(sql).and_return(sth)
-			sth.should_receive(:execute).and_return { assert(true) }
+			dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
 			@storage.drop_index("foo_index")
 		end
 		def test_retrieve_from_fulltext_index
 			dbi = flexmock("dbi")
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_all) { |sql, d1, t1, d2, t2| 
+			dbi.should_receive(:select_all).and_return { |sql, d1, t1, d2, t2| 
 				assert_equal('\(+\)-cloprostenolum&natricum', t1)		
 				[] 
 			}
 			@storage.retrieve_from_fulltext_index('index_name',
 				'(+)-cloprostenolum natricum', 'default_german')
 		end
-		def test_retrieve_from_fulltext_index
+		def test_retrieve_from_fulltext_index__2
 			dbi = flexmock("dbi")
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_all) { |sql, d1, t1, d2, t2| 
+			dbi.should_receive(:select_all).and_return { |sql, d1, t1, d2, t2| 
 				assert_equal('phenylbutazonum&calcicum&\(2\:1\)', t1)		
 				[] 
 			}
@@ -399,7 +369,7 @@ module ODBA
 		def test_retrieve_from_fulltext_index__umlaut
 			dbi = flexmock("dbi")
 			@storage.dbi = dbi
-			dbi.mock_handle(:select_all) { |sql, d1, t1, d2, t2| 
+			dbi.should_receive(:select_all).and_return { |sql, d1, t1, d2, t2| 
 				assert_equal('dràgées&ähnlïch&kömprüssèn&ëtç', t1)		
 				[] 
 			}
@@ -421,7 +391,7 @@ module ODBA
               DELETE FROM object_connection
               WHERE origin_id = ? AND target_id IN (7,9)
       SQL
-      dbi.should_receive(:execute).with(sql, 123).and_return {
+      dbi.should_receive(:do).with(sql, 123).and_return {
         assert(true)
       }
       sql = <<-SQL
@@ -439,10 +409,11 @@ module ODBA
       sth.should_receive(:execute).with(123, 6).times(1).and_return {
         assert(true)
       }
+      sth.should_receive(:finish).times(1)
 			@storage.ensure_object_connections(123, [1,2,2,3,4,4,5,6,6])
 		end
 		def test_transaction_returns_blockval_even_if_dbi_does_not
-			@dbi.mock_handle(:transaction) { |block|
+			@dbi.should_receive(:transaction).and_return { |block|
 				block.call({})
 				false 
 			}
@@ -462,27 +433,33 @@ CREATE TABLE conditions (
   target_id INTEGER
 );
       SQL
-      statement = flexmock('StatementHandle')
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
-      statement.should_receive(:execute).times(5).and_return { 
-        assert(true)
-      }
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       sql = <<-'SQL'
 CREATE INDEX origin_id_conditions ON conditions(origin_id);
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       sql = <<-'SQL'
 CREATE INDEX foo_conditions ON conditions(foo);
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       sql = <<-'SQL'
 CREATE INDEX bar_conditions ON conditions(bar);
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       sql = <<-'SQL'
 CREATE INDEX target_id_conditions ON conditions(target_id);
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       @storage.create_condition_index('conditions', definition)
     end
     def test_create_fulltext_index
@@ -494,23 +471,28 @@ CREATE TABLE fulltext (
 );
       SQL
       statement = flexmock('StatementHandle')
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
-      statement.should_receive(:execute).times(4).and_return {
-        assert(true)
-      }
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       sql = <<-'SQL'
 CREATE INDEX origin_id_fulltext ON fulltext(origin_id);
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       sql = <<-'SQL'
 CREATE INDEX search_term_fulltext
 ON fulltext USING gist(search_term);
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       sql = <<-'SQL'
 CREATE INDEX target_id_fulltext ON fulltext(target_id);
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
+      @dbi.should_receive(:do).with(sql).and_return do
+        assert true
+      end
       @storage.create_fulltext_index('fulltext')
     end
     def test_extent_ids
@@ -539,10 +521,9 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
         WHERE odba_id = ? AND key = ?
       SQL
       statement = flexmock('StatementHandle')
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
-      statement.should_receive(:execute).with(34, 'key_dump').and_return {
-        assert(true)
-      }
+      @dbi.should_receive(:do).with(sql, 34, 'key_dump').and_return do
+        assert true
+      end
       @storage.collection_remove(34, "key_dump")
     end
     def test_collection_store
@@ -551,52 +532,10 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
         VALUES (?, ?, ?)
       SQL
       statement = flexmock('StatementHandle')
-      @dbi.should_receive(:prepare).with(sql).and_return(statement)
-      statement.should_receive(:execute).with(34, 'key_dump', 'dump').and_return {
-        assert(true)
-      }
+      @dbi.should_receive(:do).with(sql, 34, 'key_dump', 'dump').and_return do
+        assert true
+      end
       @storage.collection_store(34, "key_dump", 'dump')
-    end
-    def test_generate_dictionary
-      dir = File.expand_path('data', File.dirname(__FILE__))
-      sql = <<-'SQL'
-        INSERT INTO pg_ts_cfg (ts_name, prs_name, locale)
-        VALUES ('default_german', 'default', 'DE');
-      SQL
-      @dbi.should_receive(:execute).with(sql).and_return {
-        assert(true)
-      }
-      sql = <<-'SQL'
-        INSERT INTO pg_ts_dict (
-          SELECT 'german_ispell', dict_init, ?, dict_lexize
-          FROM pg_ts_dict
-          WHERE dict_name = 'ispell_template'
-        );
-      SQL
-      statement = flexmock('StatementHandle')
-      @dbi.should_receive(:prepare).with(sql).and_return {
-        statement
-      }
-      path = 'AffFile="' << dir \
-        << '/fulltext.aff",DictFile="' << dir \
-        << '/fulltext.dict",StopFile="' << dir << '/fulltext.stop"'
-      statement.should_receive(:execute).with(path).and_return { 
-        assert(true)
-      }
-      sql = <<-'SQL'
-        INSERT INTO pg_ts_dict (
-          dict_name, dict_init, dict_lexize
-        )
-        VALUES (
-          'german_stem', 'dinit_german(internal)',
-          'snb_lexize(internal, internal, int4)'
-        );
-      SQL
-      @dbi.should_receive(:execute).with(sql).and_return {
-        assert(true)
-      }
-      @dbi.should_receive(:execute).with(/INSERT INTO pg_ts_cfgmap/).times(19).and_return { assert(true) }
-      @storage.generate_dictionary('german', 'DE', dir)
     end
     def test_index_fetch_keys
       sql = <<-'SQL'
@@ -632,30 +571,6 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
       expected = [[1, 'search-term'], [2, 'search-term'], [3, 'search-term']]
       assert_equal(expected, @storage.index_target_ids('index', 5))
     end
-    def test_remove_dictionary
-      sql = <<-'SQL'
-        DELETE FROM pg_ts_cfg
-        WHERE ts_name='default_german'
-      SQL
-      @dbi.should_receive(:execute).with(sql).and_return {
-        assert(true)
-      }
-      sql = <<-'SQL'
-        DELETE FROM pg_ts_dict
-        WHERE dict_name IN ('german_ispell', 'german_stem')
-      SQL
-      @dbi.should_receive(:execute).with(sql).and_return {
-        assert(true)
-      }
-      sql = <<-'SQL'
-        DELETE FROM pg_ts_cfgmap
-        WHERE ts_name='default_german'
-      SQL
-      @dbi.should_receive(:execute).with(sql).and_return {
-        assert(true)
-      }
-      @storage.remove_dictionary('german')
-    end
     def test_retrieve_from_condition_index
       sql = <<-'SQL'
         SELECT target_id, COUNT(target_id) AS relevance
@@ -668,7 +583,7 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
         GROUP BY target_id
       SQL
       @dbi.should_receive(:select_all)\
-        .with(sql, 'foo', 'bar%', 5).and_return {
+        .with(sql, 'foo', 'bar%', '5').and_return {
         assert(true)
       }
       conds = [
@@ -744,7 +659,7 @@ CREATE TABLE collection (
 ALTER TABLE object ADD COLUMN extent TEXT;
 CREATE INDEX extent_index ON object(extent);
       SQL
-      @dbi.should_receive(:execute).with(sql).and_return {
+      @dbi.should_receive(:do).with(sql).and_return {
         assert(true) }
       @dbi.should_receive(:columns).and_return([])
       @storage.setup
@@ -755,8 +670,7 @@ CREATE INDEX extent_index ON object(extent);
 INSERT INTO index (origin_id, target_id, foo, bar)
 VALUES (?, ?, ?, ?)
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(handle)
-      handle.should_receive(:execute).with(12, 15, 14, 'blur').and_return {
+      @dbi.should_receive(:do).with(sql, 12, 15, 14, 'blur').times(1).and_return {
         assert(true)
       }
       terms = [
@@ -771,8 +685,7 @@ VALUES (?, ?, ?, ?)
 UPDATE index SET foo=?, bar=?
 WHERE origin_id = ?
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(handle)
-      handle.should_receive(:execute).with(14, 'blur', 12).and_return {
+      @dbi.should_receive(:do).with(sql, 14, 'blur', 12).times(1).and_return {
         assert(true)
       }
       terms = [
@@ -787,9 +700,8 @@ WHERE origin_id = ?
 INSERT INTO index (origin_id, search_term, target_id)
 VALUES (?, to_tsvector(?, ?), ?)
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(handle)
-      handle.should_receive(:execute).with(12, "german", "some text", 
-                                           15).and_return {
+      @dbi.should_receive(:do).with(sql, 12, "german", "some text", 
+                                    15).and_return {
         assert(true)
       }
       @storage.update_fulltext_index('index', 12, "some  text", 15, 
@@ -801,9 +713,8 @@ VALUES (?, to_tsvector(?, ?), ?)
 UPDATE index SET search_term=to_tsvector(?, ?)
 WHERE origin_id=?
       SQL
-      @dbi.should_receive(:prepare).with(sql).and_return(handle)
-      handle.should_receive(:execute).with("german", "some text", 
-                                           12).and_return {
+      @dbi.should_receive(:do).with(sql, "german", "some text", 
+                                    12).and_return {
         assert(true)
       }
       @storage.update_fulltext_index('index', 12, "some  text", nil,
@@ -814,9 +725,7 @@ WHERE origin_id=?
 DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
       SQL
       handle = flexmock('DBHandle')
-      @dbi.should_receive(:prepare).with(sql.chomp)\
-        .times(1).and_return(handle)
-      handle.should_receive(:execute).with(3, 'f', 7)\
+      @dbi.should_receive(:do).with(sql.chomp, 3, 'f', 7)\
         .times(1).and_return { assert(true) }
       @storage.condition_index_delete('index', 3, {'c1' => 'f','c2' => 7})
     end
@@ -825,9 +734,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
 DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?
       SQL
       handle = flexmock('DBHandle')
-      @dbi.should_receive(:prepare).with(sql.chomp)\
-        .times(1).and_return(handle)
-      handle.should_receive(:execute).with(3, 'f', 7, 4)\
+      @dbi.should_receive(:do).with(sql.chomp, 3, 'f', 7, 4)\
         .times(1).and_return { assert(true) }
       @storage.condition_index_delete('index', 3, {'c1' => 'f','c2' => 7}, 4)
     end
@@ -867,7 +774,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?
         DELETE FROM index
         WHERE origin_id = ?
       SQL
-      @dbi.should_receive(:execute).with(sql, 4)\
+      @dbi.should_receive(:do).with(sql, 4)\
         .times(1).and_return { assert(true) }
       @storage.fulltext_index_delete('index', 4, 'origin_id')
     end
@@ -876,7 +783,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?
         DELETE FROM index
         WHERE target_id = ?
       SQL
-      @dbi.should_receive(:execute).with(sql, 4)\
+      @dbi.should_receive(:do).with(sql, 4)\
         .times(1).and_return { assert(true) }
       @storage.fulltext_index_delete('index', 4, 'target_id')
     end
@@ -902,20 +809,20 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?
     end
     def test_delete_index_element__origin
       handle = flexmock('DB-Handle')
-      @dbi.should_receive(:prepare).with(<<-SQL).and_return(handle)
+      @dbi.should_receive(:do).with(<<-SQL, 15).times(1).and_return {
         DELETE FROM index WHERE origin_id = ?
       SQL
-      handle.should_receive(:execute).with(15).times(1).and_return { 
-        assert(true)}
+        assert(true)
+      }
       @storage.delete_index_element('index', 15, 'origin_id')
     end
     def test_delete_index_element__target
       handle = flexmock('DB-Handle')
-      @dbi.should_receive(:prepare).with(<<-SQL).and_return(handle)
+      @dbi.should_receive(:do).with(<<-SQL, 15).times(1).and_return {
         DELETE FROM index WHERE target_id = ?
       SQL
-      handle.should_receive(:execute).with(15).times(1).and_return { 
-        assert(true)}
+        assert(true)
+      }
       @storage.delete_index_element('index', 15, 'target_id')
     end
 	end
