@@ -603,7 +603,6 @@ class Hash # :nodoc: all
       replace dup
       true
     else
-      puts "returning false"
       false
     end
   end
