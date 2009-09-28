@@ -78,13 +78,12 @@ module ODBA
         .and_return([[2, dump_1],[3, dump_2]])
       dumps = [dump_1, dump_2]
       objs = [obj1, obj2]
-			marshal.mock_handle(:load) { |dump|
+			marshal.should_receive(:load).and_return  { |dump|
 				assert_equal(dumps.shift, dump)
 				objs.shift
 			}
 			@storage.should_receive(:restore_collection).and_return([])
 			loaded = @cache.bulk_fetch(array, nil)
-			marshal.mock_verify
 			assert_equal([obj1, obj2], loaded)
 			assert_equal([2], @cache.fetched.keys)
 			assert_equal([3], @cache.prefetched.keys)
@@ -98,8 +97,8 @@ module ODBA
 			ODBA.marshaller = marshal = flexmock('Marshal')
 			array = [2, 3, 7]
 			baz = flexmock('loaded')
-			baz.mock_handle(:odba_add_reference){ |odba_caller| }
-			baz.mock_handle(:odba_object){ 'foo' }
+			baz.should_receive(:odba_add_reference).and_return { |odba_caller| }
+			baz.should_receive(:odba_object).and_return { 'foo' }
 			@cache.fetched = {
 				7 => baz
 			}
@@ -115,7 +114,7 @@ module ODBA
 			dump_2 = Marshal.dump(obj2)
       dumps = [dump_1, dump_2]
       objs = [obj1, obj2]
-			marshal.mock_handle(:load) { |dump|
+			marshal.should_receive(:load).and_return  { |dump|
 				assert_equal(dumps.shift, dump)
 				objs.shift
 			}
@@ -125,16 +124,18 @@ module ODBA
 			assert_equal(true, @cache.fetched.has_key?(2))
 			assert_equal(3, @cache.fetched.size)
 			assert_equal(true, @cache.fetched.has_key?(3))
-			baz.mock_verify
 			ODBA.marshaller = old_marshal
 		end
 		def test_bulk_restore_in_fetchedadd_caller
 			obj = Object.new
 			cache_entry = flexmock('cache_entry')
-			cache_entry.mock_handle(:odba_object){
+			cache_entry.should_receive(:odba_object).and_return {
 				obj
 			}
-			cache_entry.mock_handle(:odba_add_reference){|caller|
+			cache_entry.should_receive(:_odba_object).and_return {
+				obj
+			}
+			cache_entry.should_receive(:odba_add_reference).and_return {|caller|
 				#this assert_equal is interesting
 				assert_equal('Reference', caller)
 			}
@@ -148,13 +149,11 @@ module ODBA
 			@cache.fetched.store(2, obj1)
 			@cache.fetched.store(3, obj2)
 			assert_equal(2, @cache.fetched.size)
-			obj1.mock_handle(:odba_old?) { true }
-			obj1.mock_handle(:odba_retire) { }
-			obj2.mock_handle(:odba_old?) { false }
+			obj1.should_receive(:odba_old?).and_return  { true }
+			obj1.should_receive(:odba_retire).and_return  { }
+			obj2.should_receive(:odba_old?).and_return  { false }
 			@cache.clean
 			assert_equal(2, @cache.fetched.size)
-			obj1.mock_verify
-			obj2.mock_verify
 		end
 		def test_clean__prefetched
 			obj1 = flexmock
@@ -162,15 +161,13 @@ module ODBA
 			@cache.prefetched.store(2, obj1)
 			@cache.prefetched.store(3, obj2)
 			assert_equal(2, @cache.prefetched.size)
-			obj1.mock_handle(:ready_to_destroy?) { false }
-			obj1.mock_handle(:odba_old?) { true }
-			obj1.mock_handle(:odba_retire) { }
-			obj2.mock_handle(:ready_to_destroy?) { false }
-			obj2.mock_handle(:odba_old?) { false }
+			obj1.should_receive(:ready_to_destroy?).and_return  { false }
+			obj1.should_receive(:odba_old?).and_return  { true }
+			obj1.should_receive(:odba_retire).and_return  { }
+			obj2.should_receive(:ready_to_destroy?).and_return  { false }
+			obj2.should_receive(:odba_old?).and_return  { false }
 			@cache.clean_prefetched
 			assert_equal(2, @cache.prefetched.size)
-			obj1.mock_verify
-			obj2.mock_verify
 		end
 		def test_clear
 			value = flexmock("value")
@@ -180,32 +177,29 @@ module ODBA
 			@cache.prefetched.store(13, prefetched)
 			assert_equal(2, @cache.size)
       @cache.clear
-			value.mock_verify
-			obj.mock_verify
 			assert_equal(0, @cache.size)
 		end
 		def test_fetch_named_block
 			restore = flexmock("restore")
 			caller = flexmock("caller")
 			caller2 = flexmock("caller2")
-			@storage.mock_handle(:restore_named) { |name| }
-			restore.mock_handle(:odba_name=) { |name| }
-			restore.mock_handle(:odba_store){ |obj| }
+			@storage.should_receive(:restore_named).and_return  { |name| }
+			restore.should_receive(:odba_name=).and_return  { |name| }
+			restore.should_receive(:odba_store).and_return { |obj| }
 			result = @cache.fetch_named("foo", caller2) {
 				restore
 			}
 			assert_equal(restore, result)
-			restore.mock_verify
 		end
 		def prepare_fetch(id, receiver)
-			@storage.mock_handle(:restore){ |odba_id|
+			@storage.should_receive(:restore).and_return { |odba_id|
 				assert_equal(id, odba_id)
 				odba_id
 			}
-			@marshal.mock_handle(:load) { receiver }
+			@marshal.should_receive(:load).and_return  { receiver }
 			if(receiver.is_a?(FlexMock))
-				receiver.mock_handle(:odba_restore) {}
-				receiver.mock_handle(:odba_name) {}
+				receiver.should_receive(:odba_restore).and_return  {}
+				receiver.should_receive(:odba_name).and_return  {}
 			end
 		end
 		def test_fetch_has_name
@@ -213,14 +207,14 @@ module ODBA
 			caller2 = flexmock('Caller2')
 			caller3 = flexmock('Caller3')
 			receiver = flexmock('Receiver')
-			@storage.mock_handle(:restore){ |odba_id|
+			@storage.should_receive(:restore).and_return { |odba_id|
 				assert_equal(23, odba_id)
 				odba_id
 			}
-			@marshal.mock_handle(:load){|dump|
+			@marshal.should_receive(:load).and_return {|dump|
 				receiver
 			}
-			@storage.mock_handle(:restore_collection){|*args| 
+			@storage.should_receive(:restore_collection).and_return {|*args| 
 				[]
 			}
 			receiver.instance_variable_set("@odba_id", 23)
@@ -233,11 +227,10 @@ module ODBA
 			assert_equal(receiver, second_fetch)
 			named_fetch = @cache.fetch_named('name', caller3)
 			assert_equal(receiver, named_fetch)
-			receiver.mock_verify
 		end
 		def test_fetch_error
 			receiver = flexmock
-			@storage.mock_handle(:restore) { |odba_id|
+			@storage.should_receive(:restore).and_return  { |odba_id|
 				nil	
 			}
 			assert_raises(OdbaError) {
@@ -248,14 +241,14 @@ module ODBA
 			obj = flexmock
 			obj.instance_variable_set("@odba_id", 23)
 			obj.instance_variable_set("@odba_prefetch", false)
-			@storage.mock_handle(:restore) { |id|
+			@storage.should_receive(:restore).and_return  { |id|
 				assert_equal(23, id)
 				'dump'
 			}
-			@storage.mock_handle(:restore_collection) { |id|
+			@storage.should_receive(:restore_collection).and_return  { |id|
 				[]
 			}
-			@marshal.mock_handle(:load) { |dump|
+			@marshal.should_receive(:load).and_return  { |dump|
 				assert_equal('dump', dump)
 				obj
 			}
@@ -278,7 +271,7 @@ module ODBA
 			prepare_store([save_obj])
       save_obj.should_receive(:odba_add_observer)
       cont.should_receive(:odba_add_reference).with(save_obj)\
-        .times(1).and_return { assert(true) }
+        .and_return { assert(true) }
 			@cache.store(save_obj)
 		end
 		def test_store_collection_elements
@@ -289,22 +282,22 @@ module ODBA
 			new_collection = [['key2', 'val2'], ['key3', 'val3']]
 
 			cache_entry = flexmock('cache_entry')
-			cache_entry.mock_handle(:collection) { old_collection }
-			cache_entry.mock_handle(:collection=) { |col|
+			cache_entry.should_receive(:collection).and_return  { old_collection }
+			cache_entry.should_receive(:collection=).and_return  { |col|
 				assert_equal(new_collection, col)
 			}
 
-      @storage.mock_handle(:restore_collection) { 
+      @storage.should_receive(:restore_collection).and_return  { 
         old_collection.collect { |key, val|
           [Marshal.dump(key.odba_isolated_stub), 
             Marshal.dump(val.odba_isolated_stub)]
         }
       }
-			@storage.mock_handle(:collection_remove) { |odba_id, key| 
+			@storage.should_receive(:collection_remove).and_return  { |odba_id, key| 
 				assert_equal(54, odba_id)
 				assert_equal(Marshal.dump('key1'.odba_isolated_stub), key)
 			}
-			@storage.mock_handle(:collection_store) { |odba_id, key, value| 
+			@storage.should_receive(:collection_store).and_return  { |odba_id, key, value| 
 				assert_equal(54, odba_id)
 				assert_equal(Marshal.dump('key3'.odba_isolated_stub), key)
 				assert_equal(Marshal.dump('val3'.odba_isolated_stub), value)
@@ -315,14 +308,14 @@ module ODBA
 			}
 			
 			obj = flexmock('Obj')
-			obj.mock_handle(:odba_id) { 54 }
-			obj.mock_handle(:odba_collection) { new_collection }
+			obj.should_receive(:odba_id).and_return  { 54 }
+			obj.should_receive(:odba_collection).and_return  { new_collection }
 			@cache.store_collection_elements(obj)
     ensure
 			ODBA.marshaller = old_mar
 		end
 		def test_store_object_connections
-			@storage.mock_handle(:ensure_object_connections) { |id,target_ids|
+			@storage.should_receive(:ensure_object_connections).and_return  { |id,target_ids|
 				assert_equal(4, id)
 				assert_equal([1,2], target_ids)
 			}
@@ -331,41 +324,38 @@ module ODBA
 		def test_load__and_restore_object
 			caller1 = flexmock
 			loaded = flexmock
-			@storage.mock_handle(:restore) { |odba_id|
+			@storage.should_receive(:restore).and_return  { |odba_id|
 				assert_equal(23, odba_id)
 				'dump'
 			}
-			@marshal.mock_handle(:load) { |dump|
+			@marshal.should_receive(:load).and_return  { |dump|
 				assert_equal('dump', dump)
 				loaded
 			}
-			@storage.mock_handle(:restore_collection) { [] }
+			@storage.should_receive(:restore_collection).and_return  { [] }
 
       loaded.instance_variable_set('@odba_id', 23)
 			@cache.load_object(23, caller1)
-			loaded.mock_verify
 		end
 		def test_prefetch
 			foo = flexmock("foo")
-			@storage.mock_handle(:restore_prefetchable) {
+			@storage.should_receive(:restore_prefetchable).and_return  {
 				[[2, foo]]
 			}
 			prepare_bulk_restore([foo])
 			assert_nothing_raised {
 				@cache.prefetch
 			}
-			foo.mock_verify
 		end
 		def test_fill_index
 			foo = flexmock("foo")
-			foo.mock_handle(:fill) { |target| 
+			foo.should_receive(:fill).and_return  { |target| 
 				assert_equal("baz", target)
 			}
 			@cache.indices = { 
 				"foo" => foo
 			}
 			@cache.fill_index("foo", "baz")
-			foo.mock_verify
 		end
 		def test_create_index
       df = IndexDefinition.new
@@ -376,7 +366,7 @@ module ODBA
 			}
 			indices.should_receive(:odba_store_unsaved).times(1)
 			@cache.instance_variable_set('@indices', indices)
-			@storage.mock_handle(:transaction) { |block| block.call }
+			@storage.should_receive(:transaction).and_return  { |block| block.call }
 			@storage.should_receive(:create_index).times(1)
 			index = @cache.create_index(df, flexmock)
 			assert_instance_of(Index, index)
@@ -392,7 +382,7 @@ module ODBA
 			}
 			indices.should_receive(:odba_store_unsaved).times(1)
 			@cache.instance_variable_set('@indices', indices)
-			@storage.mock_handle(:transaction) { |block| block.call }
+			@storage.should_receive(:transaction).and_return  { |block| block.call }
 			@storage.should_receive(:create_fulltext_index).times(1)
 			index = @cache.create_index(df, flexmock)
 			assert_instance_of(FulltextIndex, index)
@@ -408,7 +398,7 @@ module ODBA
 			}
 			indices.should_receive(:odba_store_unsaved).times(1)
 			@cache.instance_variable_set('@indices', indices)
-			@storage.mock_handle(:transaction) { |block| block.call }
+			@storage.should_receive(:transaction).and_return  { |block| block.call }
 			@storage.should_receive(:create_condition_index).times(1)
 			index = @cache.create_index(df, flexmock)
 			assert_instance_of(ConditionIndex, index)
@@ -419,40 +409,40 @@ module ODBA
 		def prepare_store(store_array, &block)
 			store_array.each { |mock|
 				# store
-				mock.mock_handle(:odba_id){ || }
-				mock.mock_handle(:odba_name){ || }
-        mock.mock_handle(:odba_notify_observers) { |key, id1, id2|
+				mock.should_receive(:odba_id).and_return { || }
+				mock.should_receive(:odba_name).and_return { || }
+        mock.should_receive(:odba_notify_observers).and_return  { |key, id1, id2|
           assert_equal(:store, key)
         }
-				mock.mock_handle(:odba_isolated_dump){ || }
+				mock.should_receive(:odba_isolated_dump).and_return { || }
 
 				# store_collection_elements
-				mock.mock_handle(:odba_id){ || }
-				mock.mock_handle(:odba_collection){|| []}
-				mock.mock_handle(:odba_id){ || }
+				mock.should_receive(:odba_id).and_return { || }
+				mock.should_receive(:odba_collection).and_return {|| []}
+				mock.should_receive(:odba_id).and_return { || }
 
 				# store
-				mock.mock_handle(:odba_prefetch?){ || }
+				mock.should_receive(:odba_prefetch?).and_return { || }
 
 				# store_object_connections
-				mock.mock_handle(:odba_target_ids){ || [] }
+				mock.should_receive(:odba_target_ids).and_return { || [] }
 
 				# update_indices
-				mock.mock_handle(:odba_indexable?){}
+				mock.should_receive(:odba_indexable?).and_return {}
 
 				# store_cache_entry
-				mock.mock_handle(:odba_prefetch?){ || }
-				mock.mock_handle(:odba_collection){ || [] }
+				mock.should_receive(:odba_prefetch?).and_return { || }
+				mock.should_receive(:odba_collection).and_return { || [] }
 
-				@storage.mock_handle(:restore_collection) { [] }
+				@storage.should_receive(:restore_collection).and_return  { [] }
 				if(block)
-					@storage.mock_handle(:store, &block) 
+					@storage.should_receive(:store, &block).and_return  
 				else
-					@storage.mock_handle(:store) { 
+					@storage.should_receive(:store).and_return  { 
 						assert(true)
 					}
 				end
-				@storage.mock_handle(:ensure_object_connections){|*args|}
+				@storage.should_receive(:ensure_object_connections).and_return {|*args|}
 			}
 		end
 		def test_delete
@@ -462,48 +452,48 @@ module ODBA
 			origin_obj.odba_id = 2
 			origin_obj.odba_connection = delete_item
 			@cache.fetched.store(1, delete_item)
-			@storage.mock_handle(:retrieve_connected_objects) { |id|
+			@storage.should_receive(:retrieve_connected_objects).and_return  { |id|
 				[[2]] 
 			}
 			prepare_fetch(2, origin_obj)
-			@storage.mock_handle(:restore_collection) { |*args| 
+			@storage.should_receive(:restore_collection).and_return  { |*args| 
 				[]
 			}
-			@storage.mock_handle(:store) { |id, dump, name, prefetch, klass| }
-			@storage.mock_handle(:ensure_object_connections) { } 
-			@storage.mock_handle(:delete_persistable) { |id| } 
-			@marshal.mock_handle(:dump) { |ob| "foo"}
+			@storage.should_receive(:store).and_return  { |id, dump, name, prefetch, klass| }
+			@storage.should_receive(:ensure_object_connections).and_return  { } 
+			@storage.should_receive(:delete_persistable).and_return  { |id| } 
+			@marshal.should_receive(:dump).and_return  { |ob| "foo"}
 			@cache.delete(delete_item)
 			assert_equal(1, @cache.fetched.size)
 			assert_equal(nil, origin_obj.odba_connection)
 		end
 		def prepare_delete(mock, name, id)
-			mock.mock_handle(:odba_id) { id }
-			mock.mock_handle(:odba_name) { name }
-			mock.mock_handle(:odba_notify_observers) { |key, id1, id2|
+			mock.should_receive(:odba_id).and_return  { id }
+			mock.should_receive(:odba_name).and_return  { name }
+			mock.should_receive(:odba_notify_observers).and_return  { |key, id1, id2|
         assert_equal(:delete, key) 
       }
-			@storage.mock_handle(:retrieve_connected_objects) { |id|
+			@storage.should_receive(:retrieve_connected_objects).and_return  { |id|
 				[]
 			}
-			mock.mock_handle(:origin_class?) { true }
-			mock.mock_handle(:odba_id) { id }
-			@storage.mock_handle(:delete_persistable) { |id_arg| 
+			mock.should_receive(:origin_class?).and_return  { true }
+			mock.should_receive(:odba_id).and_return  { id }
+			@storage.should_receive(:delete_persistable).and_return  { |id_arg| 
 				assert_equal(id, id_arg)
 			}
-			@storage.mock_handle(:delete_index_element) { }
+			@storage.should_receive(:delete_index_element).and_return  { }
 		end
 		def prepare_bulk_restore(rows)
 			rows.each { |odba_mock|
         ## according to recent changes, objects are extended with 
         #  ODBA::Persistable after loading - this enables ad-hoc storing
         #  but messes up loads of tests
-				@marshal.mock_handle(:load) { |dump|
+				@marshal.should_receive(:load).and_return  { |dump|
 					odba_mock.instance_variable_set('@odba_id', 2)
 					odba_mock.instance_variable_set('@odba_prefetch', true)
           odba_mock
 				}
-				@storage.mock_handle(:restore_collection){|*args|
+				@storage.should_receive(:restore_collection).and_return {|*args|
 					[]
 				}
 			}
@@ -512,32 +502,28 @@ module ODBA
 			foo = flexmock
 			index = flexmock("bar_index")
 			@cache.indices["index_name"] = index
-			index.mock_handle(:fetch_ids) { |search_term, meta|
+			index.should_receive(:fetch_ids).and_return  { |search_term, meta|
 				assert_equal('search term', search_term)
 				assert_nil(meta)
 				[2]
 			}
-			@storage.mock_handle(:bulk_restore) {
+			@storage.should_receive(:bulk_restore).and_return  {
 				[[2, 'dump']]
 			}
 			prepare_bulk_restore([foo])
 			@cache.retrieve_from_index("index_name", "search term")
-			foo.mock_verify
-			index.mock_verify
 		end
 		def test_update_indices
 			index = flexmock("index")
 			bar = flexmock("bar")
-			bar.mock_handle(:odba_indexable?){ true }
+			bar.should_receive(:odba_indexable?).and_return { true }
 			@cache.indices = {
 				"foo" => index
 			}
-			index.mock_handle(:update){ |obj|
+			index.should_receive(:update).and_return { |obj|
 				assert_equal(bar, obj)
 			}
 			@cache.update_indices(bar)
-			bar.mock_verify
-			index.mock_verify
 		end
 		def test_delete_index_element
 			foo = flexmock("foo")
@@ -551,8 +537,8 @@ module ODBA
 			@cache.delete_index_element(bar)
 		end
 		def test_drop_index
-			@storage.mock_handle(:transaction) { |block| block.call }
-			@storage.mock_handle(:drop_index) { |index_name|
+			@storage.should_receive(:transaction).and_return  { |block| block.call }
+			@storage.should_receive(:drop_index).and_return  { |index_name|
 				assert_equal("foo_index", index_name)
 			}
 			index = flexmock("index")
@@ -560,11 +546,10 @@ module ODBA
 			prepare_delete(index, "foo", 2)
 			@cache.indices.store("foo_index", index)
 			@cache.drop_index("foo_index")
-			index.mock_verify
 		end
 		def test_drop_indices
-			@storage.mock_handle(:transaction) { |block| block.call}
-			@storage.mock_handle(:drop_index){|index_name|
+			@storage.should_receive(:transaction).and_return  { |block| block.call}
+			@storage.should_receive(:drop_index).and_return {|index_name|
 				assert_equal("foo_index", index_name)
 			}
 			index = flexmock("index")
@@ -572,20 +557,19 @@ module ODBA
 			prepare_delete(index, "foo", 2)
 			@cache.indices.store("foo_index", index)
 			@cache.drop_indices
-			index.mock_verify
 		end
 		def test_fetch_collection_element
 			key_dump = Marshal.dump('foo')
-			@storage.mock_handle(:collection_fetch) { |odba_id, key|
+			@storage.should_receive(:collection_fetch).and_return  { |odba_id, key|
 				assert_equal(12, odba_id)
 				assert_equal(key_dump, key)
 				'val_dump'
 			}
-			@marshal.mock_handle(:dump) { |key|
+			@marshal.should_receive(:dump).and_return  { |key|
 				assert_equal('foo', key)
 				key_dump
 			}
-			@marshal.mock_handle(:load) { |dump|
+			@marshal.should_receive(:load).and_return  { |dump|
 				assert_equal('val_dump', dump)
 				'val'
 			}
@@ -602,7 +586,7 @@ module ODBA
       o2.odba_name = 'name2'
       o3.extend(ODBA::Persistable)
       o4 = o1.odba_dup
-      @storage.mock_handle(:transaction) { |block| block.call }
+      @storage.should_receive(:transaction).and_return  { |block| block.call }
 
       ## store o1
       @marshal.should_receive(:dump).times(3).and_return { |obj|

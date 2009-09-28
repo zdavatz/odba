@@ -298,7 +298,7 @@ module ODBA
 			}
 		end
 		def fetch_or_do(obj_id, odba_caller, &block) # :nodoc:
-			if(cache_entry = fetch_cache_entry(obj_id))
+			if (cache_entry = fetch_cache_entry(obj_id)) && cache_entry._odba_object
 				cache_entry.odba_add_reference(odba_caller)
 				cache_entry.odba_object
 			else
