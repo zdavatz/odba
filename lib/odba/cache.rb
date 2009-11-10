@@ -9,10 +9,12 @@ begin
 rescue LoadError
 end
 require 'thread'
+require 'drb'
 
 module ODBA
 	class Cache
 		include Singleton
+    include DRb::DRbUndumped
 		CLEANER_PRIORITY = 0  # :nodoc: 
 		CLEANING_INTERVAL = 5 # :nodoc: 
     attr_accessor :cleaner_step, :destroy_age, :retire_age, :debug
@@ -30,6 +32,7 @@ module ODBA
       @prefetched_offset = 0
       @cleaner_step = 500
       @loading_stats = {}
+      @peers = []
 		end
 		# Returns all objects designated by _bulk_fetch_ids_ and registers 
 		# _odba_caller_ for each of them. Objects which are not yet loaded are loaded
@@ -354,10 +357,16 @@ module ODBA
         invalidate odba_id
       end
     end
-		# Returns the next valid odba_id
-		def next_id
-			ODBA.storage.next_id
-		end
+    # Returns the next valid odba_id
+    def next_id
+      id = ODBA.storage.next_id
+      @peers.each do |peer|
+        peer.reserve_next_id id rescue DRb::DRbError
+      end
+      id
+    rescue OdbaDuplicateIdError
+      retry
+    end
 		# Use this to load all prefetchable Persistables from the db at once
 		def prefetch
 			bulk_restore(ODBA.storage.restore_prefetchable)
@@ -386,6 +395,14 @@ module ODBA
       }
       puts line
       $stdout.flush
+    end
+    # Register a peer that has access to the same DB backend
+    def register_peer peer
+      @peers.push(peer).uniq!
+    end
+    # Reserve an id with all registered peers
+    def reserve_next_id id
+      ODBA.storage.reserve_next_id id
     end
     # Clears the loading statistics
     def reset_stats
@@ -452,6 +469,9 @@ module ODBA
       update_references(target_ids, object)
       object = store_cache_entry(odba_id, object, name)
       update_indices(object)
+      @peers.each do |peer|
+        peer.invalidate! odba_id rescue DRb::DRbError
+      end
       object
 		end
     def store_cache_entry(odba_id, object, name=nil) # :nodoc:
@@ -516,6 +536,10 @@ module ODBA
 				}
 			end
 		end
+    # Unregister a peer
+    def unregister_peer peer
+      @peers.delete peer
+    end
 		def update_indices(odba_object) # :nodoc:
 			if(odba_object.odba_indexable?)
 				indices.each { |index_name, index|

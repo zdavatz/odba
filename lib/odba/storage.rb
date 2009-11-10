@@ -364,14 +364,29 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       SQL
       self.dbi.select_all(sql, origin_id)
     end
-		def max_id
-			ensure_next_id_set
-			@next_id
-		end
-		def next_id
-			ensure_next_id_set
-			@next_id += 1
-		end
+    def max_id
+      @id_mutex.synchronize do
+        ensure_next_id_set
+        @next_id
+      end
+    end
+    def next_id
+      @id_mutex.synchronize do
+        ensure_next_id_set
+        @next_id += 1
+      end
+    end
+    def reserve_next_id(reserved_id)
+      @id_mutex.synchronize do
+        ensure_next_id_set
+        if @next_id < reserved_id
+          @next_id = reserved_id
+        else
+          raise OdbaDuplicateIdError,
+                "The id '#{reserved_id}' has already been assigned"
+        end
+      end
+    end
     def remove_dictionary(language)
       # remove configuration
       self.dbi.do <<-SQL
@@ -581,13 +596,11 @@ WHERE origin_id=?
       end
 		end
 		private
-		def ensure_next_id_set
-			@id_mutex.synchronize {
-				if(@next_id.nil?)
-					@next_id = restore_max_id
-				end
-			}
-		end
+    def ensure_next_id_set
+      if(@next_id.nil?)
+        @next_id = restore_max_id
+      end
+    end
 		def restore_max_id
 			row = self.dbi.select_one("SELECT odba_id FROM object ORDER BY odba_id DESC LIMIT 1")
 			unless(row.nil? || row.first.nil?)
