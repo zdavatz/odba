@@ -348,6 +348,21 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       SQL
       self.dbi.select_all(sql).flatten
     end
+    def index_matches(index_name, substring, limit=nil, offset=0)
+      sql = <<-SQL
+        SELECT DISTINCT search_term AS key
+        FROM #{index_name}
+        WHERE search_term LIKE ?
+        ORDER BY key
+      SQL
+      if limit
+        sql << "LIMIT #{limit}\n"
+      end
+      if offset > 0
+        sql << "OFFSET #{offset}\n"
+      end
+      self.dbi.select_all(sql, substring + '%').flatten
+    end
     def index_origin_ids(index_name, target_id)
       sql = <<-SQL
         SELECT DISTINCT origin_id, search_term

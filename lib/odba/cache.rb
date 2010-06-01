@@ -337,6 +337,10 @@ module ODBA
 			index = indices.fetch(index_name)
 			index.keys(length)
 		end
+		def index_matches(index_name, substring, limit=nil, offset=0)
+			index = indices.fetch(index_name)
+			index.matches substring, limit, offset
+		end
 		# Returns a Hash-table containing all stored indices. 
 		def indices
 			@indices ||= fetch_named('__cache_server_indices__', self) {

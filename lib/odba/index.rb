@@ -77,6 +77,9 @@ module ODBA
 			ODBA.storage.index_fetch_keys(@index_name, length).delete_if { |k|
         k.empty? }
 		end
+    def matches(substring, limit=nil, offset=0)
+      ODBA.storage.index_matches @index_name, substring, limit, offset
+    end
 		def origin_class?(klass)
 			(@origin_klass == klass)
 		end
