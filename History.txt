@@ -1,0 +1,5 @@
+=== 1.0.0 / 20.12.2010
+
+* Add ODBA.cache.index_matches(index_name, substring) 
+
+  * this new method returns all search-terms of a given index (identified by index_name) that start with substring.

@@ -1,6 +1,0 @@
-If you want to know why this software exists, please read the README file of ch.oddb.org at scm.ywesee.com
-
-[IMPORTANT]
-* You should NOT install dbd-pg-0.3.x for the postgreSQL driver and
-  dbi-0.4.x, because it has already been known that the dbd-pg-0.3.x
-  depends on the library, deprecated-0.2.x, that causes an error.
