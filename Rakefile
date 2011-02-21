@@ -3,6 +3,8 @@
 require 'rubygems'
 require 'hoe'
 
+Hoe.plugin :git
+
 # Hoe.plugin :compiler
 # Hoe.plugin :cucumberfeatures
 # Hoe.plugin :gem_prelude_sucks
