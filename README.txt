@@ -2,6 +2,10 @@
 
 * http://scm.ywesee.com/?p=odba/.git;a=summary
 
+To see a graphical overview of the Library please see
+
+* http://odba.rubyforge.org/odba.jpeg
+
 == DESCRIPTION:
 
 Object Database Access - Ruby Software for ODDB.org Memory Management
