@@ -1,3 +1,7 @@
+=== 1.0.1 / 08.12.2010
+
+* Added file lock exclusive control to create a new odba_id between processes.
+
 === 1.0.0 / 20.12.2010
 
 * Add ODBA.cache.index_matches(index_name, substring) 
