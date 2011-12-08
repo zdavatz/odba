@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
+# ODBA::TestStub -- odba -- 08.12.2011 -- mhatakeyama@ywesee.com
 
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 $: << File.dirname(__FILE__)
@@ -193,6 +195,7 @@ module ODBA
 			assert_nil(hash[other])
 		end
 		def test_to_yaml
+      flexmock(@cache, :fetch => nil)
 			yaml = ''
 			assert_nothing_raised {
 				yaml = @stub.odba_isolated_stub.to_yaml

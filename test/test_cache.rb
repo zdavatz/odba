@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
+# ODBA::TestCache -- odba -- 08.12.2011 -- mhatakeyama@ywesee.com
 
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
@@ -597,32 +599,37 @@ module ODBA
       @storage.should_receive(:store).with(1,'dump1',nil,nil,Object)\
         .times(1).and_return { assert(true) }
       @storage.should_receive(:ensure_object_connections)\
-        .with(1,[2]).times(1).and_return { assert(true) }
+        .with(Integer,Array).times(1).and_return { assert(true) }
 
       ## store o2
-      @storage.should_receive(:restore_collection).with(2)\
+      @storage.should_receive(:restore_collection).with(Integer)\
         .times(1).and_return([])
       @storage.should_receive(:store)\
-        .with(2,'dump2','name2',nil,Object)\
+        .with(Integer,String,'name2',nil,Object)\
         .times(1).and_return { assert(true) }
       @storage.should_receive(:ensure_object_connections)\
-        .with(2,[3]).times(1).and_return { assert(true) }
+        .with(Integer,Array).times(1).and_return { assert(true) }
 
       ## store o3 and raise
-      @storage.should_receive(:restore_collection).with(3)\
+      @storage.should_receive(:restore_collection).with(Integer)\
         .times(1).and_return([])
       ## at this stage 1 and 2 (and 'name2') are stored:
       @storage.should_receive(:store)\
-        .with(3,'dump3',nil,nil,Object)\
+        .with(Integer,String,nil,nil,Object)\
         .times(1).and_return { raise "trigger rollback" }
 
       ## rollback
-      @storage.should_receive(:restore).with(2)\
+      @storage.should_receive(:restore).with(Integer)\
         .times(1).and_return(nil)
       @storage.should_receive(:restore).with(1)\
         .times(1).and_return('dump1')
-      @storage.should_receive(:restore_collection).with(1)\
+      @storage.should_receive(:restore_collection).with(Integer)\
         .times(2).and_return([])
+      dbi = flexmock('dbi', :dbi_args => ['dbi_args'])
+      flexmock(@storage, 
+               :dbi => dbi,
+               :update_max_id => 123
+              )
       @marshal.should_receive(:load).with('dump1')\
         .times(1).and_return(o4)
       @cache.fetched.store(1, ODBA::CacheEntry.new(o1))
@@ -720,6 +727,29 @@ module ODBA
       @cache.instance_variable_set('@deferred_indices', [df1, df2])
       @cache.setup
 			@cache.instance_variable_set('@indices', {})
+    end
+    def test_lock
+      result = ""
+      th = Thread.new do
+        sleep 1
+        @cache.lock('testcase') do
+          result << '123'
+        end
+      end
+      @cache.lock('testcase') do
+        result << '456'
+      end
+      th.join
+      expected = '456123'
+      assert_equal(expected, result)
+    end
+    def test_new_id
+      flexmock(File, :exist? => false)
+      storage = flexmock('storage',
+                         :max_id => 123,
+                         :update_max_id => nil
+                        )
+      assert_equal(124, @cache.new_id('testcase', storage))
     end
 	end
 end
