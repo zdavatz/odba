@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
-#-- Cache -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
+# encoding: utf-8
+# ODBA::Cache -- odba -- 08.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::Cache -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'singleton'
 require 'date'
@@ -361,9 +363,41 @@ module ODBA
         invalidate odba_id
       end
     end
+    # File lock exclusive control between processes, not threads, to create safely a new odba_id
+    # Sometimes several update jobs (processes) to the same database at the same time
+    LOCK_FILE = '/tmp/lockfile'
+    COUNT_FILE = '/tmp/count'
+    def lock(dbname)
+      lock_file = LOCK_FILE + "." + dbname
+      open(lock_file, 'a') do |st|
+        st.flock(File::LOCK_EX)
+        yield
+        st.flock(File::LOCK_UN)
+      end
+    end
+    def new_id(dbname, odba_storage)
+      count_file = COUNT_FILE + "." + dbname
+      count = nil
+      lock(dbname) do
+        unless File.exist?(count_file)
+          open(count_file, "w") do |out|
+            out.print odba_storage.max_id
+          end
+        end
+        count = File.read(count_file).to_i
+        count += 1
+        open(count_file, "w") do |out|
+          out.print count
+        end
+        odba_storage.update_max_id(count)
+      end
+      count
+    end
     # Returns the next valid odba_id
     def next_id
-      id = ODBA.storage.next_id
+      #id = ODBA.storage.next_id
+      dbname = ODBA.storage.dbi.dbi_args.first.split(/:/).last
+      id = new_id(dbname, ODBA.storage)
       @peers.each do |peer|
         peer.reserve_next_id id rescue DRb::DRbError
       end

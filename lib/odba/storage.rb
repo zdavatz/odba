@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
-#-- Storage -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
+# encoding: utf-8
+# ODBA::Storage -- odba -- 08.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::Storage -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'thread'
 require 'singleton'
@@ -389,6 +391,11 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       @id_mutex.synchronize do
         ensure_next_id_set
         @next_id += 1
+      end
+    end
+    def update_max_id(id)
+      @id_mutex.synchronize do
+        @next_id = id
       end
     end
     def reserve_next_id(reserved_id)

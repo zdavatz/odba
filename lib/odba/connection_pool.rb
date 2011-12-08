@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
-#-- ConnectionPool -- ODBA -- 08.03.2005 -- hwyss@ywesee.com
+# encoding: utf-8
+# ODBA::ConnectionPool -- odba -- 08.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::ConnectionPool -- odba -- 08.03.2005 -- hwyss@ywesee.com
 
 require 'dbi'
 require 'thread'
@@ -8,7 +10,8 @@ module ODBA
 	class ConnectionPool
 		POOL_SIZE = 5
 		SETUP_RETRIES = 3
-		attr_reader :connections
+		#attr_reader :connections
+		attr_reader :connections, :dbi_args
 		# All connections are delegated to DBI. The constructor simply records
 		# the DBI-arguments and reuses them to setup connections when needed.
 		def initialize(*dbi_args)
