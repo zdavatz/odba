@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
+# 18_19_loading_compatibility -- odba -- 09.12.2011 -- mhatakeyama@ywesee.com
 
 require 'date'
 require 'strscan'
@@ -28,17 +30,21 @@ if RUBY_VERSION >= '1.9'
           a.push Marshal.load(dump)
         end
       end
-
       ajd = of = sg = 0
       if a.size == 3
         num, den, sg = a
-        ajd = Rational(num,den)
-        ajd -= 1.to_r/2
+        if den > 0
+          ajd = Rational(num,den)
+          ajd -= 1.to_r/2
+        end
       else
         num, den, of, sg = a
-        ajd = Rational(num,den)
+        if den > 0
+          ajd = Rational(num,den)
+        end
       end
-      new!(ajd, of, sg)
+      ajd += 1.to_r/2
+      jd(ajd)
     end
   end
   class Encoding

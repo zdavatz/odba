@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
-#-- Persistable -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
+# encoding: utf-8
+# ODBA::Persistable -- odba -- 09.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::Persistable -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 class Object # :nodoc: all
 	def odba_id
@@ -325,7 +327,11 @@ module ODBA
 			odba_serializables.each { |name|
 				var = instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
-					instance_variable_set(name, var.odba_instance)
+          if RUBY_VERSION > "1.9"
+					  instance_variable_set(name, var)
+          else
+					  instance_variable_set(name, var.odba_instance)
+          end
 				end
 			}
 		end
