@@ -97,7 +97,7 @@ module ODBA
       end
       counter = 0
       cutoff = offset + @cleaner_step
-      #@cache_mutex.synchronize {
+      @cache_mutex.synchronize {
         holder.each_value { |value|
           counter += 1
           if(counter > offset && value.odba_old?(retire_time))
@@ -105,7 +105,7 @@ module ODBA
           end
           return cutoff if(counter > cutoff)
         }
-      #}
+      }
       cutoff 
     # every once in a while we'll get a 'hash modified during iteration'-Error.
     # not to worry, we'll just try again later.
@@ -397,9 +397,9 @@ module ODBA
     end
     # Returns the next valid odba_id
     def next_id
-      id = ODBA.storage.next_id
-#      dbname = ODBA.storage.instance_variable_get('@dbi').dbi_args.first.split(/:/).last
-#      id = new_id(dbname, ODBA.storage)
+#      id = ODBA.storage.next_id
+      dbname = ODBA.storage.instance_variable_get('@dbi').dbi_args.first.split(/:/).last
+      id = new_id(dbname, ODBA.storage)
       @peers.each do |peer|
         peer.reserve_next_id id rescue DRb::DRbError
       end
