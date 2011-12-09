@@ -97,7 +97,7 @@ module ODBA
       end
       counter = 0
       cutoff = offset + @cleaner_step
-      @cache_mutex.synchronize {
+      #@cache_mutex.synchronize {
         holder.each_value { |value|
           counter += 1
           if(counter > offset && value.odba_old?(retire_time))
@@ -105,7 +105,7 @@ module ODBA
           end
           return cutoff if(counter > cutoff)
         }
-      }
+      #}
       cutoff 
     # every once in a while we'll get a 'hash modified during iteration'-Error.
     # not to worry, we'll just try again later.
