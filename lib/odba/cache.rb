@@ -397,9 +397,9 @@ module ODBA
     end
     # Returns the next valid odba_id
     def next_id
-      #id = ODBA.storage.next_id
-      dbname = ODBA.storage.instance_variable_get('@dbi').dbi_args.first.split(/:/).last
-      id = new_id(dbname, ODBA.storage)
+      id = ODBA.storage.next_id
+#      dbname = ODBA.storage.instance_variable_get('@dbi').dbi_args.first.split(/:/).last
+#      id = new_id(dbname, ODBA.storage)
       @peers.each do |peer|
         peer.reserve_next_id id rescue DRb::DRbError
       end
