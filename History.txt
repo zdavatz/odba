@@ -1,3 +1,7 @@
+=== 1.0.3 / 09.12.2011
+
+* Debugged ODBA::Cache#next_id
+
 === 1.0.2 / 09.12.2011
 
 * Updated cache.rb persitatble.rb 18_19_loading_compatibility.rb to be compatible for both Ruby 1.8 and 1.9
