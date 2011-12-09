@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
-# ODBA::TestCache -- odba -- 08.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::TestCache -- odba -- 09.12.2011 -- mhatakeyama@ywesee.com
 
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
@@ -626,10 +626,9 @@ module ODBA
       @storage.should_receive(:restore_collection).with(Integer)\
         .times(2).and_return([])
       dbi = flexmock('dbi', :dbi_args => ['dbi_args'])
-      flexmock(@storage, 
-               :dbi => dbi,
-               :update_max_id => 123
-              )
+      @storage.should_receive(:instance_variable_get).and_return(dbi)
+      @storage.should_receive(:update_max_id)
+      flexmock(@storage, :max_id => 'max_id')
       @marshal.should_receive(:load).with('dump1')\
         .times(1).and_return(o4)
       @cache.fetched.store(1, ODBA::CacheEntry.new(o1))
