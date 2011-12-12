@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
-# ODBA::Cache -- odba -- 09.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::Cache -- odba -- 12.12.2011 -- mhatakeyama@ywesee.com
 # ODBA::Cache -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'singleton'
@@ -19,7 +19,7 @@ module ODBA
     include DRb::DRbUndumped
 		CLEANER_PRIORITY = 0  # :nodoc: 
 		CLEANING_INTERVAL = 5 # :nodoc: 
-    attr_accessor :cleaner_step, :destroy_age, :retire_age, :debug
+    attr_accessor :cleaner_step, :destroy_age, :retire_age, :debug, :file_lock
 		def initialize # :nodoc: 
 			if(self::class::CLEANING_INTERVAL > 0)
 				start_cleaner
@@ -35,6 +35,7 @@ module ODBA
       @cleaner_step = 500
       @loading_stats = {}
       @peers = []
+      @file_lock = false
 		end
 		# Returns all objects designated by _bulk_fetch_ids_ and registers 
 		# _odba_caller_ for each of them. Objects which are not yet loaded are loaded
@@ -97,7 +98,7 @@ module ODBA
       end
       counter = 0
       cutoff = offset + @cleaner_step
-      @cache_mutex.synchronize {
+      #@cache_mutex.synchronize {
         holder.each_value { |value|
           counter += 1
           if(counter > offset && value.odba_old?(retire_time))
@@ -105,7 +106,7 @@ module ODBA
           end
           return cutoff if(counter > cutoff)
         }
-      }
+      #}
       cutoff 
     # every once in a while we'll get a 'hash modified during iteration'-Error.
     # not to worry, we'll just try again later.
@@ -397,9 +398,12 @@ module ODBA
     end
     # Returns the next valid odba_id
     def next_id
-#      id = ODBA.storage.next_id
-      dbname = ODBA.storage.instance_variable_get('@dbi').dbi_args.first.split(/:/).last
-      id = new_id(dbname, ODBA.storage)
+      if @file_lock
+        dbname = ODBA.storage.instance_variable_get('@dbi').dbi_args.first.split(/:/).last
+        id = new_id(dbname, ODBA.storage)
+      else
+        id = ODBA.storage.next_id
+      end
       @peers.each do |peer|
         peer.reserve_next_id id rescue DRb::DRbError
       end
