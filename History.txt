@@ -1,3 +1,7 @@
+=== 1.0.5 / 20.12.2011
+
+* Added attr_accessor :odba_persistent so we can update doctor addresses on ch.oddb.org
+
 === 1.0.4 / 12.12.2011
 
 * Fixed file lock process by using @file_lock flag variable to control it in application side
