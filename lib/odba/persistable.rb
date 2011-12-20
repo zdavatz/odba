@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
-# ODBA::Persistable -- odba -- 09.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::Persistable -- odba -- 20.12.2011 -- mhatakeyama@ywesee.com
 # ODBA::Persistable -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 class Object # :nodoc: all
@@ -28,6 +28,7 @@ module ODBA
     Find = Exact.dup
     Find.limit = 1
     # Classes which include Persistable have a class-method 'odba_index'
+    attr_accessor :odba_persistent
     def Persistable.append_features(mod)
       super
       mod.module_eval {
