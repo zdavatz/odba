@@ -1,3 +1,7 @@
+=== 1.0.6 / 23.12.2011
+
+* Fix all the elements of odba_potentials and odba_exclude_vars to be Symbols for Ruby 1.9.3
+
 === 1.0.5 / 20.12.2011
 
 * Added attr_accessor :odba_persistent so we can update doctor addresses on ch.oddb.org
