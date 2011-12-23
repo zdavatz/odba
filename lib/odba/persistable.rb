@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
-# ODBA::Persistable -- odba -- 20.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::Persistable -- odba -- 23.12.2011 -- mhatakeyama@ywesee.com
 # ODBA::Persistable -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 class Object # :nodoc: all
@@ -253,7 +253,11 @@ module ODBA
 			if(defined?(self::class::ODBA_EXCLUDE_VARS))
         exc += self::class::ODBA_EXCLUDE_VARS 
       end
-      exc
+      if RUBY_VERSION >= '1.9'
+        exc.map{|v| v.to_sym}
+      else
+        exc
+      end
     end
 		# Returns the odba unique id of this Persistable. 
     # If no id had been assigned, this is now done. 
@@ -328,11 +332,7 @@ module ODBA
 			odba_serializables.each { |name|
 				var = instance_variable_get(name)
 				if(var.is_a?(ODBA::Stub))
-          if RUBY_VERSION > "1.9"
-					  instance_variable_set(name, var)
-          else
-					  instance_variable_set(name, var.odba_instance)
-          end
+					instance_variable_set(name, var.odba_instance)
 				end
 			}
 		end
@@ -355,7 +355,11 @@ module ODBA
 			if(defined?(self::class::ODBA_SERIALIZABLE))
         srs += self::class::ODBA_SERIALIZABLE 
       end
-      srs
+      if RUBY_VERSION >= '1.9'
+        srs.map{|s| s.to_sym}
+      else
+        srs
+      end
 		end
 		def odba_snapshot(snapshot_level) # :nodoc:
 			if(snapshot_level > @odba_snapshot_level.to_i)
