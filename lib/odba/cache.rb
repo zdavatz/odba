@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
-# ODBA::Cache -- odba -- 12.12.2011 -- mhatakeyama@ywesee.com
+# ODBA::Cache -- odba -- 27.12.2011 -- mhatakeyama@ywesee.com
 # ODBA::Cache -- odba -- 29.04.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 require 'singleton'
@@ -98,7 +98,7 @@ module ODBA
       end
       counter = 0
       cutoff = offset + @cleaner_step
-      #@cache_mutex.synchronize {
+      @cache_mutex.synchronize {
         holder.each_value { |value|
           counter += 1
           if(counter > offset && value.odba_old?(retire_time))
@@ -106,7 +106,7 @@ module ODBA
           end
           return cutoff if(counter > cutoff)
         }
-      #}
+      }
       cutoff 
     # every once in a while we'll get a 'hash modified during iteration'-Error.
     # not to worry, we'll just try again later.
