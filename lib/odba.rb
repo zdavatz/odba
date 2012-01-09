@@ -11,5 +11,5 @@ require 'odba/index'
 require 'odba/odba'
 
 class Odba
-    VERSION = '1.0.7'
+    VERSION = '1.0.8'
 end

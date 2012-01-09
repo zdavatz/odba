@@ -1,3 +1,7 @@
+=== 1.0.8 / 09.01.2012
+
+* Added exclusive control to update @accessed_by Hash variable in CacheEntry class using mutex (Patinfo-Invoice Error)
+
 === 1.0.7 / 27.12.2011
 
 * Debugged Hash iteration error during cleaning @fetched and @prefetched objects
