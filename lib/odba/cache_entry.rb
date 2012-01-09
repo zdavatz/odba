@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
-#-- CacheEntry -- odba -- 29.04.2004 -- hwyss@ywesee.com mwalder@ywesee.com
+# encoding: utf-8
+# ODBA::CacheEntry -- odba -- 09.01.2012 -- mhatakeyama@ywesee.com
+# ODBA::CacheEntry -- odba -- 29.04.2004 -- hwyss@ywesee.com mwalder@ywesee.com
 
 module ODBA
 	class CacheEntry # :nodoc: all
@@ -16,6 +18,7 @@ module ODBA
       update obj
       @accessed_by = {}
       @odba_observers = obj.odba_observers
+      @cache_entry_mutex = Mutex.new
     end
     def update obj
       @last_access = Time.now
@@ -42,16 +45,20 @@ module ODBA
       odba_id && ODBA.cache.include?(odba_id) && ODBA.cache.fetch(odba_id)
     end
 		def odba_add_reference(object)
-      @accessed_by.store(object.object_id, object.odba_id)
+      @cache_entry_mutex.synchronize do
+        @accessed_by.store(object.object_id, object.odba_id)
+      end
 			object
 		end
 		def odba_cut_connections!
-			@accessed_by.each { |object_id, odba_id|
-        if((item = odba_id2ref(odba_id) || object_id2ref(object_id, odba_id)) \
-          && item.respond_to?(:odba_cut_connection))
-					item.odba_cut_connection(_odba_object)
-				end
-			}
+      @cache_entry_mutex.synchronize do 
+        @accessed_by.each { |object_id, odba_id|
+          if((item = odba_id2ref(odba_id) || object_id2ref(object_id, odba_id)) \
+            && item.respond_to?(:odba_cut_connection))
+            item.odba_cut_connection(_odba_object)
+          end
+        }
+      end
 		end
     def odba_notify_observers(*args)
       @odba_observers.each { |obs| obs.odba_update(*args) }
@@ -72,12 +79,14 @@ module ODBA
 			# replace with stubs in accessed_by 
       instance = _odba_object
       if opts[:force]
-        @accessed_by.each do |object_id, odba_id|
-          if item = odba_id2ref(odba_id)
-            item.odba_stubize instance, opts
-          elsif(item = object_id2ref(object_id, odba_id))
-            if item.is_a?(Persistable) && !item.is_a?(Stub)
+        @cache_entry_mutex.synchronize do 
+          @accessed_by.each do |object_id, odba_id|
+            if item = odba_id2ref(odba_id)
               item.odba_stubize instance, opts
+            elsif(item = object_id2ref(object_id, odba_id))
+              if item.is_a?(Persistable) && !item.is_a?(Stub)
+                item.odba_stubize instance, opts
+              end
             end
           end
         end
@@ -111,11 +120,13 @@ module ODBA
       oldhash = _odba_object.hash
 			_odba_object.odba_replace!(obj)
       if(_odba_object.hash != oldhash)
-        @accessed_by.each { |object_id, odba_id|
-          if(item = odba_id2ref(odba_id) || object_id2ref(object_id, odba_id))
-            item.rehash if(item.respond_to? :rehash)
-          end
-        }
+        @cache_entry_mutex.synchronize do
+          @accessed_by.each { |object_id, odba_id|
+            if(item = odba_id2ref(odba_id) || object_id2ref(object_id, odba_id))
+              item.rehash if(item.respond_to? :rehash)
+            end
+          }
+        end
       end
 		end
 	end
