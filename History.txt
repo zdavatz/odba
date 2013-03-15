@@ -1,3 +1,10 @@
+=== 1.0.9 / 15.03.2013
+
+* Update dictionary to be suitable for new tsearch2
+  - generate_dictionary API is changed.
+  - generate_dictionary needs dict source files(dict, affix, stop)
+    into /usr/share/postgresql/tsearch_data.
+
 === 1.0.8 / 09.01.2012
 
 * Added exclusive control to update @accessed_by Hash variable in CacheEntry class using mutex (Patinfo-Invoice Error)
