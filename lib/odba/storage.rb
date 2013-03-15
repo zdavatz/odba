@@ -112,22 +112,26 @@ CREATE TABLE collection (
       self.dbi.select_all(sql, id)
     end
     def create_dictionary_map(language)
-      %w{lhword lpart_hword lword}.each { |token|
-        self.dbi.do <<-SQL
-          INSERT INTO pg_ts_cfgmap (ts_name, tok_alias, dict_name)
-          VALUES ('default_#{language}', '#{token}',
-          '{#{language}_ispell,#{language}_stem}')
-        SQL
-      }
-      [ 'url', 'host', 'sfloat', 'uri', 'int', 'float', 'email',
-        'word', 'hword', 'nlword', 'nlpart_hword', 'part_hword',
-        'nlhword', 'file', 'uint', 'version' 
-      ].each { |token|
-        self.dbi.do <<-SQL
-          INSERT INTO pg_ts_cfgmap (ts_name, tok_alias, dict_name)
-          VALUES ('default_#{language}', '#{token}', '{simple}')
-        SQL
-      }
+      self.dbi.do <<-SQL
+        ALTER TEXT SEARCH CONFIGURATION default_#{language}
+        ALTER MAPPING FOR
+          asciiword, asciihword, hword_asciipart,
+          word, hword, hword_part, hword_numpart,
+          numword, numhword
+        WITH #{language}_ispell, #{language}_stem;
+      SQL
+      self.dbi.do <<-SQL
+        ALTER TEXT SEARCH CONFIGURATION default_#{language}
+        ALTER MAPPING FOR
+          host, file, int, uint, version
+        WITH simple;
+      SQL
+      # drop from default setting
+      self.dbi.do <<-SQL
+      ALTER TEXT SEARCH CONFIGURATION default_#{language}
+          DROP MAPPING FOR
+          email, url, url_path, sfloat, float
+      SQL
     end
     def create_condition_index(table_name, definition)
       self.dbi.do <<-SQL
@@ -292,35 +296,32 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       SQL
       self.dbi.select_all(sql, origin_id)
     end
-    def generate_dictionary(language, locale, dict_dir)
+    def generate_dictionary(language, data_path='/usr/share/postgresql/tsearch_data/', file='fulltext')
+      found = true
+      %w{dict affix stop}.each do |ext|
+        filename = "#{file}.#{ext}"
+        source   = File.join(data_path, filename)
+        unless File.exists?(source)
+          puts "ERROR:  \"#{filename}\" does not exist in #{data_path}."
+          found = false
+        end
+      end
+      return unless found
       # setup configuration
       self.dbi.do <<-SQL
-        INSERT INTO pg_ts_cfg (ts_name, prs_name, locale)
-        VALUES ('default_#{language}', 'default', '#{locale}');
+        CREATE TEXT SEARCH CONFIGURATION public.default_#{language} ( COPY = pg_catalog.#{language} );
       SQL
-      # insert path to dictionary
-      sql = <<-SQL
-        INSERT INTO pg_ts_dict (
-          SELECT '#{language}_ispell', dict_init, ?, dict_lexize
-          FROM pg_ts_dict
-          WHERE dict_name = 'ispell_template'
-        );
-      SQL
-      prepath = File.expand_path("fulltext", dict_dir)
-      path = %w{Aff Dict Stop}.collect { |type|
-        sprintf('%sFile="%s.%s"', type, prepath, type.downcase)
-      }.join(',')
-      sth.do sql, path
-      create_dictionary_map(language)
+      # ispell
       self.dbi.do <<-SQL
-        INSERT INTO pg_ts_dict (
-          dict_name, dict_init, dict_lexize
-        )
-        VALUES (
-          '#{language}_stem', 'dinit_#{language}(internal)',
-          'snb_lexize(internal, internal, int4)'
+        CREATE TEXT SEARCH DICTIONARY #{language}_ispell (
+          TEMPLATE  = ispell,
+          DictFile  = #{file},
+          AffFile   = #{file},
+          StopWords = #{file}
         );
       SQL
+      # stem is already there.
+      create_dictionary_map(language)
     end
     def index_delete_origin(index_name, odba_id, term)
       self.dbi.do <<-SQL, odba_id, term
@@ -412,18 +413,11 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
     def remove_dictionary(language)
       # remove configuration
       self.dbi.do <<-SQL
-        DELETE FROM pg_ts_cfg
-        WHERE ts_name='default_#{language}'
+        DROP TEXT SEARCH CONFIGURATION IF EXISTS default_#{language}
       SQL
-      # remove dictionaries
+      # remove ispell dictionaries
       self.dbi.do <<-SQL
-        DELETE FROM pg_ts_dict
-        WHERE dict_name IN ('#{language}_ispell', '#{language}_stem')
-      SQL
-      # remove tokens
-      self.dbi.do <<-SQL
-        DELETE FROM pg_ts_cfgmap
-        WHERE ts_name='default_#{language}'
+        DROP TEXT SEARCH DICTIONARY IF EXISTS #{language}_ispell;
       SQL
     end
 		def restore(odba_id)
