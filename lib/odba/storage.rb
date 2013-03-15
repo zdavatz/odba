@@ -299,7 +299,7 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
     def generate_dictionary(language, data_path='/usr/share/postgresql/tsearch_data/', file='fulltext')
       found = true
       %w{dict affix stop}.each do |ext|
-        filename = "#{file}.#{ext}"
+        filename = "#{language}_#{file}.#{ext}"
         source   = File.join(data_path, filename)
         unless File.exists?(source)
           puts "ERROR:  \"#{filename}\" does not exist in #{data_path}."
@@ -315,9 +315,9 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       self.dbi.do <<-SQL
         CREATE TEXT SEARCH DICTIONARY #{language}_ispell (
           TEMPLATE  = ispell,
-          DictFile  = #{file},
-          AffFile   = #{file},
-          StopWords = #{file}
+          DictFile  = #{language}_#{file},
+          AffFile   = #{language}_#{file},
+          StopWords = #{language}_#{file}
         );
       SQL
       # stem is already there.
