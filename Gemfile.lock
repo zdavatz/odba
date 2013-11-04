@@ -8,7 +8,12 @@ GEM
     hoe (3.7.1)
       rake (>= 0.8, < 11.0)
     minitest (5.0.8)
+    multi_json (1.8.2)
     rake (10.1.0)
+    simplecov (0.7.1)
+      multi_json (~> 1.0)
+      simplecov-html (~> 0.7.1)
+    simplecov-html (0.7.1)
 
 PLATFORMS
   ruby
@@ -19,3 +24,4 @@ DEPENDENCIES
   hoe
   minitest
   rake
+  simplecov
