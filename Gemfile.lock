@@ -7,6 +7,7 @@ GEM
     flexmock (1.3.2)
     hoe (3.7.1)
       rake (>= 0.8, < 11.0)
+    minitest (5.0.8)
     rake (10.1.0)
 
 PLATFORMS
@@ -16,4 +17,5 @@ DEPENDENCIES
   dbi
   flexmock
   hoe
+  minitest
   rake
