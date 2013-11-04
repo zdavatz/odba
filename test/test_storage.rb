@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# encoding: ISO-8859-1
+# encoding: utf-8
 # TestStorage -- odba -- 10.05.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
 
 $: << File.dirname(__FILE__)
@@ -370,11 +370,11 @@ module ODBA
 			dbi = flexmock("dbi")
 			@storage.dbi = dbi
 			dbi.should_receive(:select_all).and_return { |sql, d1, t1, d2, t2| 
-				assert_equal('dràgées&ähnlïch&kömprüssèn&ëtç', t1)		
+				assert_equal('drÃ gÃ©es&Ã¤hnlÃ¯ch&kÃ¶mprÃ¼ssÃ¨n&Ã«tÃ§', t1)		
 				[] 
 			}
 			@storage.retrieve_from_fulltext_index('index_name',
-				'dràgées ähnlïch kömprüssèn ëtç', 'default_german')
+				'drÃ gÃ©es Ã¤hnlÃ¯ch kÃ¶mprÃ¼ssÃ¨n Ã«tÃ§', 'default_german')
 		end
 		def test_ensure_object_connections
 			dbi = flexmock("dbi")
@@ -655,6 +655,18 @@ CREATE TABLE collection (
     def test_setup__extent
       tables = %w{object object_connection collection}
       @dbi.should_receive(:tables).and_return(tables)
+      sql = "CREATE TABLE object (\n  odba_id INTEGER NOT NULL, content TEXT,\n  name TEXT, prefetchable BOOLEAN, extent TEXT,\n  PRIMARY KEY(odba_id), UNIQUE(name)\n);\n"
+      @dbi.should_receive(:do).with(sql).and_return(true)
+      sql  = "CREATE INDEX prefetchable_index ON object(prefetchable);\n"
+      @dbi.should_receive(:do).with(sql).and_return(true)
+      sql = "CREATE INDEX extent_index ON object(extent);\n"
+      @dbi.should_receive(:do).with(sql).and_return(true)
+      sql = "CREATE TABLE object_connection (\n  origin_id integer, target_id integer,\n  PRIMARY KEY(origin_id, target_id)\n);\n"
+      @dbi.should_receive(:do).with(sql).and_return(true)
+      sql = "CREATE INDEX target_id_index ON object_connection(target_id);\n"
+      @dbi.should_receive(:do).with(sql).and_return(true)
+      sql = "CREATE TABLE collection (\n  odba_id integer NOT NULL, key text, value text,\n  PRIMARY KEY(odba_id, key)\n);\n"
+      @dbi.should_receive(:do).with(sql).and_return(true)
       sql = <<-'SQL'
 ALTER TABLE object ADD COLUMN extent TEXT;
 CREATE INDEX extent_index ON object(extent);
@@ -724,18 +736,25 @@ WHERE origin_id=?
       sql = <<-SQL
 DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
       SQL
+      if /^1\.8/.match(RUBY_VERSION)
+        sql = "DELETE FROM index WHERE origin_id = ? AND c2 = ? AND c1 = ?"
+        @dbi.should_receive(:do).with(sql.chomp, 3, 7, 'f').times(1).and_return(true)
+      else
+        sql = "DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?"
+        @dbi.should_receive(:do).with(sql.chomp, 3, 'f', 7).times(1).and_return(true)
+      end
       handle = flexmock('DBHandle')
-      @dbi.should_receive(:do).with(sql.chomp, 3, 'f', 7)\
-        .times(1).and_return { assert(true) }
       @storage.condition_index_delete('index', 3, {'c1' => 'f','c2' => 7})
     end
     def test_condition_index_delete__with_target_id
-      sql = <<-SQL
-DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?
-      SQL
       handle = flexmock('DBHandle')
-      @dbi.should_receive(:do).with(sql.chomp, 3, 'f', 7, 4)\
-        .times(1).and_return { assert(true) }
+      if /^1\.8/.match(RUBY_VERSION)
+        sql = "DELETE FROM index WHERE origin_id = ? AND c2 = ? AND c1 = ? AND target_id = ?"
+        @dbi.should_receive(:do).with(sql.chomp, 3, 7, 'f', 4).times(1).and_return(true)
+      else
+        sql = "DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?"
+        @dbi.should_receive(:do).with(sql.chomp, 3, 'f', 7, 4).times(1).and_return(true)
+      end
       @storage.condition_index_delete('index', 3, {'c1' => 'f','c2' => 7}, 4)
     end
     def test_condition_index_ids__origin_id

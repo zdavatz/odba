@@ -36,6 +36,7 @@ module ODBA
       @loading_stats = {}
       @peers = []
       @file_lock = false
+      @debug ||= false
 		end
 		# Returns all objects designated by _bulk_fetch_ids_ and registers 
 		# _odba_caller_ for each of them. Objects which are not yet loaded are loaded

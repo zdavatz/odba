@@ -53,33 +53,26 @@ module ODBA
 			@odba  = ODBAContainer.new
 		end
 		def teardown
-			ODBA.storage.mock_verify
-			ODBA.marshaller.mock_verify
-			ODBA.cache.mock_verify
+			ODBA.storage.flexmock_verify
+			ODBA.marshaller.flexmock_verify
+			ODBA.cache.flexmock_verify
 			ODBA.storage = nil
 			ODBA.marshaller = nil
 			ODBA.cache = nil
 		end
 		def test_odba_id
-			ODBA.cache.mock_handle(:next_id) { ||
-				2
-			}
-			ODBA.marshaller.mock_handle(:dump) { |obj|
-				"foo"
-			}
-			ODBA.storage.mock_handle(:store) { |id,obj|}
+      DBA.cache.should_receive(:next_id).with().and_return(2)
+      ODBA.marshaller.should_receive(:dump).and_return('foo')
+      ODBA.storage.should_receive(:store)
 			@odba.odba_take_snapshot(1)
 			assert_equal(2, @odba.odba_id)
-			ODBA.storage.mock_verify
-			ODBA.marshaller.mock_verify
+			ODBA.storage.flexmock_verify
+			ODBA.marshaller.flexmock_verify
 		end
 		def test_odba_delete
 			odba_container = ODBAContainer.new
 			odba_container.odba_id = 2
-			#ODBA.storage.mock_handle(:transaction) { |block| block.call}
-			ODBA.cache.mock_handle(:delete) { |object|
-				assert_equal(odba_container, object)
-			}
+      ODBA.cache.should_receive(:delete).with(odba_container)
 			odba_container.odba_delete
 		end
 		def test_odba_replace_excluded
@@ -105,33 +98,21 @@ module ODBA
 			level2 = ODBAContainer.new
 			@odba.replaceable = level1
 			level1.replaceable = level2
-
-			ODBA.cache.mock_handle(:store) { |obj| 2} 
-			ODBA.cache.mock_handle(:store) { |obj| 2}
-
-			ODBA.cache.mock_handle(:store) { |obj| 2}
-			
+      ODBA.cache.should_receive(:store).with(FlexMock.any).times(3).and_return(2)
 			@odba.odba_take_snapshot
 			assert_equal(1, @odba.odba_snapshot_level)
 			assert_equal(1, level1.odba_snapshot_level)
 			assert_equal(1, level2.odba_snapshot_level)
-			ODBA.cache.mock_verify
+			ODBA.cache.flexmock_verify
 		end
 		def test_odba_unsaved_neighbors
 			replaceable = flexmock
 			@odba.replaceable = replaceable
-=begin
-			replaceable.mock_handle(:is_a?) { |arg| false }
-			replaceable.mock_handle(:is_a?) { |arg| false }
-=end
-			replaceable.mock_handle(:is_a?) { |arg| 
-				assert_equal(Persistable, arg)
-				true 
-			}
-			replaceable.mock_handle(:odba_unsaved?){ |level| true}
+      replaceable.should_receive(:is_a?).with(Persistable).and_return(true)
+      replaceable.should_receive(:odba_unsaved?).with(FlexMock.any).and_return(true)
 			result = @odba.odba_unsaved_neighbors(2)
 			assert_equal([replaceable], result)
-			replaceable.mock_verify
+			replaceable.flexmock_verify
 		end
 		def test_odba_unsaved_neighbors_2
 			odba = ODBAExcluding.new
@@ -139,31 +120,16 @@ module ODBA
 			excluded = flexmock
 			odba.excluded  = excluded
 			odba.included = included
-=begin
-			included.mock_handle(:is_a?) { |klass|
-				assert_equal(Hash, klass)
-				false 
-			}
-			included.mock_handle(:is_a?) { |klass|
-				assert_equal(Array, klass)
-				false 
-			}
-=end
-			included.mock_handle(:is_a?) { |klass|
-				assert_equal(ODBA::Persistable, klass)
-				true
-			}
-			included.mock_handle(:odba_unsaved?) { true }
+      included.should_receive(:is_a?).with(Persistable).and_return(true)
+      included.should_receive(:odba_unsaved?).with(FlexMock.any).and_return(true)
 			result = odba.odba_unsaved_neighbors(2)
 			assert_equal([included], result)
-			excluded.mock_verify
-			included.mock_verify
+			excluded.flexmock_verify
+			included.flexmock_verify
 		end
 		def test_extend_enumerable
 			hash = Hash.new
 			array = Array.new
-			#@odba.odba_extend_enumerable(hash)
-			#@odba.odba_extend_enumerable(array)
 			assert_equal(true, hash.is_a?(Persistable))
 			assert_equal(true, array.is_a?(Persistable))
 		end
@@ -189,27 +155,21 @@ module ODBA
         .times(1).and_return(false)
 			non_replaceable.should_receive(:is_a?).with(Persistable)\
         .times(1).and_return(false)
-			#ODBA.cache.mock_handle(:next_id){ 13 }
 			@odba.odba_replace_persistables
 			assert_instance_of(FlexMock, @odba.non_replaceable)
 			assert_equal(12, @odba.replaceable.odba_id)
 			assert_equal(true, @odba.replaceable.is_a?(Stub))
-			non_replaceable.mock_verify
-			ODBA.cache.mock_verify
+			non_replaceable.flexmock_verify
+			ODBA.cache.flexmock_verify
 		end
 		def test_odba_replace_persistables__stubised_serialisable
 			non_replaceable = flexmock
 			@odba.serializable = non_replaceable
-			non_replaceable.mock_handle(:is_a?) { |arg|
-				assert_equal(Stub, arg)
-				true
-			}
-			non_replaceable.mock_handle(:odba_instance) { 
-				'serialize this'
-			}
+      non_replaceable.should_receive(:is_a?).with(Stub).and_return(true)
+      non_replaceable.should_receive(:odba_instance).and_return('serialize this')
 			@odba.odba_replace_persistables
 			assert_equal('serialize this', @odba.serializable)
-			non_replaceable.mock_verify
+			non_replaceable.flexmock_verify
 		end
 		def test_odba_store_unsaved
 			level1 = ODBAContainer.new
@@ -253,21 +213,17 @@ module ODBA
 			@odba.replaceable = stub
 			@odba.replaceable2 = stub2
 			@odba.non_replaceable = 4
-			stub.mock_handle(:is_a?) { true }
-			stub.mock_handle(:odba_dup) { stub }
+      stub.should_receive(:is_a?).with_no_args.and_return(true)
+      stub.should_receive(:odba_dup).with_no_args.and_return(stub)
 			stub_container = nil
-			stub.mock_handle(:odba_container=) { |obj| 
-				stub_container = obj
-			}
-			stub2.mock_handle(:is_a?) { true }
-			stub2.mock_handle(:odba_dup) { stub2 }
+      stub.should_receive(:odba_container=).with_no_args.and_return(stub_container)
+      stub2.should_receive(:is_a?).with_no_args.and_return(true)
+      stub2.should_receive(:odba_dup).with_no_args.and_return(stub2)
 			stub_container2 = nil
-			stub2.mock_handle(:odba_container=) { |obj|
-				stub_container2 = obj
-			}
+      stub2.should_receive(:odba_container=).with_no_args.and_return(stub_container2)
 			odba_twin = @odba.odba_dup
-			odba_twin.replaceable.mock_verify
-			odba_twin.replaceable2.mock_verify
+			odba_twin.replaceable.flexmock_verify
+			odba_twin.replaceable2.flexmock_verify
 			assert_equal(odba_twin, stub_container)	
 			assert_equal(odba_twin, stub_container2)	
 		end
@@ -280,22 +236,20 @@ module ODBA
 			replaceable2 = flexmock("rep2")
 			@odba.replaceable = replaceable
 			@odba.replaceable2 = replaceable2
-			replaceable.mock_handle(:is_a?) { |arg| 
-				true # is_a?(Persistable) 
-			}
-			replaceable.mock_handle(:odba_id) { 12 }
-			replaceable2.mock_handle(:is_a?) { |arg| false }
+      replaceable.should_receive(:is_a?).with(ODBA::Persistable).and_return(true)
+      replaceable.should_receive(:odba_id).with_no_args.and_return(12)
+      replaceable2.should_receive(:is_a?).with(ODBA::Persistable).and_return(false)
 			expected = [12]
 			assert_equal(expected, @odba.odba_target_ids.sort)
-			replaceable.mock_verify
-			replaceable2.mock_verify
+			replaceable.flexmock_verify
+			replaceable2.flexmock_verify
 		end
 		def test_odba_isolated_dump
 			replaceable = flexmock("Replaceable")
 			replaceable2 = flexmock("Replaceable2")
 			@odba.replaceable = replaceable
 			@odba.replaceable2 = replaceable2
-			ODBA.cache.mock_handle(:next_id){ 11 }
+      ODBA.cache.should_receive(:next_id).with_no_args.and_return(11)
 
       ### from odba_dup and odba_replace_persistables
 			replaceable2.should_receive(:is_a?).with(Stub)\
@@ -308,18 +262,15 @@ module ODBA
       responses = [false, true]
 			replaceable.should_receive(:is_a?).with(Stub)\
         .times(2).and_return { responses.shift }
-			replaceable.should_receive(:odba_clear_receiver).times(1)
+      replaceable.should_receive(:odba_clear_receiver).times(1)
 			replaceable.should_receive(:odba_container=).with(@odba.class).times(1)
-			ODBA.marshaller.mock_handle(:dump) { |twin|
-        assert(twin.replaceable2.is_a?(ODBA::Stub))
-				"TheDump"
-			}
+      ODBA.marshaller.should_receive(:dump).and_return{ |twin| assert(twin.replaceable2.is_a?(ODBA::Stub)); "TheDump" }
 			result = @odba.odba_isolated_dump
 			assert_equal(replaceable, @odba.replaceable)
 			assert_equal(replaceable2, @odba.replaceable2)
 			assert_equal("TheDump", result)
-			replaceable.mock_verify
-			replaceable2.mock_verify
+			replaceable.flexmock_verify
+			replaceable2.flexmock_verify
 		end
 		def test_odba_isolated_dump_2
 			tmp = ODBA.marshaller
@@ -327,7 +278,7 @@ module ODBA
 			odba = ODBAExcluding.new
 			odba.excluded = "foo"
 			odba.included = "baz"
-			ODBA.cache.mock_handle(:next_id) { 1 }
+      ODBA.cache.should_receive(:next_id).and_return(1)
 			dump, hash = odba.odba_isolated_dump
 			obj = ODBA.marshaller.load(dump)
 			assert_equal(nil, obj.excluded)
@@ -336,22 +287,19 @@ module ODBA
 		end
 		def test_odba_id
 			@odba.odba_id = nil
-			ODBA.cache.mock_handle(:next_id) { 1 }
+      ODBA.cache.should_receive(:next_id).and_return(1)
 			assert_equal(1, @odba.odba_id)
-			ODBA.storage.mock_verify
+			ODBA.storage.flexmock_verify
 		end
 		def test_odba_dump_has_id
 			@odba.odba_id = nil
-			ODBA.cache.mock_handle(:store) { |obj|
-			ODBA.cache.mock_handle(:next_id) { 1 }
-				assert_equal(1, obj.odba_id)
-			}
+      ODBA.cache.should_receive(:store).with(FlexMock.any)
+      ODBA.cache.should_receive(:next_id).with(1).and_return(1)
 			@odba.odba_store
 		end
 		def test_odba_store_error_raised
 			@odba.odba_name = "foo"
-			#ODBA.storage.mock_handle(:transaction) { |block| block.call}
-			ODBA.cache.mock_handle(:store) { |dump|
+      ODBA.cache.should_receive(:store).with(FlexMock.any).and_return { |dump|
 				raise DBI::ProgrammingError
 			}
 			assert_raises(DBI::ProgrammingError) {
@@ -361,38 +309,33 @@ module ODBA
 		end
 		def test_odba_store_no_error_raised
 			@odba.odba_name = "foo"
-			#ODBA.storage.mock_handle(:transaction) { |block| block.call}
-			ODBA.cache.mock_handle(:store) { |obj| 
-				assert_equal(@odba, obj)
-			}
+      ODBA.cache.should_receive(:store).with(@odba)
 			@odba.odba_store('bar')
 			assert_equal("bar", @odba.odba_name)
 		end
 		def test_inspect_with_stub_in_array
-			ODBA.cache.mock_handle(:next_id) { 12 }
-			ODBA.cache.mock_handle(:next_id) { 13 }
+      ODBA.cache.should_receive(:next_id).with_no_args.and_return(12)
+      ODBA.cache.should_receive(:next_id).with_no_args.and_return(13)
 			content = ODBAContainer.new
 			@odba.instance_variable_set('@contents', [content])
 			twin = @odba.odba_isolated_twin
 			assert_not_nil(/@contents=#<ODBA::Stub:/.match(twin.inspect))
-			ODBA.storage.mock_verify
+			ODBA.storage.flexmock_verify
 		end
 		def test_to_yaml
 			yaml = ''
-			assert_nothing_raised { 
-				yaml = @odba.to_yaml
-			}
+      yaml = @odba.to_yaml
 			loaded = YAML.load(yaml)
 			assert_instance_of(ODBAContainer, loaded)
 		end
     def test_extend
-			ODBA.cache.mock_handle(:store) { |obj| assert_equal('foo', obj) } 
+      ODBA.cache.should_receive(:store).with('foo')
       str = 'foo'
       str.extend(Persistable)
       assert_nothing_raised { 
         str.odba_store
       }
-      ODBA.cache.mock_verify
+      ODBA.cache.flexmock_verify
     end
     def test_odba_index__simple
       stub = IndexedStub.new
@@ -533,19 +476,13 @@ module ODBA
     def test_odba_extent
       stub = IndexedStub.new
       assert_respond_to(IndexedStub, :odba_extent)
-      ODBA.cache.mock_handle(:extent) { |klass|
-        assert_equal(IndexedStub, klass)
-        []
-      }
+      ODBA.cache.should_receive(:extent).with(IndexedStub).and_return([])
       assert_equal([], IndexedStub.odba_extent)
     end
     def test_odba_extent__with_block
       stub = IndexedStub.new
       assert_respond_to(IndexedStub, :odba_extent)
-      ODBA.cache.mock_handle(:extent) { |klass|
-        assert_equal(IndexedStub, klass)
-        ['foo']
-      }
+      ODBA.cache.should_receive(:extent).with(IndexedStub).and_return(['foo'])
       IndexedStub.odba_extent { |obj|
         assert_equal('foo', obj)
       }
@@ -610,11 +547,7 @@ module ODBA
       assert(stub.is_a?(ODBAContainer))
       assert_equal(14, stub.odba_id)
       assert_equal(ODBAContainer, stub.class)
-      ODBA.cache.mock_handle(:fetch) { |id, clr|
-        assert_equal(14, id)
-        assert_equal(nil, clr)
-        @odba
-      }
+      ODBA.cache.should_receive(:fetch).with(14, nil).times(1).and_return(@odba)
       assert_equal(@odba, stub.odba_instance)
     end
     def test_odba_collection
