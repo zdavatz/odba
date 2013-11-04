@@ -10,7 +10,7 @@ require 'odba/connection_pool'
 #  to the first position in $LOAD_PATH ( == $: ). As a result, files are
 #  loaded from site_ruby if they are installed there, and thus ignored
 #  by rcov. Workaround:
-$:.shift
+# $:.shift
 
 module ODBA
   class TestConnectionPool < Test::Unit::TestCase

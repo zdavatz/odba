@@ -26,61 +26,43 @@ module ODBA
 		end
 		def test_method_missing
 			receiver = flexmock
-			@cache.mock_handle(:fetch) { |id, caller|
-				assert_equal(9, id)
-				receiver
-			}
-			receiver.mock_handle(:foo_method){ |number|
-				assert_equal(3, number)
-			}
-			@odba_container.mock_handle(:odba_replace_stubs) { |id, rec| 
-				assert_equal(receiver, rec)
-			}
+      @cache.should_receive(:fetch).with(9, FlexMock.any).once.and_return(receiver)
+      receiver.should_receive(:foo_method).with(3)
+      @odba_container.should_receive(:odba_replace_stubs).with(9, FlexMock.any).and_return(@stub)
 			@stub.foo_method(3)
-			receiver.mock_verify
-			@odba_container.mock_verify
+			receiver.flexmock_verify
+			@odba_container.flexmock_verify
 		end
 		def test_method_missing_receiver_nil
 			@stub.receiver = nil
 			cache = ODBA.cache	
 			receiver = flexmock
-			cache.mock_handle(:fetch) { |odba_id, odba_container|
-				receiver
-			}
-			receiver.mock_handle(:foo_method) { |number|
-				assert_equal(3, number)
-			}
-			@odba_container.mock_handle(:odba_replace_stubs) { |id,receiver| }
-			assert_nothing_raised { @stub.foo_method(3) }
-			@odba_container.mock_verify
-			cache.mock_verify
+      @cache.should_receive(:fetch).with(FlexMock.any, FlexMock.any).once.and_return(receiver)
+      receiver.should_receive(:foo_method).with(3)
+      @odba_container.should_receive(:odba_replace_stubs).with(FlexMock.any, FlexMock.any).and_return(@stub)
+			@stub.foo_method(3)
+			@odba_container.flexmock_verify
+			cache.flexmock_verify
 		end
 		def test_method_missing__odba_class_nil # backward-compatibility
 			@stub.odba_class = nil
 			receiver = flexmock
-			@cache.mock_handle(:fetch) { |odba_id, odba_container|
-				receiver
-			}
-			receiver.mock_handle(:foo_method) { |number|
-				assert_equal(3, number)
-			}
-			@odba_container.mock_handle(:odba_replace_stubs) { |id, receiver| }
-			assert_nothing_raised { @stub.foo_method(3) }
-			@odba_container.mock_verify
-			ODBA.cache.mock_verify
+      @cache.should_receive(:fetch).with(FlexMock.any, FlexMock.any).once.and_return(receiver)
+      receiver.should_receive(:foo_method).with(3)
+      @odba_container.should_receive(:odba_replace_stubs).with(FlexMock.any, FlexMock.any)
+			@stub.foo_method(3)
+			@odba_container.flexmock_verify
+			ODBA.cache.flexmock_verify
 		end
 		def test_odba_receiver
-			@cache.should_receive(:fetch).with(9, @odba_container)\
-        .and_return('odba_instance')
-			@odba_container.should_receive(:odba_replace_stubs)\
-        .with(@stub.odba_id, 'odba_instance').and_return { assert(true) }
+			@cache.should_receive(:fetch).with(9, @odba_container).and_return('odba_instance')
+			@odba_container.should_receive(:odba_replace_stubs).with(@stub.odba_id, 'odba_instance').and_return(true)
 			@stub.odba_receiver
 		end
 		def test_send_instance_methods
       receiver = 'odba_instance'
 			@odba_container.should_ignore_missing
-			@cache.mock_handle(:fetch).with(9, @odba_container)\
-        .and_return(receiver)
+      @cache.should_receive(:fetch).with(9, FlexMock.any).once.and_return(receiver)
 			@stub.taint
 			assert_equal(true, receiver.tainted?)
 		end
@@ -89,97 +71,60 @@ module ODBA
 		end
 		def test_send_class
 			receiver = flexmock
-			@odba_container.mock_handle(:odba_replace_stubs) { |id, rec|}
-			@cache.mock_handle(:fetch) { |id,container|
-				receiver
-			}
+      @odba_container.should_receive(:odba_replace_stubs).with(FlexMock.any, FlexMock.any)
 			assert_equal(FlexMock, @stub.class)
 		end
 		def test_respond_to
 			receiver = flexmock('receiver')
-			@odba_container.mock_handle(:odba_replace_stubs) { |id, rec|}
-			@cache.mock_handle(:fetch) { |id,container|
-				receiver
-			}
-			receiver.mock_verify
+      @odba_container.should_receive(:odba_replace_stubs).with(FlexMock.any, FlexMock.any)
+      @cache.should_receive(:fetch).with(FlexMock.any, FlexMock.any).once.and_return(receiver)
+			receiver.flexmock_verify
 			assert_equal(false, @stub.respond_to?(:odba_replace))
 		end
 		def test_array_methods
 			stub = Stub.new(9, [], [])
-			@cache.mock_handle(:fetch) { |odba_id, container| [] }
+      @cache.should_receive(:fetch).with(FlexMock.any, FlexMock.any).and_return([])
 			assert_equal([], stub)
 			stub = Stub.new(9, [], [])
-			@cache.mock_handle(:fetch) { |odba_id, container| [] }
 			assert([] == stub)
 			[
 				"&", "+", "-", "<=>", "==", 
 				"concat", "equal?", "replace", "|"
 			].each { |method|
-				@cache.mock_handle(:fetch) { |odba_id, container| [] }
 				stub = Stub.new(9, [], [])
-				assert_nothing_raised("failed method: #{method}") {
-					[].send(method, stub)
-				}
+				[].send(method, stub)
 			}
 		end
 		def test_hash_methods
 			stub = Stub.new(9, [], {})
-			@cache.mock_handle(:fetch) { |odba_id, container| {} }
+      @cache.should_receive(:fetch).with(FlexMock.any, FlexMock.any).times(5).and_return({} )
 			assert_equal({}, stub)
 			stub = Stub.new(9, [], {})
-			@cache.mock_handle(:fetch) { |odba_id, container| {} }
 			assert({} == stub)
 			[
 				"merge", "merge!", "replace",
 			].each { |method|
-				@cache.mock_handle(:fetch) { |odba_id, container| {} }
 				stub = Stub.new(9, [], {})
-				assert_nothing_raised("failed method: #{method}") {
-					{}.send(method, stub)
-				}
+				{}.send(method, stub)
 			}
 		end
 		def test_hash__fetch
 			stub = Stub.new(9, [], {})
-			@cache.mock_handle(:include?) { |odba_id|
-				assert_equal(9, odba_id)
-				false
-			}
-			@cache.mock_handle(:fetch_collection_element) { |odba_id, key| 
-				assert_equal(9, odba_id)
-				assert_equal('bar', key)
-				'foo'
-			}
+      @cache.should_receive(:include?).with(9).and_return(false)
+      @cache.should_receive(:fetch_collection_element).with(9, 'bar').and_return('foo')
 			assert_equal('foo', stub['bar'])
 		end
 		def test_hash__fetch__2
 			stub = Stub.new(9, [], {})
-			@cache.mock_handle(:include?) { |odba_id|
-				assert_equal(9, odba_id)
-				false
-			}
-			@cache.mock_handle(:fetch_collection_element) { |odba_id, key| 
-				assert_equal(9, odba_id)
-				assert_equal('bar', key)
-				nil
-			}
-			@cache.mock_handle(:fetch) { |odba_id, caller|
-				assert_equal(9, odba_id)
-				assert_equal([], caller)
-				{'bar' => 'foo'}
-			}
+      @cache.should_receive(:include?).with(9).and_return(false)
+      @cache.should_receive(:fetch_collection_element).with(9, 'bar').and_return(nil)
+      @cache.should_receive(:fetch).with(9, []).and_return({'bar' => 'foo'})
 			assert_equal('foo', stub['bar'])
 		end
 		def test_hash__fetch__already_in_cache
 			stub = Stub.new(9, [], {})
-			@cache.mock_handle(:include?) { |odba_id|
-				assert_equal(9, odba_id)
-				true 
-			}
-			@cache.mock_handle(:fetch) { |odba_id, fetcher| 
-				assert_equal(9, odba_id)
-				{'bar' => 'foo'}
-			}
+      @cache.should_receive(:include?).with(9).and_return(true)
+      @cache.should_receive(:fetch).with(9, []).and_return({'bar' => 'foo'})
 			assert_equal('foo', stub['bar'])
 		end
 		def test_hash_key__1
@@ -191,17 +136,15 @@ module ODBA
 			@odba_container.should_ignore_missing
 			hash = {stub => 'success'}
 			assert_equal('success', hash[@stub])
-			other = Stub.new(8, nil, nil)
+      other = Stub.new(8, nil, nil)
 			assert_nil(hash[other])
 		end
 		def test_to_yaml
       flexmock(@cache, :fetch => nil)
 			yaml = ''
-			assert_nothing_raised {
-				yaml = @stub.odba_isolated_stub.to_yaml
-			}
+      yaml = @stub.odba_isolated_stub.to_yaml
 			loaded = YAML.load(yaml)
-			assert(loaded.is_a?(Stub))
+			assert(loaded.is_a?(Stub), "loading from yaml should return a Stub")
 			assert_equal(9, loaded.odba_id)
 		end
     def test_odba_clear_receiver
@@ -217,10 +160,7 @@ module ODBA
       receiver.extend(Persistable)
       receiver.instance_variable_set('@odba_id', 9)
       stub = Stub.new(9, nil, nil)
-			@cache.mock_handle(:fetch) { |odba_id, caller|
-				assert_equal(9, odba_id)
-				receiver
-			}
+      @cache.should_receive(:fetch).with(9, nil).and_return(receiver)
 			hash = {stub => 'success'}
 			assert_equal('success', hash[stub])
 			assert_equal('success', hash[receiver])
