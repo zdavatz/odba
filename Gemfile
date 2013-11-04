@@ -1,8 +1,11 @@
 source "https://rubygems.org"
 
 # gemspec
+gem 'dbi'
 
 group :development do
-  gem 'rake',                 :platforms => :ruby_18
+  gem 'rake'
+  gem 'hoe'
+  gem 'flexmock'
 end
                   
