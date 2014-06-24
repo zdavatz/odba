@@ -45,6 +45,7 @@ module ODBA
       odba_id && ODBA.cache.include?(odba_id) && ODBA.cache.fetch(odba_id)
     end
 		def odba_add_reference(object)
+      return unless object.respond_to?(:odba_id)
       @cache_entry_mutex.synchronize do
         @accessed_by.store(object.object_id, object.odba_id)
       end
