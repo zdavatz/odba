@@ -2,6 +2,12 @@ language: ruby
 before_install:
   - gem install bundler
 
+install:
+  - bundle install --without debugger
+
+script:
+  - bundle exec ruby test/suite.rb
+
 notifications:
   email:
   - ngiger@ywesee.com
