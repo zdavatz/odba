@@ -35,6 +35,9 @@ module ODBA
       @index = IndexCommon.new(df, ODBA)
     end
     def teardown
+      @storage = nil
+      ODBA.storage = nil
+      load = File.expand_path(File.join(File.dirname(__FILE__), '../lib/odba/storage.rb'))
       super
     end
     def test_delete
@@ -169,6 +172,7 @@ module ODBA
     def test_update__subclass
       origin = OriginSubclass.new
       target = TargetSubclass.new
+      @storage.should_receive(:index_target_ids).and_return(3)
       @index.update(origin)
       @index.update(target)
     end

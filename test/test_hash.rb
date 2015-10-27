@@ -13,7 +13,7 @@ require 'flexmock'
 module ODBA
 	class TestHash < Minitest::Test
     include FlexMock::TestCase
-		class ODBAContainer
+		class ODBAContainerInHash
 			include Persistable
 			attr_accessor	:non_replaceable, :replaceable, :odba_id
 		end
@@ -36,10 +36,10 @@ module ODBA
       super
     end
 		def test_odba_unsaved_neighbors_hash
-			repkey1 = ODBAContainer.new
-			repkey2 = ODBAContainer.new
-			repvalue1 = ODBAContainer.new
-			repvalue2 = ODBAContainer.new
+			repkey1 = ODBAContainerInHash.new
+			repkey2 = ODBAContainerInHash.new
+			repvalue1 = ODBAContainerInHash.new
+			repvalue2 = ODBAContainerInHash.new
 			@hash.store(repkey1, repvalue1)
 			@hash.store(repkey2, repvalue2)
 			result = @hash.odba_unsaved_neighbors(1)
@@ -107,11 +107,11 @@ module ODBA
       assert_equal({:foo => 'bar', :trouble => 'not'}, @hash)
     end
     def test_odba_target_ids
-      o = ODBAContainer.new
+      o = ODBAContainerInHash.new
       o.odba_id = 1
-      p = ODBAContainer.new
+      p = ODBAContainerInHash.new
       p.odba_id = 2
-      q = ODBAContainer.new
+      q = ODBAContainerInHash.new
       q.odba_id = 3
       @hash.store('foo', p)
       @hash.store(p, 'bar')

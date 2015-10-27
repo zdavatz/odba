@@ -26,7 +26,7 @@ module ODBA
 	end
 	class TestCache < Minitest::Test
     include FlexMock::TestCase
-		class ODBAContainer
+		class ODBAContainerInCache
 		 include ODBA::Persistable
 		 attr_accessor	:odba_connection, :odba_id
 		end
@@ -446,9 +446,9 @@ module ODBA
 			}
 		end
 		def test_delete
-			delete_item = ODBAContainer.new
+			delete_item = ODBAContainerInCache.new
 			delete_item.odba_id = 1
-			origin_obj = ODBAContainer.new
+			origin_obj = ODBAContainerInCache.new
 			origin_obj.odba_id = 2
 			origin_obj.odba_connection = delete_item
 			@cache.fetched.store(1, delete_item)
@@ -654,7 +654,7 @@ module ODBA
         .times(1).and_return(o1)
       @marshal.should_receive(:load).with('dump2')\
         .times(1).and_return(o2)
-      assert_equal([o1, o2], @cache.extent(ODBAContainer, clr))
+      assert_equal([o1, o2], @cache.extent(ODBAContainerInCache, clr))
     end
     def test_fetch_collection
       obj = flexmock('Object')

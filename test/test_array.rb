@@ -13,11 +13,11 @@ require 'odba/odba'
 module ODBA
   class TestArray < Minitest::Test
     include FlexMock::TestCase
-    class ODBAContainer
+    class ODBAContainerInArrayInArray
      include ODBA::Persistable
      attr_accessor	:non_replaceable, :replaceable, :array, :odba_id
     end
-    class Container
+    class ContainerInArray
       attr_accessor :content
     end
     def setup
@@ -30,6 +30,7 @@ module ODBA
       ODBA.storage = nil
       ODBA.marshaller = nil
       ODBA.cache = nil
+      load = File.expand_path(File.join(File.dirname(__FILE__), '../lib/odba/storage.rb'))
       super
     end
     def test_odba_cut_connection
@@ -42,8 +43,8 @@ module ODBA
       assert_equal(0, array.odba_cut_connection(remove_obj).size)
     end
     def test_odba_unsaved_neighbors_array
-      rep1 = ODBAContainer.new
-      rep2 = ODBAContainer.new
+      rep1 = ODBAContainerInArrayInArray.new
+      rep2 = ODBAContainerInArrayInArray.new
       @array.push(rep1)
       @array.push(rep2)
       result = @array.odba_unsaved_neighbors(1)
@@ -91,18 +92,18 @@ module ODBA
       assert_equal(reloaded, modified)
     end
     def test_odba_target_ids
-      o = ODBAContainer.new
+      o = ODBAContainerInArrayInArray.new
       o.odba_id = 1
-      p = ODBAContainer.new
+      p = ODBAContainerInArrayInArray.new
       p.odba_id = 2
-      q = ODBAContainer.new
+      q = ODBAContainerInArrayInArray.new
       q.odba_id = 3
       @array.push(p, q)
       @array.instance_variable_set('@foo', o)
       assert_equal([1,2,3], @array.odba_target_ids)
     end
     def test_stubize
-      item = ODBAContainer.new
+      item = ODBAContainerInArrayInArray.new
       @array.push(item)
       @array.odba_stubize(item)
       first = @array.first
