@@ -3,7 +3,7 @@
 
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require 'test/unit'
+require 'minitest/autorun'
 require 'flexmock'
 require 'odba/connection_pool'
 ## connection_pool requires 'dbi', which unshifts the site_ruby dir
@@ -13,7 +13,7 @@ require 'odba/connection_pool'
 # $:.shift
 
 module ODBA
-  class TestConnectionPool < Test::Unit::TestCase
+  class TestConnectionPool < Minitest::Test
     include FlexMock::TestCase
     def test_survive_error
       flexstub(DBI).should_receive(:connect).times(10).and_return { 
@@ -28,7 +28,7 @@ module ODBA
           ## after the first error is raised, ConnectionPool reconnects.
         }
       }
-      assert_nothing_raised { pool.execute('statement') }
+      pool.execute('statement')
     end
     def test_multiple_errors__give_up
       flexstub(DBI).should_receive(:connect).times(20).and_return { 
@@ -71,7 +71,7 @@ module ODBA
         conn
       }
       pool = ConnectionPool.new()
-      assert_nothing_raised { pool.disconnect }
+      pool.disconnect
     end
   end
 end

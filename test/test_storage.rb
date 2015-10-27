@@ -6,7 +6,7 @@ $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
 require 'odba/storage'
-require 'test/unit'
+require 'minitest/autorun'
 require 'flexmock'
 
 module ODBA
@@ -14,19 +14,22 @@ module ODBA
 		public :restore_max_id
 		attr_writer :next_id
 	end
-	class TestStorage < Test::Unit::TestCase
+	class TestStorage < Minitest::Test
     include FlexMock::TestCase
 		def setup
 			@storage = ODBA::Storage.instance
       @dbi = flexmock('DBI')
       @storage.dbi = @dbi
 		end
+    def teardown
+      super
+    end
 		def test_bulk_restore
 			dbi = flexmock("dbi")
 			array = [1, 23, 4]
 			@storage.dbi = dbi
 			dbi.should_receive(:select_all).times(1).and_return { |query|
-				assert_not_nil(query.index('IN (1,23,4)'))
+				refute_nil(query.index('IN (1,23,4)'))
 				[]
 			}
 			@storage.bulk_restore(array)
@@ -74,9 +77,7 @@ module ODBA
 			dbi = flexmock("dbi")
 			array = []
 			@storage.dbi = dbi
-			assert_nothing_raised {
-				@storage.bulk_restore(array)
-			}
+			@storage.bulk_restore(array)
 		end
 		def test_create_index
 			dbi = flexmock('dbi')
@@ -215,8 +216,7 @@ module ODBA
 			dbi.should_receive(:select_one).and_return{|var|
 				row
 			}
-			row.should_receive(:first).times(1).and_return { 23 }
-			row.should_receive(:first).times(1).and_return { 23 }
+			row.should_receive(:first).times(2).and_return { 23 }
 			assert_equal(23, @storage.max_id)
 		end
 		def test_restore_max_id__nil
@@ -228,9 +228,7 @@ module ODBA
 			}
 			row.should_receive(:first).times(1).and_return{ || }
 			id = nil
-			assert_nothing_raised {
-				id = @storage.restore_max_id
-			}
+			id = @storage.restore_max_id
 			assert_equal(0, id)
 		end
     def test_retrieve
@@ -282,7 +280,7 @@ module ODBA
 
 			#insert query
 			dbi.should_receive(:do).times(1).and_return{ |sql, id, term, target_id| 
-				assert_not_nil(sql.index("INSERT INTO"))	
+				refute_nil(sql.index("INSERT INTO"))	
 			}
 
 			@storage.update_index("foo", 2,"baz", 3)
@@ -317,7 +315,7 @@ module ODBA
 			dbi = flexmock("dbi")
 			@storage.dbi = dbi
 			dbi.should_receive(:select_all).and_return{|sql, target_id| 
-				assert_not_nil(sql.index('SELECT origin_id FROM object_connection'))
+				refute_nil(sql.index('SELECT origin_id FROM object_connection'))
 				assert_equal(target_id, 1)
 			}	
 			@storage.retrieve_connected_objects(1)
@@ -784,9 +782,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
       SQL
       @dbi.should_receive(:execute).with(sql).and_return { 
         raise DBI::Error }
-      assert_nothing_raised {
-        @storage.ensure_target_id_index('index')   
-      }
+      @storage.ensure_target_id_index('index')   
     end
     def test_fulltext_index_delete__origin
       sql = <<-SQL

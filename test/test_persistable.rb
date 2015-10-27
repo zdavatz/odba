@@ -10,7 +10,7 @@ require 'odba/cache'
 require 'odba/odba'
 require 'odba/storage'
 require 'odba/marshal'
-require 'test/unit'
+require 'minitest/autorun'
 require 'flexmock'
 require 'yaml'
 
@@ -20,7 +20,7 @@ module ODBA
 		attr_writer :odba_id
 		public :odba_replace_excluded!
 	end
-	class TestPersistable < Test::Unit::TestCase
+	class TestPersistable < Minitest::Test
     include FlexMock::TestCase
 		class ODBAExcluding
 			include ODBA::Persistable
@@ -48,7 +48,7 @@ module ODBA
     end
 		def setup
 			ODBA.storage = flexmock("storage")
-			ODBA.marshaller = flexmock("marshaller")
+			ODBA.marshaller = flexmock("marshaller_persistable")
 			ODBA.cache = flexmock("cache")
 			@odba  = ODBAContainer.new
 		end
@@ -59,6 +59,7 @@ module ODBA
 			ODBA.storage = nil
 			ODBA.marshaller = nil
 			ODBA.cache = nil
+      super
 		end
 		def test_odba_id
       DBA.cache.should_receive(:next_id).with().and_return(2)
@@ -319,7 +320,7 @@ module ODBA
 			content = ODBAContainer.new
 			@odba.instance_variable_set('@contents', [content])
 			twin = @odba.odba_isolated_twin
-			assert_not_nil(/@contents=#<ODBA::Stub:/.match(twin.inspect))
+			refute_nil(/@contents=#<ODBA::Stub:/.match(twin.inspect))
 			ODBA.storage.flexmock_verify
 		end
 		def test_to_yaml
@@ -332,9 +333,7 @@ module ODBA
       ODBA.cache.should_receive(:store).with('foo')
       str = 'foo'
       str.extend(Persistable)
-      assert_nothing_raised { 
-        str.odba_store
-      }
+      str.odba_store
       ODBA.cache.flexmock_verify
     end
     def test_odba_index__simple
@@ -537,7 +536,7 @@ module ODBA
       assert(p.is_a?(ODBA::Persistable))
       stub2 = p.instance_variable_get('@stub')
       assert(stub2.is_a?(ODBA::Stub))
-      assert_not_equal(stub.object_id, stub2.object_id)
+      refute_equal(stub.object_id, stub2.object_id)
       assert_equal(15, stub2.odba_id)
     end
     def test_odba_isolated_stub

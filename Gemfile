@@ -1,17 +1,13 @@
 source "https://rubygems.org"
 
-# gemspec
-gem 'dbi'
-gem 'dbd-pg', '0.3.9'
+gemspec
 
-group :development do
-  gem 'rake'
-  gem 'hoe'
-  gem 'flexmock'
-  gem 'simplecov'
-  gem 'minitest',       :platforms => :ruby_18
+group 'test' do
+  gem 'flexmock', "~> 1.3.0"
+  gem 'test-unit'
+  gem 'minitest'
 end
-                  
+
 group 'debugger' do
   gem 'pry'
   gem 'pry-nav'

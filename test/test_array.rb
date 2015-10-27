@@ -4,14 +4,14 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require 'test/unit'
+require 'minitest/autorun'
 require 'flexmock'
 require 'odba/persistable'
 require 'odba/stub'
 require 'odba/odba'
 
 module ODBA
-  class TestArray < Test::Unit::TestCase
+  class TestArray < Minitest::Test
     include FlexMock::TestCase
     class ODBAContainer
      include ODBA::Persistable
@@ -23,8 +23,14 @@ module ODBA
     def setup
       @array = Array.new
       ODBA.storage = flexmock("storage")
-      ODBA.marshaller = flexmock("marshaller")
+      ODBA.marshaller = flexmock("marshaller_array")
       ODBA.cache = flexmock("cache")
+    end
+    def teardown
+      ODBA.storage = nil
+      ODBA.marshaller = nil
+      ODBA.cache = nil
+      super
     end
     def test_odba_cut_connection
       remove_obj = Object

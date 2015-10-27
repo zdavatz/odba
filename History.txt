@@ -1,3 +1,8 @@
+=== 1.1.1 / 24.06.2014
+
+* Made tests pass under Ruby 1.9.3, 2.x
+* Updated to use minitest
+
 === 1.1.0 / 15.03.2013
 
 * Update dict source file name for multi languages

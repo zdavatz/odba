@@ -4,11 +4,10 @@
 
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 $: << File.dirname(__FILE__)
-
+require 'minitest/autorun'
 require 'odba/stub'
 require 'odba/persistable'
 require 'odba/odba'
-require 'test/unit'
 require 'flexmock'
 require 'yaml'
 
@@ -16,7 +15,7 @@ module ODBA
 	class Stub
 		attr_accessor :receiver, :odba_class
 	end
-	class TestStub < Test::Unit::TestCase
+	class TestStub < Minitest::Test
     include FlexMock::TestCase
 		def setup
 			@odba_container = flexmock("odba_container")
@@ -24,6 +23,10 @@ module ODBA
 			@receiver = flexmock("receiver")
 			@stub = Stub.new(9, @odba_container, @receiver)
 		end
+    def teardown
+      @cache = ODBA.cache = nil
+      super
+    end
 		def test_method_missing
 			receiver = flexmock
       @cache.should_receive(:fetch).with(9, FlexMock.any).once.and_return(receiver)
@@ -140,12 +143,12 @@ module ODBA
 			assert_nil(hash[other])
 		end
 		def test_to_yaml
-			skip "Don't know why the stub does not work for Ruby 2.x" if /^2/.match(RUBY_VERSION) or /^1\.9/.match(RUBY_VERSION)
+      skip "Don't know why the stub does not work for Ruby 2.x" if /^2/.match(RUBY_VERSION) or /^1\.9/.match(RUBY_VERSION)
       flexmock(@cache, :fetch => nil)
 			yaml = ''
       yaml = @stub.odba_isolated_stub.to_yaml
 			loaded = YAML.load(yaml)
-			assert(loaded.is_a?(Stub), "loading from yaml should return a Stub")
+      assert(loaded.is_a?(Stub), "loading from yaml should return a Stub")
 			assert_equal(9, loaded.odba_id)
 		end
     def test_odba_clear_receiver

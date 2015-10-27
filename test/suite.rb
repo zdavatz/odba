@@ -3,6 +3,7 @@
 # suite.rb -- oddb -- 20.11.2002 -- hwyss@ywesee.com 
 
 $: << File.expand_path(File.dirname(__FILE__))
+require 'minitest'
 require 'simplecov'
 SimpleCov.start
 

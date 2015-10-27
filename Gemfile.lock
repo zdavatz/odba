@@ -1,3 +1,10 @@
+PATH
+  remote: .
+  specs:
+    odba (1.1.1)
+      dbd-pg (= 0.3.9)
+      dbi
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -11,48 +18,48 @@ GEM
       deprecated (= 2.0.1)
     debug_inspector (0.0.2)
     deprecated (2.0.1)
-    docile (1.1.0)
+    docile (1.1.5)
     flexmock (1.3.2)
-    hoe (3.7.1)
-      rake (>= 0.8, < 11.0)
     interception (0.5)
+    json (1.8.3)
     method_source (0.8.2)
-    minitest (5.0.8)
-    multi_json (1.8.2)
-    pg (0.17.1)
-    pry (0.9.12.6)
-      coderay (~> 1.0)
-      method_source (~> 0.8)
+    minitest (5.8.2)
+    pg (0.18.3)
+    power_assert (0.2.4)
+    pry (0.10.3)
+      coderay (~> 1.1.0)
+      method_source (~> 0.8.1)
       slop (~> 3.4)
-    pry-doc (0.6.0)
+    pry-doc (0.8.0)
       pry (~> 0.9)
       yard (~> 0.8)
-    pry-nav (0.2.3)
-      pry (~> 0.9.10)
-    pry-rescue (1.4.1)
+    pry-nav (0.2.4)
+      pry (>= 0.9.10, < 0.11.0)
+    pry-rescue (1.4.2)
       interception (>= 0.5)
       pry
-    pry-stack_explorer (0.4.9.1)
+    pry-stack_explorer (0.4.9.2)
       binding_of_caller (>= 0.7)
       pry (>= 0.9.11)
-    rake (10.1.0)
-    simplecov (0.8.2)
+    rake (10.4.2)
+    simplecov (0.10.0)
       docile (~> 1.1.0)
-      multi_json
-      simplecov-html (~> 0.8.0)
-    simplecov-html (0.8.0)
-    slop (3.5.0)
-    yard (0.8.7.4)
+      json (~> 1.8)
+      simplecov-html (~> 0.10.0)
+    simplecov-html (0.10.0)
+    slop (3.6.0)
+    test-unit (3.1.5)
+      power_assert
+    yard (0.8.7.6)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
-  dbd-pg (= 0.3.9)
-  dbi
-  flexmock
-  hoe
+  bundler
+  flexmock (~> 1.3.0)
   minitest
+  odba!
   pry
   pry-doc
   pry-nav
@@ -60,3 +67,7 @@ DEPENDENCIES
   pry-stack_explorer
   rake
   simplecov
+  test-unit
+
+BUNDLED WITH
+   1.10.6

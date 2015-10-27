@@ -1,30 +1,30 @@
-# -*- ruby -*-
+#!/usr/bin/env ruby
+# encoding: utf-8
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+require 'odba/version'
+require "bundler/gem_tasks"
+require 'rake/testtask'
 
-require 'rubygems'
-require 'hoe'
+# dependencies are now declared in odba.gemspec
 
-Hoe.plugin :git
-
-# Hoe.plugin :compiler
-# Hoe.plugin :cucumberfeatures
-# Hoe.plugin :gem_prelude_sucks
-# Hoe.plugin :inline
-# Hoe.plugin :inline
-# Hoe.plugin :manifest
-# Hoe.plugin :newgem
-# Hoe.plugin :racc
-# Hoe.plugin :rubyforge
-# Hoe.plugin :rubyforge
-# Hoe.plugin :website
-
-Hoe.spec 'odba' do
-  # HEY! If you fill these out in ~/.hoe_template/Rakefile.erb then
-  # you'll never have to touch them again!
-  # (delete this comment too, of course)
-
-developer('Masaomi Hatakeyama, Zeno R.R. Davatz', 'mhatakeyama@ywesee.com, zdavatz@ywesee.com')
-
-  # self.rubyforge_name = 'odbax' # if different than 'odba'
+desc 'Offer a gem task like hoe'
+task :gem => :build do
+  Rake::Task[:build].invoke
 end
+
+desc "Run tests"
+task :default => :test
+
+desc 'Run odba with all commonly used combinations'
+task :test do
+  log_file = 'suite.log'
+  res = system("bash -c 'set -o pipefail && bundle exec ruby test/suite.rb 2>&1 | tee #{log_file}'")
+  puts "Running test/suite.rb returned #{res.inspect}. Output was redirected to #{log_file}"
+  exit 1 unless res
+end
+
+require 'rake/clean'
+CLEAN.include FileList['pkg/*.gem']
 
 # vim: syntax=ruby

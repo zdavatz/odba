@@ -7,11 +7,11 @@ $: << File.expand_path('../lib/', File.dirname(__FILE__))
 require 'odba/persistable'
 require 'odba/stub'
 require 'odba/odba'
-require 'test/unit'
+require 'minitest/autorun'
 require 'flexmock'
 
 module ODBA
-	class TestHash < Test::Unit::TestCase
+	class TestHash < Minitest::Test
     include FlexMock::TestCase
 		class ODBAContainer
 			include Persistable
@@ -32,6 +32,9 @@ module ODBA
 			ODBA.storage = flexmock("storage")
 			@hash.clear
 		end
+    def teardown
+      super
+    end
 		def test_odba_unsaved_neighbors_hash
 			repkey1 = ODBAContainer.new
 			repkey2 = ODBAContainer.new

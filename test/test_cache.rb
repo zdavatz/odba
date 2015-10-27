@@ -5,7 +5,7 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
-require 'test/unit'
+require 'minitest/autorun'
 require 'flexmock'
 require 'odba/cache'
 require 'odba/cache_entry'
@@ -24,7 +24,7 @@ module ODBA
 		attr_writer :indices
 		public :load_object
 	end
-	class TestCache < Test::Unit::TestCase
+	class TestCache < Minitest::Test
     include FlexMock::TestCase
 		class ODBAContainer
 		 include ODBA::Persistable
@@ -345,9 +345,7 @@ module ODBA
 				[[2, foo]]
 			}
 			prepare_bulk_restore([foo])
-			assert_nothing_raised {
-				@cache.prefetch
-			}
+			@cache.prefetch
 		end
 		def test_fill_index
 			foo = flexmock("foo")

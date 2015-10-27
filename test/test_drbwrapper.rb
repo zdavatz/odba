@@ -3,12 +3,12 @@
 
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require 'test/unit'
+require 'minitest/autorun'
 require 'odba/drbwrapper'
 require 'flexmock'
 
 module ODBA
-  class TestDRbWrapper < Test::Unit::TestCase
+  class TestDRbWrapper < Minitest::Test
     include FlexMock::TestCase
     def test_include
       obj = FlexMock.new
@@ -52,7 +52,7 @@ module ODBA
       }
     end
   end
-  class TestDRbIdConv < Test::Unit::TestCase
+  class TestDRbIdConv < Minitest::Test
     include FlexMock::TestCase
     def setup
       ODBA.cache = flexmock('cache')

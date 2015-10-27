@@ -4,7 +4,7 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path("../lib", File.dirname(__FILE__))
 
-require 'test/unit'
+require 'minitest/autorun'
 require 'flexmock'
 require 'odba/cache_entry'
 require 'odba/odba'
@@ -14,7 +14,7 @@ module ODBA
 	class CacheEntry
 		attr_accessor :accessed_by
 	end
-	class TestCacheEntry < Test::Unit::TestCase
+	class TestCacheEntry < Minitest::Test
     include FlexMock::TestCase
 		def setup
 			@mock = flexmock
@@ -26,6 +26,9 @@ module ODBA
       ODBA.cache.should_receive(:retire_age).and_return(0.9)
       ODBA.cache.should_receive(:destroy_age).and_return(0.9)
 		end
+    def teardown
+      super
+    end
 		def test_retire_check
 			@mock.should_receive(:odba_unsaved?).and_return { false }
 			@mock.should_receive(:odba_unsaved?).and_return { false }

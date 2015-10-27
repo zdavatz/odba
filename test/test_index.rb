@@ -4,7 +4,7 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path("../lib", File.dirname(__FILE__))
 
-require 'test/unit'
+require 'minitest/autorun'
 require 'odba/index'
 require 'odba/index_definition'
 require 'odba/odba'
@@ -21,7 +21,7 @@ module ODBA
   end
   class TargetSubclass < Target
   end
-  class TestIndexCommon < Test::Unit::TestCase
+  class TestIndexCommon < Minitest::Test
     include FlexMock::TestCase
     def setup
       @storage = flexmock('Storage')
@@ -33,6 +33,9 @@ module ODBA
       df.resolve_origin = :origin
       df.resolve_search_term = :term
       @index = IndexCommon.new(df, ODBA)
+    end
+    def teardown
+      super
     end
     def test_delete
       handle = flexmock('DB-Handle')
@@ -166,15 +169,11 @@ module ODBA
     def test_update__subclass
       origin = OriginSubclass.new
       target = TargetSubclass.new
-      assert_nothing_raised { 
-        @index.update(origin)
-      }
-      assert_nothing_raised { 
-        @index.update(target)
-      }
+      @index.update(origin)
+      @index.update(target)
     end
   end
-  class TestIndex < Test::Unit::TestCase
+  class TestIndex < Minitest::Test
     include FlexMock::TestCase
     def setup
       @storage = flexmock('Storage')
@@ -202,7 +201,7 @@ module ODBA
       assert_equal(['resolved'], @index.search_terms(origin))
     end
   end
-  class TestConditionIndex < Test::Unit::TestCase
+  class TestConditionIndex < Minitest::Test
     include FlexMock::TestCase
     def setup
       @storage = flexmock('Storage')
@@ -299,7 +298,7 @@ module ODBA
       @index.update_origin(origin1)
     end
   end
-  class TestFulltextIndex < Test::Unit::TestCase
+  class TestFulltextIndex < Minitest::Test
     include FlexMock::TestCase
     def setup
       @storage = flexmock('Storage')
