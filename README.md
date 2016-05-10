@@ -4,7 +4,7 @@
 
 To see a graphical overview of the Library please see
 
-* https://github.com/zdavatz/odba/odba.jpeg
+* https://raw.githubusercontent.com/ngiger/odba/master/odba.jpeg
 
 ## DESCRIPTION:
 
