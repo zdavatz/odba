@@ -1,4 +1,8 @@
-=== 1.1.1 / 24.06.2014
+=== 1.1.2 / 10.05.2016
+
+* requires now 'ydbi' and 'ydbd-pg'
+
+=== 1.1.1 / 10.05.2016
 
 * Made tests pass under Ruby 1.9.3, 2.x
 * Updated to use minitest

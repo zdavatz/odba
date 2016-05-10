@@ -14,11 +14,10 @@ Gem::Specification.new do |spec|
   spec.license       = "GPL-v2"
   spec.files         = `git ls-files -z`.split("\x0")
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
-#  spec.test_files    = spec.files.grep(%r{^(test|spec|features)/})
   spec.require_paths = ["lib"]
 
-  spec.add_dependency 'ydbi','>=0.5.0'
-  spec.add_dependency 'dbd-pg', '0.3.9'
+  spec.add_dependency 'ydbi',   '>=0.5.1'
+  spec.add_dependency 'ydbd-pg','>=0.5.1'
   
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake"
