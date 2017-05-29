@@ -16,7 +16,7 @@ require 'odba/odba_error'
 require 'odba/odba'
 
 module ODBA
-	class Cache 
+	class Cache
 		CLEANING_INTERVAL = 0
 		MAIL_RECIPIENTS = []
 		MAIL_FROM = "test@testfirst.local"
@@ -216,7 +216,7 @@ module ODBA
 			@marshal.should_receive(:load).and_return {|dump|
 				receiver
 			}
-			@storage.should_receive(:restore_collection).and_return {|*args| 
+			@storage.should_receive(:restore_collection).and_return {|*args|
 				[]
 			}
 			receiver.instance_variable_set("@odba_id", 23)
@@ -233,7 +233,7 @@ module ODBA
 		def test_fetch_error
 			receiver = flexmock
 			@storage.should_receive(:restore).and_return  { |odba_id|
-				nil	
+				nil
 			}
 			assert_raises(OdbaError) {
 				@cache.load_object(23, receiver)
@@ -289,17 +289,17 @@ module ODBA
 				assert_equal(new_collection, col)
 			}
 
-      @storage.should_receive(:restore_collection).and_return  { 
+      @storage.should_receive(:restore_collection).and_return  {
         old_collection.collect { |key, val|
-          [Marshal.dump(key.odba_isolated_stub), 
+          [Marshal.dump(key.odba_isolated_stub),
             Marshal.dump(val.odba_isolated_stub)]
         }
       }
-			@storage.should_receive(:collection_remove).and_return  { |odba_id, key| 
+			@storage.should_receive(:collection_remove).and_return  { |odba_id, key|
 				assert_equal(54, odba_id)
 				assert_equal(Marshal.dump('key1'.odba_isolated_stub), key)
 			}
-			@storage.should_receive(:collection_store).and_return  { |odba_id, key, value| 
+			@storage.should_receive(:collection_store).and_return  { |odba_id, key, value|
 				assert_equal(54, odba_id)
 				assert_equal(Marshal.dump('key3'.odba_isolated_stub), key)
 				assert_equal(Marshal.dump('val3'.odba_isolated_stub), value)
@@ -308,7 +308,7 @@ module ODBA
 			@cache.fetched = {
 				54 => cache_entry
 			}
-			
+
 			obj = flexmock('Obj')
 			obj.should_receive(:odba_id).and_return  { 54 }
 			obj.should_receive(:odba_collection).and_return  { new_collection }
@@ -349,10 +349,10 @@ module ODBA
 		end
 		def test_fill_index
 			foo = flexmock("foo")
-			foo.should_receive(:fill).and_return  { |target| 
+			foo.should_receive(:fill).and_return  { |target|
 				assert_equal("baz", target)
 			}
-			@cache.indices = { 
+			@cache.indices = {
 				"foo" => foo
 			}
 			@cache.fill_index("foo", "baz")
@@ -436,9 +436,9 @@ module ODBA
 
 				@storage.should_receive(:restore_collection).and_return  { [] }
 				if(block)
-					@storage.should_receive(:store, &block).and_return  
+					@storage.should_receive(:store, &block).and_return
 				else
-					@storage.should_receive(:store).and_return  { 
+					@storage.should_receive(:store).and_return  {
 						assert(true)
 					}
 				end
@@ -453,39 +453,39 @@ module ODBA
 			origin_obj.odba_connection = delete_item
 			@cache.fetched.store(1, delete_item)
 			@storage.should_receive(:retrieve_connected_objects).and_return  { |id|
-				[[2]] 
+				[[2]]
 			}
 			prepare_fetch(2, origin_obj)
-			@storage.should_receive(:restore_collection).and_return  { |*args| 
+			@storage.should_receive(:restore_collection).and_return  { |*args|
 				[]
 			}
 			@storage.should_receive(:store).and_return  { |id, dump, name, prefetch, klass| }
-			@storage.should_receive(:ensure_object_connections).and_return  { } 
-			@storage.should_receive(:delete_persistable).and_return  { |id| } 
+			@storage.should_receive(:ensure_object_connections).and_return  { }
+			@storage.should_receive(:delete_persistable).and_return  { |id| }
 			@marshal.should_receive(:dump).and_return  { |ob| "foo"}
 			@cache.delete(delete_item)
 			assert_equal(1, @cache.fetched.size)
-			assert_equal(nil, origin_obj.odba_connection)
+			assert_nil(origin_obj.odba_connection)
 		end
 		def prepare_delete(mock, name, id)
 			mock.should_receive(:odba_id).and_return  { id }
 			mock.should_receive(:odba_name).and_return  { name }
 			mock.should_receive(:odba_notify_observers).and_return  { |key, id1, id2|
-        assert_equal(:delete, key) 
+        assert_equal(:delete, key)
       }
 			@storage.should_receive(:retrieve_connected_objects).and_return  { |id|
 				[]
 			}
 			mock.should_receive(:origin_class?).and_return  { true }
 			mock.should_receive(:odba_id).and_return  { id }
-			@storage.should_receive(:delete_persistable).and_return  { |id_arg| 
+			@storage.should_receive(:delete_persistable).and_return  { |id_arg|
 				assert_equal(id, id_arg)
 			}
 			@storage.should_receive(:delete_index_element).and_return  { }
 		end
 		def prepare_bulk_restore(rows)
 			rows.each { |odba_mock|
-        ## according to recent changes, objects are extended with 
+        ## according to recent changes, objects are extended with
         #  ODBA::Persistable after loading - this enables ad-hoc storing
         #  but messes up loads of tests
 				@marshal.should_receive(:load).and_return  { |dump|
@@ -591,7 +591,7 @@ module ODBA
       ## store o1
       @marshal.should_receive(:dump).times(3).and_return { |obj|
         "dump%i" % obj.odba_id
-      } 
+      }
       next_id = 1
       @storage.should_receive(:next_id).and_return { next_id += 1 }
       @storage.should_receive(:store).with(1,'dump1',nil,nil,Object)\
@@ -631,7 +631,7 @@ module ODBA
         .times(1).and_return(o4)
       @cache.fetched.store(1, ODBA::CacheEntry.new(o1))
       assert_raises(RuntimeError) {
-        ODBA.transaction { 
+        ODBA.transaction {
           o2.instance_variable_set('@other', o3)
           o1.instance_variable_set('@other', o2)
           o1.odba_store

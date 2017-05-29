@@ -30,7 +30,7 @@ module ODBA
 		class ODBAContainerInPersistable
 		 include ODBA::Persistable
 		 ODBA_SERIALIZABLE = ['@serializable']
-		 attr_accessor	:non_replaceable, :replaceable, :replaceable2, 
+		 attr_accessor	:non_replaceable, :replaceable, :replaceable2,
 			:array, :odba_persistent, :serializable
 		 attr_accessor	:odba_snapshot_level
 		end
@@ -181,11 +181,11 @@ module ODBA
 			level1.replaceable = level2
 
 			saved.odba_persistent = true
-			ODBA.cache.should_receive(:store).times(3).and_return { 
+			ODBA.cache.should_receive(:store).times(3).and_return {
         assert(true)
         2
       }
-			
+
 			@odba.odba_store_unsaved
 		end
 		def test_odba_store_unsaved_hash
@@ -196,12 +196,12 @@ module ODBA
 			level1.replaceable = hash
 			level1.non_replaceable = non_rep_hash
 			non_rep_hash.odba_persistent = true
-			
-			ODBA.cache.should_receive(:store).times(2).and_return { 
+
+			ODBA.cache.should_receive(:store).times(2).and_return {
         assert(true)
         2
       }
-			
+
 			level1.odba_store_unsaved
 		end
     def test_dup
@@ -225,8 +225,8 @@ module ODBA
 			odba_twin = @odba.odba_dup
 			odba_twin.replaceable.flexmock_verify
 			odba_twin.replaceable2.flexmock_verify
-			assert_equal(odba_twin, stub_container)	
-			assert_equal(odba_twin, stub_container2)	
+			assert_equal(odba_twin, stub_container)
+			assert_equal(odba_twin, stub_container2)
 		end
 		def test_odba_unsaved_true
 			@odba.instance_variable_set("@odba_persistent", false)
@@ -282,7 +282,7 @@ module ODBA
       ODBA.cache.should_receive(:next_id).and_return(1)
 			dump, hash = odba.odba_isolated_dump
 			obj = ODBA.marshaller.load(dump)
-			assert_equal(nil, obj.excluded)
+			assert_nil(obj.excluded)
 			assert_equal("baz", obj.included)
 			ODBA.marshaller = tmp
 		end
@@ -385,7 +385,7 @@ module ODBA
       }
       ODBA.cache.should_receive(:retrieve_from_index).with(name, args)\
         .times(1).and_return([result])
-      assert_equal([result], 
+      assert_equal([result],
                    IndexedStub.search_by_foo_and_bar('oof', 'rab'))
 
       ## exact search by multiple keys
@@ -393,11 +393,11 @@ module ODBA
       ODBA.cache.should_receive(:retrieve_from_index)\
         .with(name, args, Persistable::Exact)\
         .times(1).and_return([result])
-      assert_equal([result], 
+      assert_equal([result],
                    IndexedStub.search_by_exact_foo_and_bar('oof', 'rab'))
 
       ## find by multiple keys
-      args = {:foo => {'value' => 7,'condition' => '='}, 
+      args = {:foo => {'value' => 7,'condition' => '='},
               :bar => {'value' => 'rab','condition' => 'like'}}
       ODBA.cache.should_receive(:retrieve_from_index)\
         .with(name, args, Persistable::Find)\
@@ -497,7 +497,7 @@ module ODBA
 
       modified.instance_variable_set('@data', 'bar')
       assert_equal('bar', modified.instance_variable_get('@data'))
-      
+
       modified.odba_replace!(reloaded)
       assert_equal('foo', modified.instance_variable_get('@data'))
     end
@@ -553,5 +553,5 @@ module ODBA
       o = ODBAContainerInPersistable.new
       assert_equal([], o.odba_collection)
     end
-	end	
+	end
 end
