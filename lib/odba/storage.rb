@@ -15,31 +15,31 @@ module ODBA
     TABLES = [
       # in table 'object', the isolated dumps of all objects are stored
       ['object', <<-'SQL'],
-CREATE TABLE object (
+CREATE TABLE IF NOT EXISTS object (
   odba_id INTEGER NOT NULL, content TEXT,
   name TEXT, prefetchable BOOLEAN, extent TEXT,
   PRIMARY KEY(odba_id), UNIQUE(name)
 );
       SQL
       ['prefetchable_index', <<-SQL],
-CREATE INDEX prefetchable_index ON object(prefetchable);
+CREATE INDEX IF NOT EXISTS prefetchable_index ON object(prefetchable);
       SQL
       ['extent_index', <<-SQL],
-CREATE INDEX extent_index ON object(extent);
+CREATE INDEX IF NOT EXISTS extent_index ON object(extent);
       SQL
       # helper table 'object_connection'
       ['object_connection', <<-'SQL'],
-CREATE TABLE object_connection (
+CREATE TABLE IF NOT EXISTS object_connection (
   origin_id integer, target_id integer,
   PRIMARY KEY(origin_id, target_id)
 );
       SQL
       ['target_id_index', <<-SQL],
-CREATE INDEX target_id_index ON object_connection(target_id);
+CREATE INDEX IF NOT EXISTS target_id_index ON object_connection(target_id);
       SQL
       # helper table 'collection'
       ['collection', <<-'SQL'],
-CREATE TABLE collection (
+CREATE TABLE IF NOT EXISTS collection (
   odba_id integer NOT NULL, key text, value text,
   PRIMARY KEY(odba_id, key)
 );
@@ -135,7 +135,7 @@ CREATE TABLE collection (
     end
     def create_condition_index(table_name, definition)
       self.dbi.do <<-SQL
-CREATE TABLE #{table_name} (
+CREATE TABLE IF NOT EXISTS #{table_name} (
   origin_id INTEGER,
   #{definition.collect { |*pair| pair.join(' ') }.join(",\n  ") },
   target_id INTEGER
@@ -143,22 +143,22 @@ CREATE TABLE #{table_name} (
       SQL
       #index origin_id
       self.dbi.do <<-SQL
-CREATE INDEX origin_id_#{table_name} ON #{table_name}(origin_id);
+CREATE INDEX IF NOT EXISTS origin_id_#{table_name} ON #{table_name}(origin_id);
       SQL
       #index search_term
       definition.each { |name, datatype|
         self.dbi.do <<-SQL
-CREATE INDEX #{name}_#{table_name} ON #{table_name}(#{name});
+CREATE INDEX IF NOT EXISTS #{name}_#{table_name} ON #{table_name}(#{name});
         SQL
       }
       #index target_id
       self.dbi.do <<-SQL
-CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
+CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
       SQL
     end
     def create_fulltext_index(table_name)
       self.dbi.do <<-SQL
-CREATE TABLE #{table_name} (
+CREATE TABLE IF NOT EXISTS #{table_name} (
   origin_id INTEGER,
   search_term tsvector,
   target_id INTEGER
@@ -166,21 +166,20 @@ CREATE TABLE #{table_name} (
       SQL
       #index origin_id
       self.dbi.do <<-SQL
-CREATE INDEX origin_id_#{table_name} ON #{table_name}(origin_id);
+CREATE INDEX IF NOT EXISTS origin_id_#{table_name} ON #{table_name}(origin_id);
       SQL
-      #index search_term
       self.dbi.do <<-SQL
-CREATE INDEX search_term_#{table_name}
+CREATE INDEX IF NOT EXISTS search_term_#{table_name}
 ON #{table_name} USING gist(search_term);
       SQL
       #index target_id
       self.dbi.do <<-SQL
-CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
+CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
       SQL
     end
     def create_index(table_name)
       self.dbi.do <<-SQL
-        CREATE TABLE #{table_name} (
+        CREATE TABLE IF NOT EXISTS #{table_name} (
           origin_id INTEGER,
           search_term TEXT,
           target_id INTEGER
@@ -188,17 +187,17 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       SQL
       #index origin_id
       self.dbi.do <<-SQL
-        CREATE INDEX origin_id_#{table_name}
+        CREATE INDEX IF NOT EXISTS origin_id_#{table_name}
         ON #{table_name}(origin_id)
       SQL
       #index search_term
       self.dbi.do <<-SQL
-        CREATE INDEX search_term_#{table_name}
+        CREATE INDEX IF NOT EXISTS search_term_#{table_name}
         ON #{table_name}(search_term)
       SQL
       #index target_id
       self.dbi.do <<-SQL
-        CREATE INDEX target_id_#{table_name}
+        CREATE INDEX IF NOT EXISTS target_id_#{table_name}
         ON #{table_name}(target_id)
       SQL
     end
@@ -267,7 +266,7 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
     def ensure_target_id_index(table_name)
       #index target_id
       self.dbi.do <<-SQL
-        CREATE INDEX target_id_#{table_name}
+        CREATE INDEX IF NOT EXISTS target_id_#{table_name}
         ON #{table_name}(target_id)
       SQL
     rescue
@@ -288,6 +287,9 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
         WHERE #{id_name} = ?
       SQL
     end
+    def get_server_version
+      /\s([\d\.]+)\s/.match(self.dbi.select_all("select version();").first.first)[1]
+    end
     def fulltext_index_target_ids(index_name, origin_id)
       sql = <<-SQL
         SELECT DISTINCT target_id
@@ -296,17 +298,11 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       SQL
       self.dbi.select_all(sql, origin_id)
     end
-    def generate_dictionary(language, data_path='/usr/share/postgresql/tsearch_data/', file='fulltext')
-      found = true
-      %w{dict affix stop}.each do |ext|
-        filename = "#{language}_#{file}.#{ext}"
-        source   = File.join(data_path, filename)
-        unless File.exists?(source)
-          puts "ERROR:  \"#{filename}\" does not exist in #{data_path}."
-          found = false
-        end
-      end
-      return unless found
+    def generate_dictionary(language)
+      # postgres searches for the dictionary file in the directory share/tsearch_data of it installation location
+      # By default under gentoo, this is /usr/share/postgresql/tsearch_data/
+      # As we have no way to get the current installation path, we do not check whether the files are present or not
+      file='fulltext'
       # setup configuration
       self.dbi.do <<-SQL
         CREATE TEXT SEARCH CONFIGURATION public.default_#{language} ( COPY = pg_catalog.#{language} );
@@ -526,7 +522,7 @@ CREATE INDEX target_id_#{table_name} ON #{table_name}(target_id);
       unless(self.dbi.columns('object').any? { |col| col.name == 'extent' })
         self.dbi.do <<-EOS
 ALTER TABLE object ADD COLUMN extent TEXT;
-CREATE INDEX extent_index ON object(extent);
+CREATE INDEX IF NOT EXISTS extent_index ON object(extent);
         EOS
       end
     end
