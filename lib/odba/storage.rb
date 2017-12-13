@@ -158,11 +158,14 @@ CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
     end
     def create_fulltext_index(table_name)
       self.dbi.do <<-SQL
-CREATE TABLE IF NOT EXISTS #{table_name} (
+DROP TABLE IF EXISTS #{table_name};
+      SQL
+      self.dbi.do <<-SQL
+CREATE TABLE IF NOT EXISTS #{table_name}  (
   origin_id INTEGER,
   search_term tsvector,
   target_id INTEGER
-);
+) WITH OIDS ;
       SQL
       #index origin_id
       self.dbi.do <<-SQL
@@ -179,11 +182,14 @@ CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
     end
     def create_index(table_name)
       self.dbi.do <<-SQL
+        DROP TABLE IF EXISTS #{table_name};
+      SQL
+      self.dbi.do <<-SQL
         CREATE TABLE IF NOT EXISTS #{table_name} (
           origin_id INTEGER,
           search_term TEXT,
           target_id INTEGER
-        );
+        )  WITH OIDS;
       SQL
       #index origin_id
       self.dbi.do <<-SQL
@@ -205,7 +211,7 @@ CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
 			Thread.current[:txn] || @dbi
 		end
 		def drop_index(index_name)
-			self.dbi.do "DROP TABLE #{index_name}"
+			self.dbi.do "DROP TABLE IF EXISTS #{index_name}"
 		end
     def delete_index_element(index_name, odba_id, id_name)
       self.dbi.do <<-SQL, odba_id
@@ -301,13 +307,20 @@ CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
     def generate_dictionary(language)
       # postgres searches for the dictionary file in the directory share/tsearch_data of it installation location
       # By default under gentoo, this is /usr/share/postgresql/tsearch_data/
+      # Use /usr/local/pgsql-10.1/bin/pg_config --sharedir to get the current value
       # As we have no way to get the current installation path, we do not check whether the files are present or not
       file='fulltext'
       # setup configuration
       self.dbi.do <<-SQL
+        DROP TEXT SEARCH DICTIONARY IF EXISTS  public.default_#{language};
+      SQL
+      self.dbi.do <<-SQL
         CREATE TEXT SEARCH CONFIGURATION public.default_#{language} ( COPY = pg_catalog.#{language} );
       SQL
       # ispell
+      self.dbi.do <<-SQL
+        DROP TEXT SEARCH DICTIONARY IF EXISTS  #{language}_ispell;
+      SQL
       self.dbi.do <<-SQL
         CREATE TEXT SEARCH DICTIONARY #{language}_ispell (
           TEMPLATE  = ispell,
@@ -460,7 +473,7 @@ CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
       end
       self.dbi.select_all(sql, *values)
     end
-		def retrieve_from_fulltext_index(index_name, search_term, dict, limit=nil)
+		def retrieve_from_fulltext_index(index_name, search_term, limit=nil)
       ## this combination of gsub statements solves the problem of 
       #  properly escaping strings of this form: "(2:1)" into 
       #  '\(2\:1\)' (see test_retrieve_from_fulltext_index)
@@ -468,19 +481,19 @@ CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
         .gsub(/[():]/i, '\\ \\&').gsub(/\s/, '')
 	    sql = <<-EOQ
 				SELECT target_id, 
-					max(ts_rank(search_term, to_tsquery(?, ?))) AS relevance
+					max(ts_rank(search_term, to_tsquery(?))) AS relevance
 				FROM #{index_name} 
-				WHERE search_term @@ to_tsquery(?, ?) 
+				WHERE search_term @@ to_tsquery(?)
 				GROUP BY target_id
 				ORDER BY relevance DESC
 			EOQ
       if(limit)
         sql << " LIMIT #{limit}"
       end
-			self.dbi.select_all(sql, dict, term, dict, term)
+			self.dbi.select_all(sql, term, term)
 		rescue DBI::ProgrammingError => e
 			warn("ODBA::Storage.retrieve_from_fulltext_index rescued a DBI::ProgrammingError(#{e.message}). Query:")
-			warn("self.dbi.select_all(#{sql}, #{dict}, #{term}, #{dict}, #{term})")
+			warn("self.dbi.select_all(#{sql}, #{term}, #{term})")
 			warn("returning empty result")
 			[]
 		end
@@ -583,17 +596,21 @@ WHERE origin_id = ?
     def update_fulltext_index(index_name, origin_id, search_term, target_id, dict)
       search_term = search_term.gsub(/\s+/, ' ').strip
       if(target_id)
-        self.dbi.do <<-SQL, origin_id, dict, search_term, target_id
+                         value = <<-SQL, origin_id.to_s, search_term, target_id
 INSERT INTO #{index_name} (origin_id, search_term, target_id)
-VALUES (?, to_tsvector(?, ?), ?)
+VALUES (?, to_tsvector(?), ?)
+        SQL
+        result = self.dbi.do <<-SQL, origin_id.to_s, search_term, target_id
+INSERT INTO #{index_name} (origin_id, search_term, target_id)
+VALUES (?, to_tsvector(?), ?)
         SQL
       else
-        self.dbi.do <<-SQL, dict, search_term, origin_id
-UPDATE #{index_name} SET search_term=to_tsvector(?, ?)
+        result = self.dbi.do <<-SQL, search_term, origin_id
+UPDATE #{index_name} SET search_term=to_tsvector(?)
 WHERE origin_id=?
         SQL
       end
-    end
+      end
 		def update_index(index_name, origin_id, search_term, target_id)
       if(target_id)
         self.dbi.do <<-SQL, origin_id, search_term, target_id

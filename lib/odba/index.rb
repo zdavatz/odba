@@ -23,7 +23,7 @@ module ODBA
       ]
     end
 		attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
-			:resolve_search_term, :index_name, :dictionary, :class_filter
+			:resolve_search_term, :index_name, :class_filter
 		def initialize(index_definition, origin_module)
 			@origin_klass = origin_module.instance_eval(index_definition.origin_klass.to_s)
 			@target_klass = origin_module.instance_eval(index_definition.target_klass.to_s)
@@ -31,7 +31,6 @@ module ODBA
 			@resolve_target = index_definition.resolve_target
 			@index_name = index_definition.index_name
 			@resolve_search_term = index_definition.resolve_search_term
-			@dictionary = index_definition.dictionary
       @class_filter = index_definition.class_filter
 		end
     def current_origin_ids(target_id) # :nodoc:
@@ -381,15 +380,12 @@ module ODBA
     end
 		def fetch_ids(search_term, meta=nil)  # :nodoc:
       limit = meta.respond_to?(:limit) && meta.limit
-			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, 
-				search_term, @dictionary, limit)
+			rows = ODBA.storage.retrieve_from_fulltext_index(@index_name, search_term, limit)
 			set_relevance(meta, rows)
 			rows.collect { |row| row.at(0) }
 		end
     def do_update_index(origin_id, search_text, target_id=nil) # :nodoc:
-      ODBA.storage.update_fulltext_index(@index_name, origin_id,
-                                         search_text, target_id, 
-                                         @dictionary)
+      ODBA.storage.update_fulltext_index(@index_name, origin_id, search_text, target_id)
     end
   end
 end

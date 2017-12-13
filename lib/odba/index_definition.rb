@@ -5,8 +5,8 @@ module ODBA
 	# IndexDefinition is a convenience class. Load a yaml-dump of this and pass it
 	# to Cache#create_index to introduce new indices 
 	class IndexDefinition
-		attr_accessor :index_name, :dictionary, :origin_klass, 
-			:target_klass, :resolve_search_term, :resolve_target, 
+		attr_accessor :index_name, :origin_klass,
+			:target_klass, :resolve_search_term, :resolve_target,
 			:resolve_origin, :fulltext, :init_source, :class_filter
 		def initialize
 			@index_name = ""
@@ -15,7 +15,6 @@ module ODBA
 			@resolve_search_term = ""
 			@resolve_target = ""
 			@resolve_origin = ""
-			@dictionary = ""
 			@init_source = ""
 			@fulltext = false
       @class_filter = :is_a?
