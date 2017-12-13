@@ -1,8 +1,13 @@
+=== 1.1.3 / 13.12.2016
+
+* Drop text search dictionaries/configuration before recreating
+* Remove dictionary argument in fulltext search and index_definition
+
 === 1.1.3 / 12.12.2016
 
 * Avoid errors by always specifying "IF NOT EXISTS" when creating tables and indices
 * Add utility method get_server_version
-* Removed misleaading check in generate_dictionary
+* Removed misleading check in generate_dictionary
 
 === 1.1.2 / 10.05.2016
 
