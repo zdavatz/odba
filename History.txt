@@ -1,4 +1,8 @@
-=== 1.1.3 / 13.12.2016
+=== 1.1.5 / 23.01.2016
+
+* Remove unused parameter dict for update_fulltext_index
+
+=== 1.1.4 / 13.12.2017
 
 * Drop text search dictionaries/configuration before recreating
 * Remove dictionary argument in fulltext search and index_definition

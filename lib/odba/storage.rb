@@ -593,7 +593,7 @@ WHERE origin_id = ?
         SQL
       end
     end
-    def update_fulltext_index(index_name, origin_id, search_term, target_id, dict)
+    def update_fulltext_index(index_name, origin_id, search_term, target_id)
       search_term = search_term.gsub(/\s+/, ' ').strip
       if(target_id)
                          value = <<-SQL, origin_id.to_s, search_term, target_id
