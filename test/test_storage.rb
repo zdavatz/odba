@@ -40,25 +40,25 @@ module ODBA
 			expected1 = <<-SQL
 				DELETE FROM object_connection WHERE origin_id = ?
 			SQL
-			dbi.should_receive(:do).with(expected1, 2).times(1).and_return do
+			dbi.should_receive(:do).once.with(expected1, 2).times(1).and_return do
         assert true
       end
 			expected2 = <<-SQL
 				DELETE FROM object_connection WHERE target_id = ?
 			SQL
-			dbi.should_receive(:do).with(expected2, 2).times(1).and_return do
+			dbi.should_receive(:do).once.with(expected2, 2).times(1).and_return do
         assert true
       end
 			expected3 = <<-SQL
 				DELETE FROM collection WHERE odba_id = ?
 			SQL
-			dbi.should_receive(:do).with(expected3, 2).times(1).and_return do
+			dbi.should_receive(:do).once.with(expected3, 2).times(1).and_return do
         assert true
       end
 			expected4 = <<-SQL
 				DELETE FROM object WHERE odba_id = ?
 			SQL
-			dbi.should_receive(:do).with(expected4, 2).times(1).and_return do
+			dbi.should_receive(:do).once.with(expected4, 2).times(1).and_return do
         assert true
       end
 			@storage.delete_persistable(2)
@@ -83,36 +83,25 @@ module ODBA
 			dbi = flexmock('dbi')
 			@storage.dbi = dbi
       sql = <<-SQL
-        CREATE TABLE index_name (
-          origin_id INTEGER,
-          search_term TEXT,
-          target_id INTEGER
-        );
-      SQL
-      dbi.should_receive(:do).times(1).with(sql).and_return do
-        assert true
-      end
-      sql = <<-SQL
-        CREATE INDEX origin_id_index_name
+        CREATE INDEX IF NOT EXISTS origin_id_index_name
         ON index_name(origin_id)
       SQL
       dbi.should_receive(:do).times(1).with(sql).and_return do
         assert true
       end
       sql = <<-SQL
-        CREATE INDEX search_term_index_name
+        CREATE INDEX IF NOT EXISTS search_term_index_name
         ON index_name(search_term)
       SQL
       dbi.should_receive(:do).times(1).with(sql).and_return do
         assert true
       end
-      sql = <<-SQL
-        CREATE INDEX target_id_index_name
-        ON index_name(target_id)
-      SQL
-      dbi.should_receive(:do).times(1).with(sql).and_return do
-        assert true
-      end
+      sql = "        DROP TABLE IF EXISTS index_name;\n"
+      dbi.should_receive(:do).once.with(sql)
+      sql = "        CREATE INDEX IF NOT EXISTS target_id_index_name\n        ON index_name(target_id)\n"
+      dbi.should_receive(:do).once.with(sql)
+      sql = "        CREATE TABLE IF NOT EXISTS index_name (\n          origin_id INTEGER,\n          search_term TEXT,\n          target_id INTEGER\n        )  WITH OIDS;\n"
+      dbi.should_receive(:do).once.with(sql)
 			@storage.create_index("index_name")
 		end
 		def test_next_id
@@ -295,7 +284,7 @@ module ODBA
           WHERE origin_id=?
       SQL
       handle = flexmock('StatementHandle')
-      @dbi.should_receive(:do).with(sql, 'term', 2).times(1).and_return do
+      @dbi.should_receive(:do).once.with(sql, 'term', 2).times(1).and_return do
         assert true
       end
       @storage.update_index("index", 2, "term", nil)
@@ -334,7 +323,7 @@ module ODBA
         AND search_term = ?
         AND target_id = ?
       SQL
-			dbi.should_receive(:do).with(sql, 6, 'search-term', 5).times(1).and_return do
+			dbi.should_receive(:do).once.with(sql, 6, 'search-term', 5).times(1).and_return do
         assert true
       end
 			@storage.index_delete_target("foo_index", 6, 'search-term', 5)
@@ -342,8 +331,8 @@ module ODBA
 		def test_drop_index
 			dbi = flexmock("dbi")
 			@storage.dbi = dbi
-      sql = "DROP TABLE foo_index"
-			dbi.should_receive(:do).with(sql).and_return do
+      sql = "DROP TABLE IF EXISTS foo_index"
+			dbi.should_receive(:do).once.with(sql).and_return do
         assert true
       end
 			@storage.drop_index("foo_index")
@@ -393,7 +382,7 @@ module ODBA
               DELETE FROM object_connection
               WHERE origin_id = ? AND target_id IN (7,9)
       SQL
-      dbi.should_receive(:do).with(sql, 123).and_return {
+      dbi.should_receive(:do).once.with(sql, 123).and_return {
         assert(true)
       }
       sql = <<-SQL
@@ -428,73 +417,53 @@ module ODBA
         [:bar, 'Date'],
       ]
       sql = <<-'SQL'
-CREATE TABLE conditions (
+CREATE TABLE IF NOT EXISTS conditions (
   origin_id INTEGER,
   foo Integer,
   bar Date,
   target_id INTEGER
 );
       SQL
-      @dbi.should_receive(:do).with(sql).and_return do
+      @dbi.should_receive(:do).once.with(sql).and_return do
         assert true
       end
       sql = <<-'SQL'
-CREATE INDEX origin_id_conditions ON conditions(origin_id);
+CREATE INDEX IF NOT EXISTS origin_id_conditions ON conditions(origin_id);
       SQL
-      @dbi.should_receive(:do).with(sql).and_return do
+      @dbi.should_receive(:do).once.with(sql).and_return do
         assert true
       end
       sql = <<-'SQL'
-CREATE INDEX foo_conditions ON conditions(foo);
+CREATE INDEX IF NOT EXISTS foo_conditions ON conditions(foo);
       SQL
-      @dbi.should_receive(:do).with(sql).and_return do
+      @dbi.should_receive(:do).once.with(sql).and_return do
         assert true
       end
       sql = <<-'SQL'
-CREATE INDEX bar_conditions ON conditions(bar);
+CREATE INDEX IF NOT EXISTS bar_conditions ON conditions(bar);
       SQL
-      @dbi.should_receive(:do).with(sql).and_return do
+      @dbi.should_receive(:do).once.with(sql).and_return do
         assert true
       end
       sql = <<-'SQL'
-CREATE INDEX target_id_conditions ON conditions(target_id);
+CREATE INDEX IF NOT EXISTS target_id_conditions ON conditions(target_id);
       SQL
-      @dbi.should_receive(:do).with(sql).and_return do
+      @dbi.should_receive(:do).once.with(sql).and_return do
         assert true
       end
       @storage.create_condition_index('conditions', definition)
     end
     def test_create_fulltext_index
-      sql = <<-'SQL'
-CREATE TABLE fulltext (
-  origin_id INTEGER,
-  search_term tsvector,
-  target_id INTEGER
-);
-      SQL
       statement = flexmock('StatementHandle')
-      @dbi.should_receive(:do).with(sql).and_return do
-        assert true
-      end
-      sql = <<-'SQL'
-CREATE INDEX origin_id_fulltext ON fulltext(origin_id);
-      SQL
-      @dbi.should_receive(:do).with(sql).and_return do
-        assert true
-      end
-      sql = <<-'SQL'
-CREATE INDEX search_term_fulltext
-ON fulltext USING gist(search_term);
-      SQL
-      @dbi.should_receive(:do).with(sql).and_return do
-        assert true
-      end
-      sql = <<-'SQL'
-CREATE INDEX target_id_fulltext ON fulltext(target_id);
-      SQL
-      @dbi.should_receive(:do).with(sql).and_return do
-        assert true
-      end
+      @dbi.should_receive(:do).once.with("DROP TABLE IF EXISTS fulltext;\n")
+      sql = "CREATE INDEX IF NOT EXISTS origin_id_fulltext ON fulltext(origin_id);\n"
+      @dbi.should_receive(:do).once.with(sql).and_return
+      sql = "CREATE INDEX IF NOT EXISTS target_id_fulltext ON fulltext(target_id);\n"
+      @dbi.should_receive(:do).once.with(sql).and_return
+      sql = "CREATE TABLE IF NOT EXISTS fulltext  (\n  origin_id INTEGER,\n  search_term tsvector,\n  target_id INTEGER\n) WITH OIDS ;\n"
+      @dbi.should_receive(:do).once.with(sql).and_return
+      sql = "CREATE INDEX IF NOT EXISTS search_term_fulltext\nON fulltext USING gist(search_term);\n"
+      @dbi.should_receive(:do).once.with(sql).and_return
       @storage.create_fulltext_index('fulltext')
     end
     def test_extent_ids
@@ -523,7 +492,7 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
         WHERE odba_id = ? AND key = ?
       SQL
       statement = flexmock('StatementHandle')
-      @dbi.should_receive(:do).with(sql, 34, 'key_dump').and_return do
+      @dbi.should_receive(:do).once.with(sql, 34, 'key_dump').and_return do
         assert true
       end
       @storage.collection_remove(34, "key_dump")
@@ -534,7 +503,7 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
         VALUES (?, ?, ?)
       SQL
       statement = flexmock('StatementHandle')
-      @dbi.should_receive(:do).with(sql, 34, 'key_dump', 'dump').and_return do
+      @dbi.should_receive(:do).once.with(sql, 34, 'key_dump', 'dump').and_return do
         assert true
       end
       @storage.collection_store(34, "key_dump", 'dump')
@@ -606,13 +575,13 @@ CREATE INDEX target_id_fulltext ON fulltext(target_id);
       tables = %w{object_connection collection}
       @dbi.should_receive(:tables).and_return(tables)
       sql = <<-'SQL'
-CREATE TABLE object (
+CREATE TABLE IF NOT EXISTS object (
   odba_id INTEGER NOT NULL, content TEXT,
   name TEXT, prefetchable BOOLEAN, extent TEXT,
   PRIMARY KEY(odba_id), UNIQUE(name)
 );
-CREATE INDEX prefetchable_index ON object(prefetchable);
-CREATE INDEX extent_index ON object(extent);
+CREATE INDEX IF NOT EXISTS prefetchable_index ON object(prefetchable);
+CREATE INDEX IF NOT EXISTS extent_index ON object(extent);
       SQL
       @dbi.should_receive(:execute).with(sql).and_return {
         assert(true) }
@@ -625,11 +594,11 @@ CREATE INDEX extent_index ON object(extent);
       tables = %w{object collection}
       @dbi.should_receive(:tables).and_return(tables)
       sql = <<-'SQL'
-CREATE TABLE object_connection (
+CREATE TABLE IF NOT EXISTS object_connection (
   origin_id integer, target_id integer,
   PRIMARY KEY(origin_id, target_id)
 );
-CREATE INDEX target_id_index ON object_connection(target_id);
+CREATE INDEX IF NOT EXISTS target_id_index ON object_connection(target_id);
       SQL
       @dbi.should_receive(:execute).with(sql).and_return {
         assert(true) }
@@ -642,7 +611,7 @@ CREATE INDEX target_id_index ON object_connection(target_id);
       tables = %w{object object_connection}
       @dbi.should_receive(:tables).and_return(tables)
       sql = <<-'SQL'
-CREATE TABLE collection (
+CREATE TABLE IF NOT EXISTS collection (
   odba_id integer NOT NULL, key text, value text,
   PRIMARY KEY(odba_id, key)
 );
@@ -657,24 +626,13 @@ CREATE TABLE collection (
     def test_setup__extent
       tables = %w{object object_connection collection}
       @dbi.should_receive(:tables).and_return(tables)
-      sql = "CREATE TABLE object (\n  odba_id INTEGER NOT NULL, content TEXT,\n  name TEXT, prefetchable BOOLEAN, extent TEXT,\n  PRIMARY KEY(odba_id), UNIQUE(name)\n);\n"
-      @dbi.should_receive(:do).with(sql).and_return(true)
-      sql  = "CREATE INDEX prefetchable_index ON object(prefetchable);\n"
-      @dbi.should_receive(:do).with(sql).and_return(true)
-      sql = "CREATE INDEX extent_index ON object(extent);\n"
-      @dbi.should_receive(:do).with(sql).and_return(true)
-      sql = "CREATE TABLE object_connection (\n  origin_id integer, target_id integer,\n  PRIMARY KEY(origin_id, target_id)\n);\n"
-      @dbi.should_receive(:do).with(sql).and_return(true)
-      sql = "CREATE INDEX target_id_index ON object_connection(target_id);\n"
-      @dbi.should_receive(:do).with(sql).and_return(true)
-      sql = "CREATE TABLE collection (\n  odba_id integer NOT NULL, key text, value text,\n  PRIMARY KEY(odba_id, key)\n);\n"
-      @dbi.should_receive(:do).with(sql).and_return(true)
-      sql = <<-'SQL'
-ALTER TABLE object ADD COLUMN extent TEXT;
-CREATE INDEX extent_index ON object(extent);
-      SQL
-      @dbi.should_receive(:do).with(sql).and_return {
-        assert(true) }
+      sql = "CREATE TABLE IF NOT EXISTS object_connection (\n  origin_id integer, target_id integer,\n  PRIMARY KEY(origin_id, target_id)\n);\n"
+      @dbi.should_receive(:do).once.with(sql).and_return(true)
+      sql = "CREATE INDEX IF NOT EXISTS target_id_index ON object_connection(target_id);\n"
+      @dbi.should_receive(:do).once.with(sql).and_return(true)
+      sql = "CREATE TABLE IF NOT EXISTS collection (\n  odba_id integer NOT NULL, key text, value text,\n  PRIMARY KEY(odba_id, key)\n);\n"
+      @dbi.should_receive(:do).once.with(sql).and_return(true)
+      @dbi.should_receive(:do).once.with("ALTER TABLE object ADD COLUMN extent TEXT;\nCREATE INDEX IF NOT EXISTS extent_index ON object(extent);\n")
       @dbi.should_receive(:columns).and_return([])
       @storage.setup
     end
@@ -684,7 +642,7 @@ CREATE INDEX extent_index ON object(extent);
 INSERT INTO index (origin_id, target_id, foo, bar)
 VALUES (?, ?, ?, ?)
       SQL
-      @dbi.should_receive(:do).with(sql, 12, 15, 14, 'blur').times(1).and_return {
+      @dbi.should_receive(:do).once.with(sql, 12, 15, 14, 'blur').times(1).and_return {
         assert(true)
       }
       terms = [
@@ -699,7 +657,7 @@ VALUES (?, ?, ?, ?)
 UPDATE index SET foo=?, bar=?
 WHERE origin_id = ?
       SQL
-      @dbi.should_receive(:do).with(sql, 14, 'blur', 12).times(1).and_return {
+      @dbi.should_receive(:do).once.with(sql, 14, 'blur', 12).times(1).and_return {
         assert(true)
       }
       terms = [
@@ -710,29 +668,17 @@ WHERE origin_id = ?
     end
     def test_update_fulltext_index__with_target_id
       handle = flexmock('StatementHandle')
-      sql = <<-'SQL'
-INSERT INTO index (origin_id, search_term, target_id)
-VALUES (?, to_tsvector(?, ?), ?)
-      SQL
-      @dbi.should_receive(:do).with(sql, 12, "german", "some text", 
-                                    15).and_return {
-        assert(true)
-      }
-      @storage.update_fulltext_index('index', 12, "some  text", 15, 
-                                     'german')
+      sql = "INSERT INTO index (origin_id, search_term, target_id)\nVALUES (?, to_tsvector(?), ?)\n"
+      @dbi.should_receive(:do).once.with(sql, "12", "some text", 15)
+      @storage.update_fulltext_index('index', 12, "some  text", 15)
     end
     def test_update_fulltext_index__without_target_id
       handle = flexmock('StatementHandle')
-      sql = <<-'SQL'
-UPDATE index SET search_term=to_tsvector(?, ?)
-WHERE origin_id=?
-      SQL
-      @dbi.should_receive(:do).with(sql, "german", "some text", 
-                                    12).and_return {
+      sql = "UPDATE index SET search_term=to_tsvector(?)\nWHERE origin_id=?\n"
+      @dbi.should_receive(:do).once.with(sql, "some text", 12).and_return {
         assert(true)
       }
-      @storage.update_fulltext_index('index', 12, "some  text", nil,
-                                     'german')
+      @storage.update_fulltext_index('index', 12, "some  text", nil)
     end
     def test_condition_index_delete
       sql = <<-SQL
@@ -740,10 +686,10 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
       SQL
       if /^1\.8/.match(RUBY_VERSION)
         sql = "DELETE FROM index WHERE origin_id = ? AND c2 = ? AND c1 = ?"
-        @dbi.should_receive(:do).with(sql.chomp, 3, 7, 'f').times(1).and_return(true)
+        @dbi.should_receive(:do).once.with(sql.chomp, 3, 7, 'f').times(1).and_return(true)
       else
         sql = "DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?"
-        @dbi.should_receive(:do).with(sql.chomp, 3, 'f', 7).times(1).and_return(true)
+        @dbi.should_receive(:do).once.with(sql.chomp, 3, 'f', 7).times(1).and_return(true)
       end
       handle = flexmock('DBHandle')
       @storage.condition_index_delete('index', 3, {'c1' => 'f','c2' => 7})
@@ -752,10 +698,10 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
       handle = flexmock('DBHandle')
       if /^1\.8/.match(RUBY_VERSION)
         sql = "DELETE FROM index WHERE origin_id = ? AND c2 = ? AND c1 = ? AND target_id = ?"
-        @dbi.should_receive(:do).with(sql.chomp, 3, 7, 'f', 4).times(1).and_return(true)
+        @dbi.should_receive(:do).once.with(sql.chomp, 3, 7, 'f', 4).times(1).and_return(true)
       else
         sql = "DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?"
-        @dbi.should_receive(:do).with(sql.chomp, 3, 'f', 7, 4).times(1).and_return(true)
+        @dbi.should_receive(:do).once.with(sql.chomp, 3, 'f', 7, 4).times(1).and_return(true)
       end
       @storage.condition_index_delete('index', 3, {'c1' => 'f','c2' => 7}, 4)
     end
@@ -781,7 +727,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
     end
     def test_ensure_target_id_index
       sql = <<-SQL
-        CREATE INDEX target_id_index
+        CREATE INDEX IF NOT EXISTS target_id_index
         ON index(target_id)
       SQL
       @dbi.should_receive(:execute).with(sql).and_return { 
@@ -793,7 +739,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
         DELETE FROM index
         WHERE origin_id = ?
       SQL
-      @dbi.should_receive(:do).with(sql, 4)\
+      @dbi.should_receive(:do).once.with(sql, 4)\
         .times(1).and_return { assert(true) }
       @storage.fulltext_index_delete('index', 4, 'origin_id')
     end
@@ -802,7 +748,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
         DELETE FROM index
         WHERE target_id = ?
       SQL
-      @dbi.should_receive(:do).with(sql, 4)\
+      @dbi.should_receive(:do).once.with(sql, 4)\
         .times(1).and_return { assert(true) }
       @storage.fulltext_index_delete('index', 4, 'target_id')
     end
@@ -828,7 +774,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
     end
     def test_delete_index_element__origin
       handle = flexmock('DB-Handle')
-      @dbi.should_receive(:do).with(<<-SQL, 15).times(1).and_return {
+      @dbi.should_receive(:do).once.with(<<-SQL, 15).times(1).and_return {
         DELETE FROM index WHERE origin_id = ?
       SQL
         assert(true)
@@ -837,7 +783,7 @@ DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ?
     end
     def test_delete_index_element__target
       handle = flexmock('DB-Handle')
-      @dbi.should_receive(:do).with(<<-SQL, 15).times(1).and_return {
+      @dbi.should_receive(:do).once.with(<<-SQL, 15).times(1).and_return {
         DELETE FROM index WHERE target_id = ?
       SQL
         assert(true)

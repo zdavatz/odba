@@ -310,7 +310,6 @@ module ODBA
       ODBA.storage = @storage
       df = IndexDefinition.new
       df.index_name = 'index'
-      df.dictionary = 'german'
       df.origin_klass = :Origin
       df.target_klass = :Target
       df.resolve_origin = :origin
@@ -320,12 +319,12 @@ module ODBA
     def test_fetch_ids
       rows = [[1,3], [2,2], [3,1]]
       @storage.should_receive(:retrieve_from_fulltext_index)\
-        .with('index', 'search-term', 'german', false).and_return rows
+        .with('index', 'search-term', false).and_return rows
       assert_equal([1,2,3], @index.fetch_ids('search-term'))
     end
     def test_do_update_index
       @storage.should_receive(:update_fulltext_index)\
-        .with('index', 3, 'some full text', 4, 'german')
+        .with('index', 3, 'some full text', 4)
       @index.do_update_index(3, 'some full text', 4)
     end
     def test_update_target
@@ -334,9 +333,9 @@ module ODBA
       @storage.should_receive(:fulltext_index_delete)\
         .with('index', 4, 'target_id')
       @storage.should_receive(:update_fulltext_index)\
-        .with('index', 1, 'fulltext term', 4, 'german')
+        .with('index', 1, 'fulltext term', 4)
       @storage.should_receive(:update_fulltext_index)\
-        .with('index', 2, 'fulltext term', 4, 'german')
+        .with('index', 2, 'fulltext term', 4)
       target = Target.new
       target.odba_id = 4
       origin1 = Origin.new
@@ -356,9 +355,9 @@ module ODBA
       @storage.should_receive(:fulltext_index_delete)\
         .times(1).with('index', 1, 'origin_id')
       @storage.should_receive(:update_fulltext_index)\
-        .times(1).with('index', 1, 'fulltext term', 4, 'german')
+        .times(1).with('index', 1, 'fulltext term', 4)
       @storage.should_receive(:update_fulltext_index)\
-        .times(1).with('index', 1, 'fulltext term', 5, 'german')
+        .times(1).with('index', 1, 'fulltext term', 5)
       target = Target.new
       target.odba_id = 4
       origin1 = Origin.new
