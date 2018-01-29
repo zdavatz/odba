@@ -1,3 +1,7 @@
+=== 1.1.6 / 23.01.2016
+
+* Updated to use ydbi 0.5.6
+
 === 1.1.5 / 23.01.2016
 
 * Remove unused parameter dict for update_fulltext_index
