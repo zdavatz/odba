@@ -4,14 +4,15 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
+require 'minitest/autorun'
+require 'flexmock/test_unit'
+require 'flexmock'
 require 'odba/persistable'
 require 'odba/stub'
 require 'odba/cache'
 require 'odba/odba'
 require 'odba/storage'
 require 'odba/marshal'
-require 'minitest/autorun'
-require 'flexmock'
 require 'yaml'
 
 module ODBA

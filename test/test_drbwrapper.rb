@@ -4,8 +4,9 @@
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
 require 'minitest/autorun'
-require 'odba/drbwrapper'
+require 'flexmock/test_unit'
 require 'flexmock'
+require 'odba/drbwrapper'
 
 module ODBA
   class TestDRbWrapper < Minitest::Test

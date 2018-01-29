@@ -5,10 +5,11 @@ $: << File.dirname(__FILE__)
 $: << File.expand_path("../lib", File.dirname(__FILE__))
 
 require 'minitest/autorun'
+require 'flexmock/test_unit'
+require 'flexmock'
 require 'odba/index'
 require 'odba/index_definition'
 require 'odba/odba'
-require 'flexmock'
 
 module ODBA
   class Origin

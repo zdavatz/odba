@@ -2,12 +2,6 @@ source "https://rubygems.org"
 
 gemspec
 
-group 'test' do
-  gem 'flexmock', "~> 1.3.0"
-  gem 'test-unit'
-  gem 'minitest'
-end
-
 group 'debugger' do
   gem 'pry'
   gem 'pry-nav'

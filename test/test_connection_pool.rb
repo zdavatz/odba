@@ -4,6 +4,7 @@
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
 require 'minitest/autorun'
+require 'flexmock/test_unit'
 require 'flexmock'
 require 'odba/connection_pool'
 ## connection_pool requires 'dbi', which unshifts the site_ruby dir

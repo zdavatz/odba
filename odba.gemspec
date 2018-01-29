@@ -21,8 +21,10 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake"
+  spec.add_development_dependency "rspec"
   spec.add_development_dependency "flexmock"
+  spec.add_development_dependency "minitest"
+  spec.add_development_dependency "test-unit"
+  spec.add_development_dependency "debug_inspector"
   spec.add_development_dependency "simplecov", '>= 0.14.1'
-  spec.add_development_dependency "minitest" if /^1\./.match(RUBY_VERSION)
 end
-

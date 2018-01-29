@@ -6,6 +6,7 @@ $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
 require 'minitest/autorun'
+require 'flexmock/test_unit'
 require 'flexmock'
 require 'odba/cache'
 require 'odba/cache_entry'
