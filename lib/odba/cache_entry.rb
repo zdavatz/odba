@@ -52,7 +52,7 @@ module ODBA
 			object
 		end
 		def odba_cut_connections!
-      @cache_entry_mutex.synchronize do 
+      @cache_entry_mutex.synchronize do
         @accessed_by.each { |object_id, odba_id|
           if((item = odba_id2ref(odba_id) || object_id2ref(object_id, odba_id)) \
             && item.respond_to?(:odba_cut_connection))
@@ -77,10 +77,10 @@ module ODBA
         && (retire_horizon > @last_access)
 		end
 		def odba_retire opts={}
-			# replace with stubs in accessed_by 
+			# replace with stubs in accessed_by
       instance = _odba_object
       if opts[:force]
-        @cache_entry_mutex.synchronize do 
+        @cache_entry_mutex.synchronize do
           @accessed_by.each do |object_id, odba_id|
             if item = odba_id2ref(odba_id)
               item.odba_stubize instance, opts

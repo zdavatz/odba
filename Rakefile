@@ -16,13 +16,12 @@ end
 desc "Run tests"
 task :default => :test
 
-desc 'Run odba with all commonly used combinations'
-task :test do
-  log_file = 'suite.log'
-  res = system("bash -c 'set -o pipefail && bundle exec ruby test/suite.rb 2>&1 | tee #{log_file}'")
-  puts "Running test/suite.rb returned #{res.inspect}. Output was redirected to #{log_file}"
-  exit 1 unless res
+Rake::TestTask.new(:test) do |t|
+  t.libs << "test"
+  t.libs << "lib"
+  t.test_files = FileList["test/**/test_*.rb"]
 end
+
 
 require 'rake/clean'
 CLEAN.include FileList['pkg/*.gem']

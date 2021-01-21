@@ -2,10 +2,7 @@ source "https://rubygems.org"
 
 gemspec
 
-group 'debugger' do
-  gem 'pry'
-  gem 'pry-nav'
-  gem 'pry-rescue'
-  gem 'pry-stack_explorer'
-  gem 'pry-doc'
-end
+# The group debugger must be disabled for using a matrix build via github/actions
+group :debugger do
+  gem 'pry-byebug'
+end if false

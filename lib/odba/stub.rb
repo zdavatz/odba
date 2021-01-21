@@ -10,7 +10,7 @@ module ODBA
 		def initialize(odba_id, odba_container, receiver)
 			@odba_id = odba_id
 			@odba_container = odba_container
-			@odba_class = receiver.class unless receiver.nil? 
+			@odba_class = receiver.class unless receiver.nil?
       @receiver_loaded = true
 		end
 		def class
@@ -50,16 +50,19 @@ module ODBA
         @receiver_loaded = true
 				if(@odba_container)
 					@odba_container.odba_replace_stubs(@odba_id, @receiver)
-        else 
+        else
           warn "Potential Memory-Leak: stub for #{@receiver.class}##{@odba_id} was saved without container"
 				end
 				@receiver
 			rescue OdbaError => e
-				warn "ODBA::Stub was unable to replace #{@odba_class}##{@odba_id} from #{@odba_container.class}:##{@odba_container.odba_id}"
+				puts "OdbaError"
+				puts caller[0..10].join("\n")
+				warn "ODBA::Stub was unable to replace #{@odba_class}##{@odba_id} from #{@odba_container.class}:##{@odba_container.odba_id}. raise OdbaError"
+        raise OdbaError
 			end
 		end
   alias :odba_instance :odba_receiver
-		# A stub always references a Persistable that has 
+		# A stub always references a Persistable that has
 		# already been saved.
 		def odba_unsaved?(snapshot_level=nil)
 			false
@@ -78,8 +81,8 @@ module ODBA
       end
 		end
 		no_override = [
-			"class", "is_a?", "__id__", "__send__", "inspect", 
-			"eql?", "nil?", "respond_to?", "object_id", 
+			"class", "is_a?", "__id__", "__send__", "inspect",
+			"eql?", "nil?", "respond_to?", "object_id",
 			"instance_variables", "instance_variable_get",
 			"instance_variable_set", "==",
 			## methods defined in persistable.rb:Object

@@ -45,7 +45,7 @@ module ODBA
                 opts = keys.pop
               end
               if(keys.last.is_a?(Class))
-                origin_klass = keys.pop 
+                origin_klass = keys.pop
                 resolve = keys.pop
                 resolve_origin = keys.pop
               elsif(keys.last.is_a?(Symbol))
@@ -58,7 +58,7 @@ module ODBA
             else
               resolve = keys.first
             end
-            keys.each { |key| 
+            keys.each { |key|
               if RUBY_VERSION >= '1.9'
                 key = key.to_sym
               else
@@ -85,8 +85,8 @@ module ODBA
             opts.each { |key, val| index_definition.send "#{key}=", val }
             ODBA.cache.ensure_index_deferred(index_definition)
             meta_eval {
-              define_method(search_name) { |*vals| 
-                if(vals.size > 1) 
+              define_method(search_name) { |*vals|
+                if(vals.size > 1)
                   args = {}
                   vals.each_with_index { |val, idx|
                     cond = case val
@@ -95,7 +95,7 @@ module ODBA
                            else
                              'like'
                            end
-                    args.store(keys.at(idx), 
+                    args.store(keys.at(idx),
                                { 'value' => val, 'condition' => cond })
                   }
                   ODBA.cache.retrieve_from_index(index_name, args)
@@ -104,12 +104,12 @@ module ODBA
                 end
               }
               define_method(exact_name) {  |*vals|
-                if(vals.size > 1) 
+                if(vals.size > 1)
                   args = {}
                   vals.each_with_index { |val, idx|
                     args.store(keys.at(idx), val)
                   }
-                  ODBA.cache.retrieve_from_index(index_name, args, 
+                  ODBA.cache.retrieve_from_index(index_name, args,
                                                  ODBA::Persistable::Exact)
                 else
                   ODBA.cache.retrieve_from_index(index_name, vals.first,
@@ -117,7 +117,7 @@ module ODBA
                 end
               }
               define_method(find_name) {  |*vals|
-                if(vals.size > 1) 
+                if(vals.size > 1)
                   args = {}
                   vals.each_with_index { |val, idx|
                     cond = case val
@@ -126,7 +126,7 @@ module ODBA
                            else
                              'like'
                            end
-                    args.store(keys.at(idx), 
+                    args.store(keys.at(idx),
                                { 'value' => val, 'condition' => cond })
                   }
                   ODBA.cache.retrieve_from_index(index_name, args,
@@ -145,7 +145,7 @@ module ODBA
             index_definition
           end
           def odba_extent
-            all = ODBA.cache.extent(self) 
+            all = ODBA.cache.extent(self)
             if(block_given?)
               all.each { |instance| yield instance }
               nil
@@ -154,7 +154,7 @@ module ODBA
             end
           end
           def odba_count
-            ODBA.cache.count(self) 
+            ODBA.cache.count(self)
           end
         end
       }
@@ -164,7 +164,7 @@ module ODBA
       name.gsub(@@sanitize_ptrn, '_')
     end
 		attr_accessor :odba_name, :odba_prefetch
-		# Classes which include Persistable may override ODBA_EXCLUDE_VARS to 
+		# Classes which include Persistable may override ODBA_EXCLUDE_VARS to
 		# prevent data from being stored in the database (e.g. passwords, file
 		# descriptors). Simply redefine: ODBA_EXCLUDE_VARS = ['@foo']
 		ODBA_EXCLUDE_VARS = []
@@ -178,7 +178,7 @@ module ODBA
       ODBA_PREDEFINE_EXCLUDE_VARS = ['@odba_observers'] # :nodoc:
       ODBA_PREDEFINE_SERIALIZABLE = ['@odba_target_ids'] # :nodoc:, legacy
     end
-		# If you want to prevent Persistables from being disconnected and stored 
+		# If you want to prevent Persistables from being disconnected and stored
 		# separately (Array and Hash are Persistable by default), redefine:
 		# ODBA_SERIALIZABLE = ['@bar']
 		ODBA_SERIALIZABLE = []
@@ -188,7 +188,7 @@ module ODBA
     @@odba_id_name = RUBY_VERSION >= '1.9' ? :@odba_id : '@odba_id'
     def dup # :nodoc:
       twin = super
-      ## since twin may not be a Persistable, we need to do some magic here to 
+      ## since twin may not be a Persistable, we need to do some magic here to
       #  ensure that it does not have the same odba_id
       twin.instance_variable_set(@@odba_id_name, nil)
       twin
@@ -221,7 +221,7 @@ module ODBA
 		def odba_delete
 			ODBA.cache.delete(self)
 		end
-    # Delete _observer_ as an observer on this object. 
+    # Delete _observer_ as an observer on this object.
     # It will no longer receive notifications.
     def odba_delete_observer(observer)
       @odba_observers.delete(observer) if(@odba_observers)
@@ -251,7 +251,7 @@ module ODBA
               ODBA_PREDEFINE_EXCLUDE_VARS
             end
 			if(defined?(self::class::ODBA_EXCLUDE_VARS))
-        exc += self::class::ODBA_EXCLUDE_VARS 
+        exc += self::class::ODBA_EXCLUDE_VARS
       end
       if RUBY_VERSION >= '1.9'
         exc.map{|v| v.to_sym}
@@ -259,8 +259,8 @@ module ODBA
         exc
       end
     end
-		# Returns the odba unique id of this Persistable. 
-    # If no id had been assigned, this is now done. 
+		# Returns the odba unique id of this Persistable.
+    # If no id had been assigned, this is now done.
     # No attempt is made to store the Persistable in the db.
 		def odba_id
 			@odba_id ||= ODBA.cache.next_id
@@ -269,7 +269,7 @@ module ODBA
 			ODBA.marshaller.dump(odba_isolated_twin)
 		end
 		# Convenience method equivalent to ODBA.cache.store(self)
-		def odba_isolated_store 
+		def odba_isolated_store
 			@odba_persistent = true
 			ODBA.cache.store(self)
 		end
@@ -278,7 +278,7 @@ module ODBA
 		def odba_isolated_stub
 			Stub.new(self.odba_id, nil, self)
 		end
-		# Returns a duplicate of this Persistable, for which all connected 
+		# Returns a duplicate of this Persistable, for which all connected
 		# Persistables have been replaced by a Stub
 		def odba_isolated_twin
 			# ensure a valid odba_id
@@ -289,11 +289,12 @@ module ODBA
 			twin
 		end
 		# A Persistable instance can be _prefetchable_. This means that the object
-		# can be loaded at startup by calling ODBA.cache.prefetch, and that it will 
-		# never expire from the Cache. The prefetch status can be controlled per 
-		# instance by setting the instance variable @odba_prefetch, and per class by 
+		# can be loaded at startup by calling ODBA.cache.prefetch, and that it will
+		# never expire from the Cache. The prefetch status can be controlled per
+		# instance by setting the instance variable @odba_prefetch, and per class by
 		# overriding the module constant ODBA_PREFETCH
 		def odba_prefetch?
+      @odba_prefetch ||= nil
 			@odba_prefetch \
         || (defined?(self::class::ODBA_PREFETCH) && self::class::ODBA_PREFETCH)
 		end
@@ -301,9 +302,9 @@ module ODBA
 			@odba_indexable \
         || (defined?(self::class::ODBA_INDEXABLE) && self::class::ODBA_INDEXABLE)
 		end
-    # Invoke the update method in each currently associated observer 
+    # Invoke the update method in each currently associated observer
     # in turn, passing it the given arguments
-    def odba_notify_observers(*args) 
+    def odba_notify_observers(*args)
       odba_observers.each { |obs| obs.odba_update(*args) }
     end
     def odba_observers
@@ -313,6 +314,7 @@ module ODBA
 			instance_variables - odba_serializables - odba_exclude_vars
 		end
     def odba_replace!(obj) # :nodoc:
+      @odba_observers ||= []
       instance_variables.each { |name|
         instance_variable_set(name, obj.instance_variable_get(name))
       }
@@ -353,7 +355,7 @@ module ODBA
               ODBA_PREDEFINE_SERIALIZABLE
             end
 			if(defined?(self::class::ODBA_SERIALIZABLE))
-        srs += self::class::ODBA_SERIALIZABLE 
+        srs += self::class::ODBA_SERIALIZABLE
       end
       if RUBY_VERSION >= '1.9'
         srs.map{|s| s.to_sym}
@@ -369,7 +371,7 @@ module ODBA
 		end
 		# Stores this Persistable and recursively all connected unsaved persistables,
 		# until no more direcly connected unsaved persistables can be found.
-		# The optional parameter _name_ can be used later to retrieve this 
+		# The optional parameter _name_ can be used later to retrieve this
 		# Persistable using Cache#fetch_named
 		def odba_store(name = nil)
 			begin
@@ -379,7 +381,7 @@ module ODBA
 				end
 				odba_store_unsaved
         self
-			rescue 
+			rescue
 				@odba_name = old_name
 				raise
 			end
@@ -406,14 +408,14 @@ module ODBA
 				# must not be synchronized because of the following if
 				# statement (if an object has already been replaced by
 				# a	stub, it will have the correct id and it
-				# will be ignored) 
+				# will be ignored)
         case var
         when Stub
           # no need to make a new stub
         when Persistable
-					if(var.odba_id == id) 
+					if(var.odba_id == id)
             stub = ODBA::Stub.new(id, self, obj)
-            instance_variable_set(name, stub) 
+            instance_variable_set(name, stub)
           end
 				end
 			}
@@ -465,6 +467,7 @@ module ODBA
 				!@odba_persistent
 				#true
 			else
+        @odba_snapshot_level ||= 0
 				@odba_snapshot_level.to_i < snapshot_level
 			end
 		end
@@ -482,7 +485,7 @@ class Array # :nodoc: all
 	def odba_collection
 		coll = []
 		each_with_index { |item, index|
-			coll.push([index, item])	
+			coll.push([index, item])
 		}
 		coll
 	end
@@ -491,9 +494,9 @@ class Array # :nodoc: all
 		delete_if { |val| val.eql?(remove_object) }
 	end
 	def odba_prefetch?
-		super || any? { |item| 
+		super || any? { |item|
 			item.respond_to?(:odba_prefetch?) \
-				&& item.odba_prefetch? 
+				&& item.odba_prefetch?
 		}
 	end
   def odba_replace!(obj) # :nodoc:
@@ -505,7 +508,7 @@ class Array # :nodoc: all
 		super
 	end
 	def odba_restore(collection=[])
-		collection.each { |key, val| 
+		collection.each { |key, val|
 			self[key] = val
 		}
 	end
@@ -579,7 +582,7 @@ class Hash # :nodoc: all
 		super
 	end
 	def odba_restore(collection=[])
-		collection.each { |key, val| 
+		collection.each { |key, val|
 			self[key] = val
 		}
 	end
