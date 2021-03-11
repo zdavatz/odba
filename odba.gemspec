@@ -14,8 +14,8 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  spec.add_dependency 'ydbi',   '>=0.5.7'
-  spec.add_dependency 'ydbd-pg','>=0.5.7'
+  spec.add_development_dependency 'ydbi',   '>=0.5.7'
+  spec.add_development_dependency 'ydbd-pg','>=0.5.7'
 
   spec.add_development_dependency "bundler"
   spec.add_development_dependency "rake"

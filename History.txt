@@ -1,3 +1,7 @@
+=== 1.1.8 / 10.03.2021
+
+* Removed fixed dependency to pg (is optional like mysql2)
+
 === 1.1.7 / 20.01.2021
 
 * Reworked some tests
