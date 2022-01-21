@@ -327,7 +327,7 @@ module ODBA
 		def test_to_yaml
 			yaml = ''
       yaml = @odba.to_yaml
-			loaded = YAML.load(yaml)
+			loaded = YAML.safe_load(yaml, permitted_classes: [ ODBA::TestPersistable::ODBAContainerInPersistable ])
 			assert_instance_of(ODBAContainerInPersistable, loaded)
 		end
     def test_extend
