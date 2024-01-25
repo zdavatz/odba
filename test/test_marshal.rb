@@ -2,13 +2,13 @@
 
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require 'minitest/autorun'
-require 'flexmock/test_unit'
-require 'flexmock'
+require "bundler/setup"
+require "test/unit"
+require "flexmock/test_unit"
 require 'odba/marshal'
 
 module ODBA
-	class TestMarshal < Minitest::Test
+	class TestMarshal < Test::Unit::TestCase
 		def setup
 			@foo = Array.new
 		end

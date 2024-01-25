@@ -3,13 +3,13 @@
 
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require 'minitest/autorun'
-require 'flexmock/test_unit'
-require 'flexmock'
+require "bundler/setup"
+require "test/unit"
+require "flexmock/test_unit"
 require 'odba/drbwrapper'
 
 module ODBA
-  class TestDRbWrapper < Minitest::Test
+  class TestDRbWrapper < Test::Unit::TestCase
     include FlexMock::TestCase
     def test_include
       obj = FlexMock.new
@@ -53,7 +53,7 @@ module ODBA
       }
     end
   end
-  class TestDRbIdConv < Minitest::Test
+  class TestDRbIdConv < Test::Unit::TestCase
     include FlexMock::TestCase
     def setup
       ODBA.cache = flexmock('cache')
@@ -96,7 +96,9 @@ module ODBA
       ODBA.cache.should_receive(:fetch).with(4).times(1)
       @idconv.to_obj(id)
       @idconv.odba_update(:clean, 4, id)
+      return if (RUBY_VERSION.to_f >= 3.3)
       GC.start
+      assert_raises { @idconv.to_obj(id) }
       assert_raises(RangeError) { @idconv.to_obj(id) }
     end
   end

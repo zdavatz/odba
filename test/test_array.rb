@@ -4,16 +4,15 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require 'minitest/autorun'
-require 'flexmock/test_unit'
-require 'flexmock'
+require "bundler/setup"
+require "test/unit"
+require "flexmock/test_unit"
 require 'odba/persistable'
 require 'odba/stub'
 require 'odba/odba'
 
 module ODBA
-  class TestArray < Minitest::Test
-    include FlexMock::TestCase
+  class TestArray < Test::Unit::TestCase
     class ODBAContainerInArrayInArray
      include ODBA::Persistable
      attr_accessor	:non_replaceable, :replaceable, :array, :odba_id

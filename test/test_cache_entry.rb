@@ -4,9 +4,9 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path("../lib", File.dirname(__FILE__))
 
-require 'minitest/autorun'
-require 'flexmock/test_unit'
-require 'flexmock'
+require "bundler/setup"
+require "test/unit"
+require "flexmock/test_unit"
 require 'odba/cache_entry'
 require 'odba/odba'
 require 'odba/persistable'
@@ -15,7 +15,7 @@ module ODBA
 	class CacheEntry
 		attr_accessor :accessed_by
 	end
-	class TestCacheEntry < Minitest::Test
+	class TestCacheEntry < Test::Unit::TestCase
     include FlexMock::TestCase
 		def setup
 			@mock = flexmock
