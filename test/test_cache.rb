@@ -5,9 +5,9 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
-require 'minitest/autorun'
-require 'flexmock/test_unit'
-require 'flexmock'
+require "bundler/setup"
+require "test/unit"
+require "flexmock/test_unit"
 require 'odba/cache'
 require 'odba/cache_entry'
 require 'odba/persistable'
@@ -25,7 +25,7 @@ module ODBA
 		attr_writer :indices
 		public :load_object
 	end
-	class TestCache < Minitest::Test
+	class TestCache < Test::Unit::TestCase
     include FlexMock::TestCase
 		class ODBAContainerInCache
 		 include ODBA::Persistable

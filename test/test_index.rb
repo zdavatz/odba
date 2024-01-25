@@ -4,9 +4,9 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path("../lib", File.dirname(__FILE__))
 
-require 'minitest/autorun'
-require 'flexmock/test_unit'
-require 'flexmock'
+require "bundler/setup"
+require "test/unit"
+require "flexmock/test_unit"
 require 'odba/index'
 require 'odba/index_definition'
 require 'odba/odba'
@@ -22,7 +22,7 @@ module ODBA
   end
   class TargetSubclass < Target
   end
-  class TestIndexCommon < Minitest::Test
+  class TestIndexCommon < Test::Unit::TestCase
     include FlexMock::TestCase
     def setup
       @storage = flexmock('Storage')
@@ -178,7 +178,7 @@ module ODBA
       @index.update(target)
     end
   end
-  class TestIndex < Minitest::Test
+  class TestIndex < Test::Unit::TestCase
     include FlexMock::TestCase
     def setup
       @storage = flexmock('Storage')
@@ -206,7 +206,7 @@ module ODBA
       assert_equal(['resolved'], @index.search_terms(origin))
     end
   end
-  class TestConditionIndex < Minitest::Test
+  class TestConditionIndex < Test::Unit::TestCase
     include FlexMock::TestCase
     def setup
       @storage = flexmock('Storage')
@@ -303,7 +303,7 @@ module ODBA
       @index.update_origin(origin1)
     end
   end
-  class TestFulltextIndex < Minitest::Test
+  class TestFulltextIndex < Test::Unit::TestCase
     include FlexMock::TestCase
     def setup
       @storage = flexmock('Storage')

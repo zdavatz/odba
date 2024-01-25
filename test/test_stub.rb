@@ -4,9 +4,9 @@
 
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 $: << File.dirname(__FILE__)
-require 'minitest/autorun'
-require 'flexmock/test_unit'
-require 'flexmock'
+require "bundler/setup"
+require "test/unit"
+require "flexmock/test_unit"
 require 'odba/stub'
 require 'odba/persistable'
 require 'odba/odba'
@@ -16,7 +16,7 @@ module ODBA
 	class Stub
 		attr_accessor :receiver, :odba_class
 	end
-	class TestStub < Minitest::Test
+	class TestStub < Test::Unit::TestCase
     include FlexMock::TestCase
 		def setup
 			@odba_container = flexmock("odba_container")
@@ -26,7 +26,6 @@ module ODBA
 		end
     def teardown
       @cache = ODBA.cache = nil
-      super
     end
 		def test_method_missing
 			receiver = flexmock
@@ -67,8 +66,8 @@ module ODBA
       receiver = 'odba_instance'
 			@odba_container.should_ignore_missing
       @cache.should_receive(:fetch).with(9, FlexMock.any).once.and_return(receiver)
+      omit('Why does this fail')
 			@stub.taint
-      skip('Why does this fail')
 			assert_equal(true, receiver.tainted?)
 		end
 		def test_instance_method_not_sent
@@ -145,7 +144,7 @@ module ODBA
 			assert_nil(hash[other])
 		end
 		def test_to_yaml
-      skip "Don't know why the stub does not work for Ruby 2.x or later"
+      omit "Don't know why the stub does not work for Ruby 2.x or later"
       flexmock(@cache, :fetch => nil)
 			yaml = ''
       yaml = @stub.odba_isolated_stub.to_yaml

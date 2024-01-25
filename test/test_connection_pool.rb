@@ -3,9 +3,9 @@
 
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require 'minitest/autorun'
-require 'flexmock/test_unit'
-require 'flexmock'
+require "bundler/setup"
+require "test/unit"
+require "flexmock/test_unit"
 require 'odba/connection_pool'
 ## connection_pool requires 'dbi', which unshifts the site_ruby dir
 #  to the first position in $LOAD_PATH ( == $: ). As a result, files are
@@ -14,7 +14,7 @@ require 'odba/connection_pool'
 # $:.shift
 
 module ODBA
-  class TestConnectionPool < Minitest::Test
+  class TestConnectionPool < Test::Unit::TestCase
     include FlexMock::TestCase
     def test_survive_error
       flexstub(DBI).should_receive(:connect).times(10).and_return { 
