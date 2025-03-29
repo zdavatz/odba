@@ -33,4 +33,4 @@ jobs:
         bundler-cache: true
 
     - name: Run tests via rake test
-      run: bundle exec rake test
+      run: bundle exec ruby test/suite.rb

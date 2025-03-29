@@ -4,7 +4,7 @@
 
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 $: << File.dirname(__FILE__)
-require "bundler/setup"
+require "simplecov"
 require "test/unit"
 require "flexmock/test_unit"
 require 'odba/stub'

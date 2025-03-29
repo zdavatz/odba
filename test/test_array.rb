@@ -1,10 +1,11 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
 # TestArray -- odba -- 30.01.2007 -- hwyss@ywesee.com
 
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib', File.dirname(__FILE__))
 
-require "bundler/setup"
+require 'simplecov'
 require "test/unit"
 require "flexmock/test_unit"
 require 'odba/persistable'

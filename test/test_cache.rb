@@ -1,11 +1,11 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 # ODBA::TestCache -- odba -- 09.12.2011 -- mhatakeyama@ywesee.com
+require 'simplecov'
 
 $: << File.dirname(__FILE__)
 $: << File.expand_path('../lib/', File.dirname(__FILE__))
 
-require "bundler/setup"
 require "test/unit"
 require "flexmock/test_unit"
 require 'odba/cache'
