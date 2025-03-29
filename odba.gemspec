@@ -27,5 +27,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "flexmock", "2.4.0" # Version 3.0.1 leads to many errors. Do not know why?
   spec.add_development_dependency "test-unit"
   spec.add_development_dependency "debug"
+  spec.add_development_dependency "standard"
   spec.add_development_dependency "simplecov"
 end
