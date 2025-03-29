@@ -4,7 +4,7 @@
 $: << File.dirname(__FILE__)
 $: << File.expand_path("../lib", File.dirname(__FILE__))
 
-require "bundler/setup"
+require 'simplecov'
 require "test/unit"
 require "flexmock/test_unit"
 require 'odba/index'
@@ -173,7 +173,10 @@ module ODBA
     def test_update__subclass
       origin = OriginSubclass.new
       target = TargetSubclass.new
-      @storage.should_receive(:index_target_ids).and_return(3)
+      @storage.should_receive(:index_target_ids).once.and_return([3])
+      @storage.should_receive(:index_origin_ids).once.and_return(nil)
+      @storage.should_receive(:index_delete_origin).once.and_return(nil)
+#      @storage.should_receive(:index_origin_ids)
       @index.update(origin)
       @index.update(target)
     end

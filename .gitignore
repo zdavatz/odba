@@ -2,3 +2,8 @@
 vendor/
 coverage/
 pkg/
+.envrc
+devenv.*
+.devenv.flake.nix
+.devenv/
+.direnv/

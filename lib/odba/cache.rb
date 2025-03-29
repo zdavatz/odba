@@ -5,11 +5,6 @@
 
 require 'singleton'
 require 'date'
-begin
-  require 'rubygems'
-  gem 'fastthread', '>=0.6.3'
-rescue LoadError
-end
 require 'thread'
 require 'drb'
 
