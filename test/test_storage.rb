@@ -101,7 +101,7 @@ module ODBA
       dbi.should_receive(:do).once.with(sql)
       sql = "        CREATE INDEX IF NOT EXISTS target_id_index_name\n        ON index_name(target_id)\n"
       dbi.should_receive(:do).once.with(sql)
-      sql = "        CREATE TABLE IF NOT EXISTS index_name (\n          origin_id INTEGER,\n          search_term TEXT,\n          target_id INTEGER\n        )  WITH OIDS;\n"
+      sql = "        CREATE TABLE IF NOT EXISTS index_name (\n          origin_id INTEGER,\n          search_term TEXT,\n          target_id INTEGER\n        ) ;\n"
       dbi.should_receive(:do).once.with(sql)
 			@storage.create_index("index_name")
 		end
@@ -461,7 +461,7 @@ CREATE INDEX IF NOT EXISTS target_id_conditions ON conditions(target_id);
       @dbi.should_receive(:do).once.with(sql).and_return
       sql = "CREATE INDEX IF NOT EXISTS target_id_fulltext ON fulltext(target_id);\n"
       @dbi.should_receive(:do).once.with(sql).and_return
-      sql = "CREATE TABLE IF NOT EXISTS fulltext  (\n  origin_id INTEGER,\n  search_term tsvector,\n  target_id INTEGER\n) WITH OIDS ;\n"
+      sql = "CREATE TABLE IF NOT EXISTS fulltext  (\n  origin_id INTEGER,\n  search_term tsvector,\n  target_id INTEGER\n) ;\n"
       @dbi.should_receive(:do).once.with(sql).and_return
       sql = "CREATE INDEX IF NOT EXISTS search_term_fulltext\nON fulltext USING gist(search_term);\n"
       @dbi.should_receive(:do).once.with(sql).and_return

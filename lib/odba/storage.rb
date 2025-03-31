@@ -173,7 +173,7 @@ module ODBA
            origin_id INTEGER,
            search_term tsvector,
            target_id INTEGER
-         ) WITH OIDS ;
+         ) ;
       SQL
       # index origin_id
       dbi.do <<~SQL
@@ -198,7 +198,7 @@ module ODBA
           origin_id INTEGER,
           search_term TEXT,
           target_id INTEGER
-        )  WITH OIDS;
+        ) ;
       SQL
       # index origin_id
       dbi.do <<-SQL
