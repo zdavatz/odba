@@ -570,10 +570,13 @@ module ODBA
     end
 
     def setup
+      old_stderr = $stderr.dup # We want to silence the annoying NOTICE:  relation "object" already exists, skipping
+      $stderr.reopen("/dev/null", "w")
       TABLES.each { |name, definition|
         begin
           dbi.do(definition)
         rescue
+          $stderr = old_stderr
           DBI::ProgrammingError
         end
       }
@@ -583,6 +586,7 @@ module ODBA
            CREATE INDEX IF NOT EXISTS extent_index ON object(extent);
         EOS
       end
+      $stderr = old_stderr
     end
 
     def store(odba_id, dump, name, prefetchable, klass)
