@@ -2,8 +2,14 @@
 vendor/
 coverage/
 pkg/
-.envrc
-devenv.*
-.devenv.flake.nix
-.devenv/
-.direnv/
+Gemfile.lock
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml

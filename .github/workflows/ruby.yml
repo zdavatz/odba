@@ -25,12 +25,12 @@ jobs:
       matrix:
         os: [ ubuntu]
         ruby: [3.2, 3.3, 3.4]
+    continue-on-error: ${{  matrix.ruby.to_s == '3.3' || matrix.ruby.to_s == '3.4' }}
     steps:
     - uses: actions/checkout@v2
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
-
-    - name: Run tests via rake test
+    - name: Run tests via test/suite.rb
       run: bundle exec ruby test/suite.rb

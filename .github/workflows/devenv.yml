@@ -1,0 +1,30 @@
+name: "devenv test using a real postgres database"
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: cachix/install-nix-action@v26
+    - uses: cachix/cachix-action@v14
+      with:
+        name: devenv
+    - name: Install devenv.sh
+      run: nix profile install nixpkgs#devenv
+
+    - name: Build the devenv shell and run any pre-commit hooks
+      run: devenv test
+
+    - name: Run the example.rb which uses a real database
+      shell: devenv shell bash -- -e {0}
+      run: |
+        devenv up --detach
+        devenv shell bundle exec ruby test/example.rb
