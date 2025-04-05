@@ -14,34 +14,34 @@ module ODBA
     TABLES = [
       # in table 'object', the isolated dumps of all objects are stored
       ["object", <<~SQL],
-         CREATE TABLE IF NOT EXISTS object (
-           odba_id INTEGER NOT NULL, content TEXT,
-           name TEXT, prefetchable BOOLEAN, extent TEXT,
-           PRIMARY KEY(odba_id), UNIQUE(name)
-         );
+        CREATE TABLE IF NOT EXISTS object (
+          odba_id INTEGER NOT NULL, content TEXT,
+          name TEXT, prefetchable BOOLEAN, extent TEXT,
+          PRIMARY KEY(odba_id), UNIQUE(name)
+        );
       SQL
       ["prefetchable_index", <<~SQL],
-         CREATE INDEX IF NOT EXISTS prefetchable_index ON object(prefetchable);
+        CREATE INDEX IF NOT EXISTS prefetchable_index ON object(prefetchable);
       SQL
       ["extent_index", <<~SQL],
-         CREATE INDEX IF NOT EXISTS extent_index ON object(extent);
+        CREATE INDEX IF NOT EXISTS extent_index ON object(extent);
       SQL
       # helper table 'object_connection'
       ["object_connection", <<~SQL],
-         CREATE TABLE IF NOT EXISTS object_connection (
-           origin_id integer, target_id integer,
-           PRIMARY KEY(origin_id, target_id)
-         );
+        CREATE TABLE IF NOT EXISTS object_connection (
+          origin_id integer, target_id integer,
+          PRIMARY KEY(origin_id, target_id)
+        );
       SQL
       ["target_id_index", <<~SQL],
-         CREATE INDEX IF NOT EXISTS target_id_index ON object_connection(target_id);
+        CREATE INDEX IF NOT EXISTS target_id_index ON object_connection(target_id);
       SQL
       # helper table 'collection'
       ["collection", <<~SQL]
-         CREATE TABLE IF NOT EXISTS collection (
-           odba_id integer NOT NULL, key text, value text,
-           PRIMARY KEY(odba_id, key)
-         );
+        CREATE TABLE IF NOT EXISTS collection (
+          odba_id integer NOT NULL, key text, value text,
+          PRIMARY KEY(odba_id, key)
+        );
       SQL
     ]
     def initialize
@@ -142,50 +142,50 @@ module ODBA
 
     def create_condition_index(table_name, definition)
       dbi.do <<~SQL
-         CREATE TABLE IF NOT EXISTS #{table_name} (
-           origin_id INTEGER,
-           #{definition.collect { |*pair| pair.join(" ") }.join(",\n  ")},
-           target_id INTEGER
-         );
+        CREATE TABLE IF NOT EXISTS #{table_name} (
+          origin_id INTEGER,
+          #{definition.collect { |*pair| pair.join(" ") }.join(",\n  ")},
+          target_id INTEGER
+        );
       SQL
       # index origin_id
       dbi.do <<~SQL
-         CREATE INDEX IF NOT EXISTS origin_id_#{table_name} ON #{table_name}(origin_id);
+        CREATE INDEX IF NOT EXISTS origin_id_#{table_name} ON #{table_name}(origin_id);
       SQL
       # index search_term
       definition.each { |name, datatype|
         dbi.do <<~SQL
-           CREATE INDEX IF NOT EXISTS #{name}_#{table_name} ON #{table_name}(#{name});
+          CREATE INDEX IF NOT EXISTS #{name}_#{table_name} ON #{table_name}(#{name});
         SQL
       }
       # index target_id
       dbi.do <<~SQL
-         CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
+        CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
       SQL
     end
 
     def create_fulltext_index(table_name)
       dbi.do <<~SQL
-         DROP TABLE IF EXISTS #{table_name};
+        DROP TABLE IF EXISTS #{table_name};
       SQL
       dbi.do <<~SQL
-         CREATE TABLE IF NOT EXISTS #{table_name}  (
-           origin_id INTEGER,
-           search_term tsvector,
-           target_id INTEGER
-         ) ;
+        CREATE TABLE IF NOT EXISTS #{table_name}  (
+          origin_id INTEGER,
+          search_term tsvector,
+          target_id INTEGER
+        ) ;
       SQL
       # index origin_id
       dbi.do <<~SQL
-         CREATE INDEX IF NOT EXISTS origin_id_#{table_name} ON #{table_name}(origin_id);
+        CREATE INDEX IF NOT EXISTS origin_id_#{table_name} ON #{table_name}(origin_id);
       SQL
       dbi.do <<~SQL
-         CREATE INDEX IF NOT EXISTS search_term_#{table_name}
-         ON #{table_name} USING gist(search_term);
+        CREATE INDEX IF NOT EXISTS search_term_#{table_name}
+        ON #{table_name} USING gist(search_term);
       SQL
       # index target_id
       dbi.do <<~SQL
-         CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
+        CREATE INDEX IF NOT EXISTS target_id_#{table_name} ON #{table_name}(target_id);
       SQL
     end
 
@@ -236,18 +236,18 @@ module ODBA
       dbi.do <<-SQL, odba_id
 				DELETE FROM object_connection WHERE origin_id = ?
       SQL
-       # delete target from connections
+      # delete target from connections
       dbi.do <<-SQL, odba_id
 				DELETE FROM object_connection WHERE target_id = ?
-       SQL
-       # delete from collections
+      SQL
+      # delete from collections
       dbi.do <<-SQL, odba_id
 				DELETE FROM collection WHERE odba_id = ?
-       SQL
-       # delete from objects
+      SQL
+      # delete from objects
       dbi.do <<-SQL, odba_id
 				DELETE FROM object WHERE odba_id = ?
-       SQL
+      SQL
     end
 
     def ensure_object_connections(origin_id, target_ids)
@@ -257,7 +257,6 @@ module ODBA
       SQL
       target_ids.uniq!
       update_ids = target_ids
-      []
       ## use self.dbi instead of @dbi to get information about
       ## object_connections previously stored within this transaction
       if (rows = dbi.select_all(sql, origin_id))
@@ -488,7 +487,7 @@ module ODBA
         if info.is_a?(Hash)
           condition = info["condition"]
           if (val = info["value"])
-            if /i?like/i =~ condition
+            if /i?like/i.match?(condition)
               val += "%"
             end
             condition = "#{condition || "="} ?"
@@ -582,8 +581,8 @@ module ODBA
       }
       unless dbi.columns("object").any? { |col| col.name == "extent" }
         dbi.do <<~EOS
-           ALTER TABLE object ADD COLUMN extent TEXT;
-           CREATE INDEX IF NOT EXISTS extent_index ON object(extent);
+          ALTER TABLE object ADD COLUMN extent TEXT;
+          CREATE INDEX IF NOT EXISTS extent_index ON object(extent);
         EOS
       end
       $stderr = old_stderr
@@ -600,17 +599,16 @@ module ODBA
 					prefetchable = ?,
           extent = ?
 					WHERE odba_id = ?
-         SQL
+        SQL
       else
         dbi.do <<-SQL, odba_id, dump, name, prefetchable, klass.to_s
 					INSERT INTO object (odba_id, content, name, prefetchable, extent)
 					VALUES (?, ?, ?, ?, ?)
-         SQL
+        SQL
       end
     end
 
     def transaction(&block)
-      nil
       retval = nil
       @dbi.transaction { |dbi|
         ## this should not be necessary anymore:
@@ -634,14 +632,14 @@ module ODBA
       }
       if target_id
         dbi.do <<~SQL, origin_id, target_id, *vals
-           INSERT INTO #{index_name} (origin_id, target_id, #{keys.join(", ")})
-           VALUES (?, ?#{", ?" * keys.size})
+          INSERT INTO #{index_name} (origin_id, target_id, #{keys.join(", ")})
+          VALUES (?, ?#{", ?" * keys.size})
         SQL
       else
         key_str = keys.collect { |key| "#{key}=?" }.join(", ")
         dbi.do <<~SQL, *vals.push(origin_id)
-           UPDATE #{index_name} SET #{key_str}
-           WHERE origin_id = ?
+          UPDATE #{index_name} SET #{key_str}
+          WHERE origin_id = ?
         SQL
       end
     end
@@ -650,13 +648,13 @@ module ODBA
       search_term = search_term.gsub(/\s+/, " ").strip
       if target_id
         dbi.do <<~SQL, origin_id.to_s, search_term, target_id
-                            INSERT INTO #{index_name} (origin_id, search_term, target_id)
-                            VALUES (?, to_tsvector(?), ?)
-                         SQL
+          INSERT INTO #{index_name} (origin_id, search_term, target_id)
+          VALUES (?, to_tsvector(?), ?)
+        SQL
       else
         dbi.do <<~SQL, search_term, origin_id
-           UPDATE #{index_name} SET search_term=to_tsvector(?)
-           WHERE origin_id=?
+          UPDATE #{index_name} SET search_term=to_tsvector(?)
+          WHERE origin_id=?
         SQL
       end
     end
