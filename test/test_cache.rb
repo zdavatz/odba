@@ -1,13 +1,6 @@
 #!/usr/bin/env ruby
-
 # ODBA::TestCache -- odba -- 09.12.2011 -- mhatakeyama@ywesee.com
-require "simplecov"
-
-$: << File.dirname(__FILE__)
-$: << File.expand_path("../lib/", File.dirname(__FILE__))
-
-require "test/unit"
-require "flexmock/test_unit"
+require_relative "helper"
 require "odba/cache"
 require "odba/cache_entry"
 require "odba/persistable"
