@@ -86,11 +86,7 @@ module ODBA
     end
 
     def yaml_initialize(tag, val)
-      if RUBY_VERSION >= "1.9"
-        val.each { |key, value| instance_variable_set(:"@#{key}", value) }
-      else
-        val.each { |key, value| instance_variable_set(:"@#{key}", value) }
-      end
+      val.each { |key, value| instance_variable_set(:"@#{key}", value) }
     end
     no_override = [
       "class", "is_a?", "__id__", "__send__", "inspect",
@@ -104,9 +100,7 @@ module ODBA
       "to_yaml_properties", "yaml_initialize"
     ]
     NO_OVERRIDE = no_override.collect { |name| name.to_sym }
-    if RUBY_VERSION >= "1.9"
-      no_override = NO_OVERRIDE
-    end
+    no_override = NO_OVERRIDE
     override_methods = Object.public_methods - no_override
     override_methods.each { |method|
       src = (method[-1] == "=") ? <<-EOW : <<-EOS

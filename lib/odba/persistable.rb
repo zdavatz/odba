@@ -68,11 +68,7 @@ module ODBA
               resolve = keys.first
             end
             keys.each { |key|
-              key = if RUBY_VERSION >= "1.9"
-                key.to_sym
-              else
-                key.to_s
-              end
+              key.to_sym
               unless instance_methods.include?(key)
                 attr_accessor key
               end
@@ -182,13 +178,8 @@ module ODBA
     ODBA_INDEXABLE = true # :nodoc:
     # see odba_prefetch?
     ODBA_PREFETCH = false
-    if RUBY_VERSION >= "1.9"
-      ODBA_PREDEFINE_EXCLUDE_VARS = [:@odba_observers] # :nodoc:
-      ODBA_PREDEFINE_SERIALIZABLE = [:@odba_target_ids] # :nodoc:, legacy
-    else
-      ODBA_PREDEFINE_EXCLUDE_VARS = ["@odba_observers"] # :nodoc:
-      ODBA_PREDEFINE_SERIALIZABLE = ["@odba_target_ids"] # :nodoc:, legacy
-    end
+    ODBA_PREDEFINE_EXCLUDE_VARS = [:@odba_observers] # :nodoc:
+    ODBA_PREDEFINE_SERIALIZABLE = [:@odba_target_ids] # :nodoc:, legacy
     # If you want to prevent Persistables from being disconnected and stored
     # separately (Array and Hash are Persistable by default), redefine:
     # ODBA_SERIALIZABLE = ['@bar']
@@ -196,7 +187,7 @@ module ODBA
     def ==(other) # :nodoc:
       super(other.odba_instance)
     end
-    @@odba_id_name = (RUBY_VERSION >= "1.9") ? :@odba_id : "@odba_id"
+    @@odba_id_name = :@odba_id
     def dup # :nodoc:
       twin = super
       ## since twin may not be a Persistable, we need to do some magic here to
@@ -273,11 +264,7 @@ module ODBA
       if defined?(self.class::ODBA_EXCLUDE_VARS)
         exc += self.class::ODBA_EXCLUDE_VARS
       end
-      if RUBY_VERSION >= "1.9"
-        exc.map { |v| v.to_sym }
-      else
-        exc
-      end
+      exc.map { |v| v.to_sym }
     end
 
     # Returns the odba unique id of this Persistable.
@@ -392,11 +379,7 @@ module ODBA
       if defined?(self.class::ODBA_SERIALIZABLE)
         srs += self.class::ODBA_SERIALIZABLE
       end
-      if RUBY_VERSION >= "1.9"
-        srs.map { |s| s.to_sym }
-      else
-        srs
-      end
+      srs.map { |s| s.to_sym }
     end
 
     def odba_snapshot(snapshot_level) # :nodoc:

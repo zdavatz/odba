@@ -738,13 +738,8 @@ module ODBA
 
     def test_condition_index_delete__with_target_id
       flexmock("DBHandle")
-      if /^1\.8/.match?(RUBY_VERSION)
-        sql = "DELETE FROM index WHERE origin_id = ? AND c2 = ? AND c1 = ? AND target_id = ?"
-        @dbi.should_receive(:do).once.with(sql.chomp, 3, 7, "f", 4).times(1).and_return(true)
-      else
-        sql = "DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?"
-        @dbi.should_receive(:do).once.with(sql.chomp, 3, "f", 7, 4).times(1).and_return(true)
-      end
+      sql = "DELETE FROM index WHERE origin_id = ? AND c1 = ? AND c2 = ? AND target_id = ?"
+      @dbi.should_receive(:do).once.with(sql.chomp, 3, "f", 7, 4).times(1).and_return(true)
       @storage.condition_index_delete("index", 3, {"c1" => "f", "c2" => 7}, 4)
     end
 
