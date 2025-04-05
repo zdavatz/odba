@@ -13,15 +13,10 @@ module ODBA
   # Further, _search_term_ must be resolved in relation to _origin_.
   class IndexCommon # :nodoc: all
     include Persistable
-    ODBA_EXCLUDE_VARS = if RUBY_VERSION >= "1.9"
+    ODBA_EXCLUDE_VARS
       [
         :@proc_origin, :@proc_target, :@proc_resolve_search_term
       ]
-    else
-      [
-        "@proc_origin", "@proc_target", "@proc_resolve_search_term"
-      ]
-    end
     attr_accessor :origin_klass, :target_klass, :resolve_origin, :resolve_target,
       :resolve_search_term, :index_name, :class_filter
     def initialize(index_definition, origin_module)

@@ -243,7 +243,7 @@ module ODBA
     def fetch_cache_entry(odba_id_or_name) # :nodoc:
       @prefetched[odba_id_or_name] || @fetched[odba_id_or_name]
     end
-    @@receiver_name = (RUBY_VERSION >= "1.9") ? :@receiver : "@receiver"
+    @@receiver_name = :@receiver
     def fetch_collection(odba_obj) # :nodoc:
       collection = []
       bulk_fetch_ids = []
