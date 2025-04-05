@@ -1,25 +1,13 @@
 #!/usr/bin/env ruby
-# encoding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'odba/version'
 require "bundler/gem_tasks"
 require 'rake/testtask'
 
-# dependencies are now declared in odba.gemspec
-
-desc 'Offer a gem task like hoe'
-task :gem => :build do
-  Rake::Task[:build].invoke
-end
-
-desc "Run tests"
-task :default => :test
-
-Rake::TestTask.new(:test) do |t|
-  t.libs << "test"
-  t.libs << "lib"
-  t.test_files = FileList["test/**/test_*.rb"]
+task default: "test"
+Rake::TestTask.new(:test) do |task|
+  require_relative 'test/suite'
 end
 
 

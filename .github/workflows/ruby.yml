@@ -9,9 +9,11 @@ name: Ruby
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - '*'
   pull_request:
-    branches: [ master ]
+    branches:
+      - '*'
 
 jobs:
   test:
@@ -22,14 +24,13 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu]
-        ruby: [2.7, 3.0, 3.1, 3.2, 3.3, head]
-    continue-on-error: ${{ endsWith(matrix.ruby, 'head') }}
+        ruby: [3.2, 3.3, 3.4]
+    continue-on-error: ${{  matrix.ruby.to_s == '3.3' || matrix.ruby.to_s == '3.4' }}
     steps:
     - uses: actions/checkout@v2
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true
-
-    - name: Run tests via rake test
-      run: bundle exec rake test
+    - name: Run tests via test/suite.rb
+      run: bundle exec ruby test/suite.rb
