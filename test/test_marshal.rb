@@ -1,10 +1,5 @@
 #!/usr/bin/env ruby
-
-$: << File.expand_path("../lib", File.dirname(__FILE__))
-
-require "simplecov"
-require "test/unit"
-require "flexmock/test_unit"
+require_relative "helper"
 require "odba/marshal"
 
 module ODBA

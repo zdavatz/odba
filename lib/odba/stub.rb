@@ -173,15 +173,18 @@ class Array # :nodoc: all
   def |(other)
     _odba_union(other.odba_instance)
   end
-  ["concat", "replace", "include?"].each { |method|
-    # ['concat', 'replace'].each { |method|
-    eval <<-EOS
-			alias :_odba_#{method} :#{method}
-			def #{method}(stub)
-				self._odba_#{method}(stub.odba_instance)
-			end
-    EOS
-  }
+  # Workaround to avoid the following problem
+  # Formatter SimpleCov::Formatter::HTMLFormatter failed with ArgumentError: wrong number of arguments (given 2, expected 1
+  more_methods = ["replace", "include?"]
+  more_methods << "concat" unless defined?(SimpleCov)
+  more_methods.each do |method|
+    eval %(
+      alias :_odba_#{method} :#{method}
+      def #{method}(stub)
+          self._odba_#{method}(stub.odba_instance)
+      end
+    )
+  end
 end
 
 class Hash # :nodoc: all
@@ -190,11 +193,11 @@ class Hash # :nodoc: all
     _odba_equal?(other.odba_instance)
   end
   ["merge", "merge!", "replace"].each { |method|
-    eval <<-EOS
-			alias :_odba_#{method} :#{method}
-			def #{method}(stub)
-				self._odba_#{method}(stub.odba_instance)
-			end
-    EOS
+    eval %(
+      alias :_odba_#{method} :#{method}
+      def #{method}(stub)
+          self._odba_#{method}(stub.odba_instance)
+      end
+    )
   }
 end

@@ -1,12 +1,6 @@
 #!/usr/bin/env ruby
-
 # ODBA::TestStub -- odba -- 08.12.2011 -- mhatakeyama@ywesee.com
-
-$: << File.expand_path("../lib/", File.dirname(__FILE__))
-$: << File.dirname(__FILE__)
-require "simplecov"
-require "test/unit"
-require "flexmock/test_unit"
+require_relative "helper"
 require "odba/stub"
 require "odba/persistable"
 require "odba/odba"

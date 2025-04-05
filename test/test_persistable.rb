@@ -1,12 +1,6 @@
 #!/usr/bin/env ruby
 # TestPersistable -- odba -- ??.??.???? -- hwyss@ywesee.com
-
-$: << File.dirname(__FILE__)
-$: << File.expand_path("../lib/", File.dirname(__FILE__))
-
-require "simplecov"
-require "test/unit"
-require "flexmock/test_unit"
+require_relative "helper"
 require "odba/persistable"
 require "odba/storage"
 require "odba/cache"

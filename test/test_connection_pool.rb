@@ -1,11 +1,6 @@
 #!/usr/bin/env ruby
 # TestConnectionPool -- odba -- 03.08.2005 -- hwyss@ywesee.com
-
-$: << File.expand_path("../lib", File.dirname(__FILE__))
-
-require "simplecov"
-require "test/unit"
-require "flexmock/test_unit"
+require_relative "helper"
 require "odba/connection_pool"
 ## connection_pool requires 'dbi', which unshifts the site_ruby dir
 #  to the first position in $LOAD_PATH ( == $: ). As a result, files are

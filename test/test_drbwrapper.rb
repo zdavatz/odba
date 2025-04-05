@@ -1,11 +1,6 @@
 #!/usr/bin/env ruby
 # TestDRbWrapper -- odba -- 13.06.2006 -- hwyss@ywesee.com
-
-$: << File.expand_path("../lib", File.dirname(__FILE__))
-
-require "simplecov"
-require "test/unit"
-require "flexmock/test_unit"
+require_relative "helper"
 require "odba/drbwrapper"
 
 module ODBA

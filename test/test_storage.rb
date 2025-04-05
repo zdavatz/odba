@@ -1,13 +1,6 @@
 #!/usr/bin/env ruby
-
 # TestStorage -- odba -- 10.05.2004 -- hwyss@ywesee.com rwaltert@ywesee.com mwalder@ywesee.com
-
-$: << File.dirname(__FILE__)
-$: << File.expand_path("../lib/", File.dirname(__FILE__))
-
-require "simplecov"
-require "test/unit"
-require "flexmock/test_unit"
+require_relative "helper"
 require "odba/storage"
 
 module ODBA

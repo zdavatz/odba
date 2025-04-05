@@ -1,12 +1,6 @@
 #!/usr/bin/env ruby
 # TestIdServer -- odba -- 10.11.2004 -- hwyss@ywesee.com
-
-$: << File.dirname(__FILE__)
-$: << File.expand_path("../lib", File.dirname(__FILE__))
-
-require "simplecov"
-require "test/unit"
-require "flexmock/test_unit"
+require_relative "helper"
 require "odba/id_server"
 require "odba/odba"
 require "odba/marshal"
