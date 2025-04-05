@@ -1,5 +1,6 @@
 ## not yet released
 
+* Removed obsolete install.rb. Updated History.txt and moved it to History.md
 * Used standarb for all files
 * Removed obsolete (and not needed) WITH_OIDS to allow running with postgres 12 and later
 * Use SimpleCov. Simplified test/test*.rb to include test/helper.rb and start coverage
