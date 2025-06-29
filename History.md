@@ -1,4 +1,4 @@
-## not yet released
+## 1.2.0 / not yet released
 
 * Removed obsolete install.rb. Updated History.txt and moved it to History.md
 * Used standarb for all files
@@ -13,6 +13,10 @@
 * Added devenv environment for Ruby 3.4 and Postgresql 17
 * limit github CI to rubies 3.2,3.3 and 3.4
 * changelog_uri to gemspec
+
+## 1.1.9 / 28.06.2025
+
+* bulk_restore throws OdbaError when stack size > 1000
 
 ## 1.1.8 / 10.03.2021
 
