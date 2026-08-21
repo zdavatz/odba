@@ -1,6 +1,14 @@
 inputs:
   nixpkgs:
     url: github:NixOS/nixpkgs/nixos-24.11
+  # Declared explicitly because devenv no longer injects it implicitly: its
+  # git-hooks module throws "git-hooks or pre-commit-hooks input required".
+  # This mirrors what devenv.lock already records, so the lock stays valid.
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
   nixpkgs-ruby:
     url: github:bobvanderlinden/nixpkgs-ruby
     inputs:
