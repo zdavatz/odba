@@ -13,3 +13,7 @@ devenv.local.nix
 
 # pre-commit
 .pre-commit-config.yaml
+
+# built gems - a committed .gem ends up in spec.files (git ls-files) and
+# makes the gemspec invalid: "odba-x.y.z contains itself"
+*.gem
