@@ -24,11 +24,10 @@ jobs:
     - name: Install devenv.sh
       run: nix profile install nixpkgs#devenv
 
-    - name: Build the devenv shell and run any pre-commit hooks
+    # devenv test builds the shell, runs any pre-commit hooks, brings the
+    # postgres service up and then runs enterTest, which waits for the server
+    # and runs test/example.rb against it. A separate step re-running
+    # example.rb duplicated that work and raced initdb a second time without
+    # waiting, which is what kept macOS red.
+    - name: Build the devenv shell and run test/example.rb against a real postgres
       run: devenv test
-
-    - name: Run the example.rb which uses a real database
-      shell: devenv shell bash -- -e {0}
-      run: |
-        devenv up --detach
-        devenv shell bundle exec ruby test/example.rb
