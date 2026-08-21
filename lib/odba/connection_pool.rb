@@ -9,6 +9,20 @@ module ODBA
   class ConnectionPool
     POOL_SIZE = 5
     SETUP_RETRIES = 3
+    # ydbd-pg maps every PG::Error - including connection level failures -
+    # onto DBI::ProgrammingError, so for that class the message is the only
+    # thing that tells a dead connection apart from a malformed statement.
+    # Without this list a restart of the database server leaves every pooled
+    # connection permanently broken, because the reconnect below never runs.
+    CONNECTION_LOST_MESSAGES = /
+      no\ connection\ to\ the\ server
+      | PQsocket
+      | server\ closed\ the\ connection
+      | connection\ not\ open
+      | terminating\ connection
+      | SSL\ connection\ has\ been\ closed
+      | could\ not\ connect\ to\ server
+    /xi
     # attr_reader :connections
     attr_reader :connections, :dbi_args
     # All connections are delegated to DBI. The constructor simply records
@@ -41,8 +55,7 @@ module ODBA
         }
       rescue NoMethodError, DBI::Error => e
         warn e
-        if tries > 0 && (!e.is_a?(DBI::ProgrammingError) \
-            || e.message == "no connection to the server")
+        if tries > 0 && retryable?(e)
           sleep(SETUP_RETRIES - tries)
           tries -= 1
           reconnect
@@ -51,6 +64,14 @@ module ODBA
           raise
         end
       end
+    end
+
+    # A statement that failed because the connection is gone is worth
+    # retrying on a fresh one. A statement that failed on its own merits is
+    # not - retrying it would only repeat the same error three times.
+    def retryable?(error) # :nodoc:
+      !error.is_a?(DBI::ProgrammingError) ||
+        CONNECTION_LOST_MESSAGES.match?(error.message.to_s)
     end
 
     def size
