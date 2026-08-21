@@ -78,7 +78,13 @@ module ODBA
     def test_to_obj
       ODBA.cache.should_receive(:store)
       o = Object.new
-      assert_equal(o, @idconv.to_obj(o.object_id))
+      ## drb >= 2.2 resolves only those ids it handed out itself: DRbIdConv
+      ## keeps a DRbObjectSpace WeakMap that to_id populates, and to_obj raises
+      ## RangeError for anything absent from it. Older drb looked the id up
+      ## with ObjectSpace._id2ref, which resolved any live object. Register the
+      ## object first, as real DRb traffic does - an id only reaches to_obj
+      ## after to_id produced it.
+      assert_equal(o, @idconv.to_obj(@idconv.to_id(o)))
       o.extend(ODBA::Persistable)
       o.instance_variable_set(:@odba_id, 4)
       o.odba_isolated_store

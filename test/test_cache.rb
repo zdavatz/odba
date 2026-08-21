@@ -33,6 +33,15 @@ module ODBA
       @cache.fetched = {}
       @cache.prefetched = {}
       @cache.indices = {}
+      ## CacheEntry registers an ObjectSpace finalizer that calls
+      ## ODBA.cache.invalidate, which deletes the odba_id from the shared
+      ## singleton cache. Objects left behind by earlier tests are collected at
+      ## unpredictable moments, so without dropping their finalizer bookkeeping
+      ## a stray GC run deletes the very ids this test just stored. That is the
+      ## long standing flakiness in test_clean, test_clean__prefetched and
+      ## test_transaction: they failed on some Ruby versions and not others,
+      ## and a different test failed on each run of identical code.
+      ODBA::CacheEntry.class_variable_set(:@@id_table, {})
     end
 
     def teardown
