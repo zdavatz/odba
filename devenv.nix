@@ -47,7 +47,9 @@
   languages.ruby.version = "3.4";
   # See full reference at https://devenv.sh/reference/options/
   enterTest = ''
-    devenv up --detach
-    bundle exec test/example.rb
+    # No `devenv up` here: `devenv test` already starts the processes before
+    # running enterTest, so starting them again aborts the whole run with
+    # "Processes already running with PID ...".
+    bundle exec ruby test/example.rb
   '';
 }
