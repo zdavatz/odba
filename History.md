@@ -1,5 +1,9 @@
-## 1.2.0 / not yet released
+## 1.2.0 / 21.08.2026
 
+* Reconnect when the database connection was lost. ydbd-pg reports a lost
+  connection as DBI::ProgrammingError, which the ConnectionPool excluded from
+  its retry, so a restart of the PostgreSQL server left every pooled connection
+  broken until the client process itself was restarted
 * Removed obsolete install.rb. Updated History.txt and moved it to History.md
 * Used standarb for all files
 * Removed obsolete (and not needed) WITH_OIDS to allow running with postgres 12 and later
