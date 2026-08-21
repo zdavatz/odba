@@ -1,3 +1,23 @@
+## 1.2.1 / 21.08.2026
+
+No library changes: lib/ is identical to 1.2.0. This release only ships a test
+suite and CI that pass.
+
+* Cleared CacheEntry's @@id_table between cache tests. Its ObjectSpace
+  finalizer calls ODBA.cache.invalidate, so objects left by earlier tests were
+  collected at unpredictable moments and deleted ids the running test had just
+  stored - the long standing flakiness in test_clean, test_clean__prefetched
+  and test_transaction
+* Fixed test_to_obj for drb >= 2.2, which resolves only ids to_id handed out
+  rather than looking them up with ObjectSpace._id2ref
+* Bumped install-nix-action to v31: v26 cannot provision Nix build users on
+  current macOS images
+* Stopped starting the processes twice in enterTest and waited for postgres
+  before running test/example.rb
+* Declared the git-hooks input that current devenv no longer injects implicitly
+* Dropped a continue-on-error that used matrix.ruby.to_s, which GitHub Actions
+  expressions do not support, so it silently never applied
+
 ## 1.2.0 / 21.08.2026
 
 * Reconnect when the database connection was lost. ydbd-pg reports a lost
