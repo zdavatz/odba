@@ -10,13 +10,14 @@ jobs:
       # without this a failure on one OS cancels the other, hiding its result
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # macos-latest dropped: it costs ~8 minutes per run for a library that
+        # is deployed on Linux, and its Nix/devenv setup is the fragile part -
+        # not odba itself. Re-add it here if that ever becomes worth the wait.
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
-    # v26 cannot provision Nix build users on current macos-latest images: it
-    # fails in "Setting up the build user _nixbld1" with eDSRecordAlreadyExists
     - uses: cachix/install-nix-action@v31
     - uses: cachix/cachix-action@v16
       with:
