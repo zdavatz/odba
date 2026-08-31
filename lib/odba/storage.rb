@@ -9,8 +9,17 @@ require "dbi"
 module ODBA
   class Storage # :nodoc: all
     include Singleton
-    attr_writer :dbi
+
+    # Not attr_writer: whether the store has an id sequence is memoized, and
+    # that answer belongs to the connection it was asked on.
+    def dbi=(dbi)
+      @id_sequence = nil
+      @dbi = dbi
+    end
     BULK_FETCH_STEP = 2500
+    # Distance between the highest id in use and the first the sequence
+    # hands out; see the odba_id_seq entry in TABLES.
+    ID_SEQUENCE_GAP = 100_000
     TABLES = [
       # in table 'object', the isolated dumps of all objects are stored
       ["object", <<~SQL],
@@ -37,11 +46,30 @@ module ODBA
         CREATE INDEX IF NOT EXISTS target_id_index ON object_connection(target_id);
       SQL
       # helper table 'collection'
-      ["collection", <<~SQL]
+      ["collection", <<~SQL],
         CREATE TABLE IF NOT EXISTS collection (
           odba_id integer NOT NULL, key text, value text,
           PRIMARY KEY(odba_id, key)
         );
+      SQL
+      # The odba_id comes from this sequence, so that several processes on
+      # one database cannot hand out the same one. See #next_id.
+      #
+      # The start value is computed and must be: a plain CREATE SEQUENCE
+      # starts at 1 and would re-issue ids that already exist. The gap on
+      # top of MAX(odba_id) covers ids that processes still running with the
+      # old in-memory counter hold but have not written yet. Skipped numbers
+      # cost nothing - the odba_id is a surrogate key and carries no meaning.
+      ["odba_id_seq", <<~SQL]
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_class
+                         WHERE relkind = 'S' AND relname = 'odba_id_seq') THEN
+            EXECUTE format('CREATE SEQUENCE odba_id_seq START WITH %s',
+                           (SELECT COALESCE(MAX(odba_id), 0) + #{ID_SEQUENCE_GAP}
+                            FROM object));
+          END IF;
+        END $$;
       SQL
     ]
     def initialize
@@ -425,11 +453,41 @@ module ODBA
       end
     end
 
+    # The id is allocated by the database, not by a counter in this process.
+    #
+    # It used to be `@next_id += 1` under this mutex, with @next_id seeded
+    # once per process from the highest odba_id in the table. That is sound
+    # for a single process and wrong for every deployment that runs more
+    # than one - web workers and import jobs on the same database each kept
+    # their own counter and handed out the same numbers, so one silently
+    # overwrote the other's row in `object`.
+    #
+    # Falls back to the old behaviour where no sequence exists, so a store
+    # that was never through #setup keeps working; #setup creates it.
     def next_id
-      @id_mutex.synchronize do
-        ensure_next_id_set
-        @next_id += 1
+      if id_sequence?
+        dbi.select_one("SELECT nextval('odba_id_seq')").first.to_i.tap { |id|
+          # max_id and reserve_next_id read @next_id, so keep it in step.
+          # Never backwards: a peer may already stand higher.
+          @id_mutex.synchronize {
+            @next_id = id if @next_id.nil? || @next_id < id
+          }
+        }
+      else
+        @id_mutex.synchronize do
+          ensure_next_id_set
+          @next_id += 1
+        end
       end
+    end
+
+    def id_sequence?
+      return @id_sequence unless @id_sequence.nil?
+      @id_sequence = dbi.select_one(
+        "SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = 'odba_id_seq'"
+      ) ? true : false
+    rescue
+      @id_sequence = false
     end
 
     def update_max_id(id)

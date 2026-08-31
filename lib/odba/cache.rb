@@ -441,8 +441,14 @@ module ODBA
       end
       @peers.each do |peer|
         peer.reserve_next_id id
-      rescue
-        DRb::DRbError
+      rescue DRb::DRbError
+        # A peer we cannot reach must not stop the allocation. Note the
+        # explicit class: a bare rescue here also swallowed the
+        # OdbaDuplicateIdError a peer raises when the id is already taken,
+        # so the retry below could never run and both processes kept the
+        # same id. Whichever wrote last overwrote the other's row in
+        # `object`, and every reference to it then resolved to a foreign
+        # object.
       end
       id
     rescue OdbaDuplicateIdError

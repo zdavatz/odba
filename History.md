@@ -1,3 +1,29 @@
+## 1.2.2 / 31.08.2026
+
+Two processes on one database handed out the same odba_id. Whichever wrote
+last overwrote the other's row in `object`, and every reference to the lost
+object then resolved to a foreign one - an Array where a domain object
+belonged, or the reverse. The referring instance variable stays correct and
+points at the right number; a different object simply sits under it, so
+searching the application for the offending assignment finds nothing.
+
+* `Storage#next_id` takes the id from a Postgres sequence, `odba_id_seq`,
+  which `#setup` creates. It used to be `@next_id += 1` under a mutex, with
+  @next_id seeded once per process from the highest odba_id in the table -
+  sound for one process, wrong for every deployment running a web worker and
+  an import job against the same database. Measured with two processes side
+  by side, both answered `[61935067, 61935068, 61935069]`. Stores without the
+  sequence keep the old behaviour.
+* The sequence starts at `MAX(odba_id)` plus `ID_SEQUENCE_GAP`, not at 1: a
+  plain `CREATE SEQUENCE` would re-issue ids that already exist, and the gap
+  covers ids that processes still on the old counter hold but have not
+  written yet.
+* `Cache#next_id` no longer swallows `OdbaDuplicateIdError`. The guard was
+  there all along - a peer raises it when the id is taken and the method
+  retries - but `rescue` without a class caught it too, so the retry could
+  never run. Only `DRb::DRbError` is caught now, which is what the line was
+  for: an unreachable peer must not stop the allocation.
+
 ## 1.2.1 / 21.08.2026
 
 No library changes: lib/ is identical to 1.2.0. This release only ships a test

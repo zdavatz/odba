@@ -19,6 +19,46 @@ module ODBA
     public :load_object
   end
 
+  # The peer conflict must reach the retry. Until 1.2.2 the loop read
+  # `peer.reserve_next_id id rescue DRb::DRbError` - a rescue without a
+  # class, which caught the OdbaDuplicateIdError a peer raises when the id
+  # is taken. Both processes then kept the same id and one overwrote the
+  # other's row in `object`.
+  class TestCacheNextId < Test::Unit::TestCase
+    include FlexMock::TestCase
+
+    def setup
+      @cache = ODBA::Cache.instance
+      @cache.instance_variable_set(:@file_lock, false)
+      @storage = flexmock("storage")
+      ODBA.storage = @storage
+    end
+
+    def test_a_peer_conflict_leads_to_a_new_id
+      @storage.should_receive(:next_id).and_return(100, 101)
+      seen = []
+      peer = flexmock("peer")
+      peer.should_receive(:reserve_next_id).and_return { |id|
+        seen << id
+        raise ODBA::OdbaDuplicateIdError, "taken" if seen.size == 1
+        true
+      }
+      @cache.instance_variable_set(:@peers, [peer])
+      assert_equal(101, @cache.next_id)
+      assert_equal([100, 101], seen)
+    end
+
+    # A peer we cannot reach must not stop the allocation - that is what the
+    # line was for, and it stays.
+    def test_an_unreachable_peer_does_not_stop_the_allocation
+      @storage.should_receive(:next_id).and_return(100)
+      peer = flexmock("peer")
+      peer.should_receive(:reserve_next_id).and_raise(DRb::DRbError, "gone")
+      @cache.instance_variable_set(:@peers, [peer])
+      assert_equal(100, @cache.next_id)
+    end
+  end
+
   class TestCache < Test::Unit::TestCase
     include FlexMock::TestCase
     class ODBAContainerInCache

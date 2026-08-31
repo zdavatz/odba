@@ -15,6 +15,7 @@ module ODBA
       @storage = ODBA::Storage.instance
        @dbi = flexmock("DBI")
        @storage.dbi = @dbi
+       @storage.instance_variable_set(:@id_sequence, nil)
     end
 
     def teardown
@@ -106,10 +107,38 @@ module ODBA
        @storage.create_index("index_name")
     end
 
+    # Without a sequence the old counter still runs, so a store that was
+    # never through #setup keeps working.
     def test_next_id
+      @dbi.should_receive(:select_one).and_return(nil)
       @storage.next_id = 1
        assert_equal(2, @storage.next_id)
        assert_equal(3, @storage.next_id)
+    end
+
+    # The point of 1.2.2: the id comes from the database, so two processes
+    # on one store cannot be handed the same one.
+    def test_next_id__from_the_sequence
+      @dbi.should_receive(:select_one)
+        .with("SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = 'odba_id_seq'")
+        .once.and_return([1])
+      @dbi.should_receive(:select_one)
+        .with("SELECT nextval('odba_id_seq')").twice.and_return([4711], [4712])
+      assert_equal(4711, @storage.next_id)
+      assert_equal(4712, @storage.next_id)
+    end
+
+    # max_id and reserve_next_id read @next_id, so it has to follow the
+    # sequence - and never move backwards, a peer may stand higher already.
+    def test_next_id__keeps_the_local_counter_in_step
+      @dbi.should_receive(:select_one)
+        .with(/pg_class/).and_return([1])
+      @dbi.should_receive(:select_one).with(/nextval/).and_return([90], [5])
+      @storage.next_id = 10
+      @storage.next_id
+      assert_equal(90, @storage.instance_variable_get(:@next_id))
+      @storage.next_id
+      assert_equal(90, @storage.instance_variable_get(:@next_id))
     end
 
     def test_store__1
