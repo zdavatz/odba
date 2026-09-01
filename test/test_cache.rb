@@ -57,6 +57,36 @@ module ODBA
       @cache.instance_variable_set(:@peers, [peer])
       assert_equal(100, @cache.next_id)
     end
+
+    # And "cannot reach" is not only DRbError. A reference into a peer that
+    # has restarted or expired raises RangeError("invalid reference") from
+    # DRbObjectSpace#to_obj - a StandardError, not a DRbError. 1.2.2 named
+    # DRbError alone and so let it out: on 01.09.2026 three index rebuilds in
+    # oddb.org died on it, which 1.1.9's classless rescue had absorbed.
+    def test_a_stale_reference_into_a_peer_does_not_stop_the_allocation
+      @storage.should_receive(:next_id).and_return(100)
+      peer = flexmock("peer")
+      peer.should_receive(:reserve_next_id)
+        .and_raise(RangeError, "invalid reference")
+      @cache.instance_variable_set(:@peers, [peer])
+      assert_equal(100, @cache.next_id)
+    end
+
+    # The catch-all must not grow so wide that it takes the conflict with it
+    # again - the whole point of 1.2.2. One test for each direction.
+    def test_a_conflict_is_not_swallowed_by_the_catch_all
+      @storage.should_receive(:next_id).and_return(100, 101)
+      calls = 0
+      peer = flexmock("peer")
+      peer.should_receive(:reserve_next_id).and_return {
+        calls += 1
+        raise ODBA::OdbaDuplicateIdError, "taken" if calls == 1
+        true
+      }
+      @cache.instance_variable_set(:@peers, [peer])
+      assert_equal(101, @cache.next_id)
+      assert_equal(2, calls)
+    end
   end
 
   class TestCache < Test::Unit::TestCase

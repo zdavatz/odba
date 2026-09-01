@@ -441,14 +441,20 @@ module ODBA
       end
       @peers.each do |peer|
         peer.reserve_next_id id
-      rescue DRb::DRbError
-        # A peer we cannot reach must not stop the allocation. Note the
-        # explicit class: a bare rescue here also swallowed the
-        # OdbaDuplicateIdError a peer raises when the id is already taken,
-        # so the retry below could never run and both processes kept the
-        # same id. Whichever wrote last overwrote the other's row in
-        # `object`, and every reference to it then resolved to a foreign
-        # object.
+      rescue OdbaDuplicateIdError
+        # The one exception that must get through, to the retry below. Until
+        # 1.2.2 a bare rescue swallowed it, so the retry could never run and
+        # both processes kept the same id; whichever wrote last overwrote the
+        # other's row in `object`, and every reference to it then resolved to
+        # a foreign object.
+        raise
+      rescue StandardError
+        # Anything else means we could not reach this peer, and that must not
+        # stop the allocation. Naming DRb::DRbError alone is not enough, which
+        # 1.2.2 got wrong: a stale reference into a peer raises RangeError
+        # ("invalid reference", drb.rb DRbObjectSpace#to_obj), which is not a
+        # DRbError. On 01.09.2026 that took down three index rebuilds in
+        # oddb.org - the peer had simply gone away.
       end
       id
     rescue OdbaDuplicateIdError

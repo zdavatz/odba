@@ -1,3 +1,25 @@
+## 1.2.3 / 01.09.2026
+
+1.2.2 narrowed the rescue around the peer notification in `Cache#next_id` too
+far. "A peer we cannot reach" is not only `DRb::DRbError`: a reference into a
+peer that has restarted, or whose entry has expired from the DRb object space,
+raises `RangeError("invalid reference")` from `DRbObjectSpace#to_obj` - a
+StandardError, and not a DRbError. 1.1.9's classless rescue absorbed it; 1.2.2
+let it out and it reached the caller.
+
+In oddb.org that showed up on the first night under 1.2.2: three index
+rebuilds died with `invalid reference (druby://127.0.0.1:10000)`. An index
+that is not built is a deferred index, and ODBA fills a deferred index in
+`Cache#setup` - so the *next* process to start died on it too, before doing
+any work of its own.
+
+* `next_id` re-raises `OdbaDuplicateIdError` (the one exception that must
+  reach the retry, which is what 1.2.2 was for) and swallows every other
+  StandardError from a peer, as 1.1.9 did.
+* Two regression tests, one per direction: a stale reference must not stop
+  the allocation, and the catch-all must not swallow the conflict again.
+  The first fails against 1.2.2 with the production error.
+
 ## 1.2.2 / 31.08.2026
 
 Two processes on one database handed out the same odba_id. Whichever wrote
